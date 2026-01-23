@@ -32,6 +32,29 @@ mapping = get_index_mapping("table.hwpx", save_json=True)
 }
 ```
 
+## get_cell_detail.py
+
+HWPX 파일에서 셀의 상세 스타일 정보를 추출합니다.
+
+### 사용법
+
+```python
+from get_cell_detail import CellDetail
+
+cd = CellDetail("document.hwpx")
+details = cd.get_cell_details(table_id="table_0")
+
+for cell in details:
+    print(cell.font, cell.alignment, cell.border, cell.background)
+```
+
+### 반환 정보
+
+- **font**: 폰트 정보 (이름, 크기, 굵기 등)
+- **alignment**: 정렬 (가로, 세로)
+- **border**: 테두리 스타일
+- **background**: 배경색
+
 ## get_table_property.py
 
 HWPX 파일에서 테이블 및 셀 속성을 추출합니다.
