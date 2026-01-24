@@ -15,12 +15,14 @@ from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.worksheet.page import PageMargins
 from openpyxl.utils import get_column_letter
 from openpyxl.comments import Comment
+from openpyxl.styles import Border, Side, PatternFill, Font, Alignment
 import zipfile
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 
 from hwpxml.get_table_property import GetTableProperty, TableProperty
 from hwpxml.get_page_property import GetPageProperty, PageProperty, Unit
+from hwpxml.get_cell_detail import GetCellDetail, CellDetail
 
 
 @dataclass
@@ -56,9 +58,27 @@ class HwpxToExcel:
     # HWPUNIT → pt: hwpunit / 100
     HWPUNIT_TO_PT = 100
 
+    # HWP 테두리 타입 → openpyxl 스타일 매핑
+    BORDER_STYLE_MAP = {
+        'NONE': None,
+        'SOLID': 'thin',
+        'DASH': 'dashed',
+        'DOT': 'dotted',
+        'DASH_DOT': 'dashDot',
+        'DASH_DOT_DOT': 'dashDotDot',
+        'DOUBLE': 'double',
+        'WAVE': 'thin',  # wave는 thin으로 대체
+        'THICK': 'medium',
+        'THICK_DOUBLE': 'double',
+        'THICK_DASH': 'mediumDashed',
+        'THICK_DASH_DOT': 'mediumDashDot',
+        'THICK_DASH_DOT_DOT': 'mediumDashDotDot',
+    }
+
     def __init__(self):
         self.table_parser = GetTableProperty()
         self.page_parser = GetPageProperty()
+        self.cell_detail_parser = GetCellDetail()
         self.table_hierarchy: List[TableHierarchy] = []
 
     def _parse_table_hierarchy(self, hwpx_path: Union[str, Path]) -> List[TableHierarchy]:
@@ -238,6 +258,7 @@ class HwpxToExcel:
         # HWPX에서 데이터 추출
         tables = self.table_parser.from_hwpx(hwpx_path)
         pages = self.page_parser.from_hwpx(hwpx_path)
+        all_cell_details = self.cell_detail_parser.from_hwpx(hwpx_path)
 
         if not tables:
             raise ValueError(f"테이블을 찾을 수 없습니다: {hwpx_path}")
@@ -248,6 +269,9 @@ class HwpxToExcel:
         # 최상위 테이블과 중첩 테이블 분리
         top_level_tables = [h for h in self.table_hierarchy if h.parent_tbl_idx == -1]
         nested_tables = [h for h in self.table_hierarchy if h.parent_tbl_idx != -1]
+
+        # 셀 디테일을 테이블별로 분리
+        table_cell_details = self._group_cells_by_table(tables, all_cell_details)
 
         page = pages[0] if pages else None
 
@@ -265,6 +289,10 @@ class HwpxToExcel:
             self._apply_column_widths(ws, table)
             self._apply_row_heights(ws, table)
             self._apply_cell_merges(ws, table)
+
+            # 셀 스타일 적용
+            if idx < len(table_cell_details):
+                self._apply_cell_styles(ws, table_cell_details[idx], idx)
 
         # 2. 부모 테이블 셀에 중첩 테이블 하이퍼링크/메모 추가
         for nested in nested_tables:
@@ -491,6 +519,150 @@ class HwpxToExcel:
                     row_heights[i] = default_height
 
         return row_heights
+
+    def _group_cells_by_table(self, tables: List[TableProperty], all_cells: List[CellDetail]) -> List[List[CellDetail]]:
+        """셀 디테일을 테이블별로 그룹화"""
+        # 각 테이블의 셀 개수 계산
+        result = []
+        cell_idx = 0
+
+        for table in tables:
+            table_cells = []
+            expected_cells = sum(len(row) for row in table.cells)
+
+            for _ in range(expected_cells):
+                if cell_idx < len(all_cells):
+                    table_cells.append(all_cells[cell_idx])
+                    cell_idx += 1
+
+            result.append(table_cells)
+
+        return result
+
+    def _hwp_color_to_rgb(self, color_str: str) -> str:
+        """HWP 색상 문자열을 RGB hex로 변환"""
+        if not color_str:
+            return None
+        # #RRGGBB 형식이면 그대로 반환 (# 제거)
+        if color_str.startswith('#'):
+            return color_str[1:].upper()
+        # RGB(r,g,b) 형식 처리
+        if color_str.startswith('RGB('):
+            try:
+                rgb = color_str[4:-1].split(',')
+                r, g, b = int(rgb[0]), int(rgb[1]), int(rgb[2])
+                return f"{r:02X}{g:02X}{b:02X}"
+            except:
+                return None
+        # 숫자형 색상 (BGR 또는 RGB)
+        try:
+            val = int(color_str)
+            r = val & 0xFF
+            g = (val >> 8) & 0xFF
+            b = (val >> 16) & 0xFF
+            return f"{r:02X}{g:02X}{b:02X}"
+        except:
+            return None
+
+    def _get_border_side(self, border_type: str) -> Side:
+        """HWP 테두리 타입을 openpyxl Side로 변환"""
+        style = self.BORDER_STYLE_MAP.get(border_type, None)
+        if style:
+            return Side(style=style, color='000000')
+        return Side(style=None)
+
+    def _apply_cell_styles(self, ws: Worksheet, cell_details: List[CellDetail], table_idx: int = 0):
+        """셀 스타일 적용 (테두리, 배경색, 텍스트, 폰트)"""
+        # cell_details에서 해당 테이블의 셀만 필터링하기 위해 순서대로 매핑
+        # cell_details는 모든 테이블의 셀이 순서대로 들어있음
+        # 테이블 인덱스별로 분리 필요
+
+        for cell_detail in cell_details:
+            row = cell_detail.row + 1  # 1-based
+            col = cell_detail.col + 1
+
+            try:
+                excel_cell = ws.cell(row=row, column=col)
+            except:
+                continue
+
+            # 병합된 셀의 마스터가 아닌 경우 스킵
+            # openpyxl에서 MergedCell은 읽기 전용
+            if hasattr(excel_cell, 'is_merged') or type(excel_cell).__name__ == 'MergedCell':
+                # 병합 영역의 첫 번째 셀인지 확인
+                cell_coord = f"{get_column_letter(col)}{row}"
+                is_master = True
+                for merged_range in ws.merged_cells.ranges:
+                    if cell_coord in merged_range and cell_coord != str(merged_range).split(':')[0]:
+                        is_master = False
+                        break
+                if not is_master:
+                    continue
+
+            # 1. 텍스트 설정 (하이퍼링크가 아닌 경우에만)
+            try:
+                if not excel_cell.hyperlink and cell_detail.text:
+                    excel_cell.value = cell_detail.text
+            except AttributeError:
+                # MergedCell인 경우 무시
+                pass
+
+            # 2. 테두리 설정
+            border = Border(
+                left=self._get_border_side(cell_detail.border.left),
+                right=self._get_border_side(cell_detail.border.right),
+                top=self._get_border_side(cell_detail.border.top),
+                bottom=self._get_border_side(cell_detail.border.bottom),
+            )
+            excel_cell.border = border
+
+            # 3. 배경색 설정
+            bg_color = self._hwp_color_to_rgb(cell_detail.border.bg_color)
+            if bg_color and bg_color != 'FFFFFF':
+                excel_cell.fill = PatternFill(start_color=bg_color, end_color=bg_color, fill_type='solid')
+
+            # 4. 폰트 설정
+            font_color = self._hwp_color_to_rgb(cell_detail.font.color)
+            excel_cell.font = Font(
+                name=cell_detail.font.name if cell_detail.font.name else None,
+                size=cell_detail.font.size_pt() if cell_detail.font.size > 0 else None,
+                bold=cell_detail.font.bold,
+                italic=cell_detail.font.italic,
+                underline='single' if cell_detail.font.underline else None,
+                strike=cell_detail.font.strikeout,
+                color=font_color if font_color else None,
+            )
+
+            # 5. 정렬 설정
+            h_align_map = {'LEFT': 'left', 'CENTER': 'center', 'RIGHT': 'right', 'JUSTIFY': 'justify'}
+            v_align_map = {'TOP': 'top', 'CENTER': 'center', 'BOTTOM': 'bottom', 'BASELINE': 'center'}
+
+            h_align = 'left'
+            v_align = 'center'
+            if cell_detail.paragraphs:
+                h_align = h_align_map.get(cell_detail.paragraphs[0].align_h, 'left')
+                v_align = v_align_map.get(cell_detail.paragraphs[0].align_v, 'center')
+
+            excel_cell.alignment = Alignment(horizontal=h_align, vertical=v_align, wrap_text=True)
+
+            # 6. 병합된 셀의 나머지 영역에도 테두리 적용
+            if cell_detail.row_span > 1 or cell_detail.col_span > 1:
+                for r in range(cell_detail.row_span):
+                    for c in range(cell_detail.col_span):
+                        if r == 0 and c == 0:
+                            continue  # 첫 셀은 이미 처리됨
+                        try:
+                            merged_cell = ws.cell(row=row + r, column=col + c)
+                            # 병합된 영역의 테두리만 설정
+                            merged_border = Border(
+                                left=self._get_border_side(cell_detail.border.left) if c == 0 else Side(),
+                                right=self._get_border_side(cell_detail.border.right) if c == cell_detail.col_span - 1 else Side(),
+                                top=self._get_border_side(cell_detail.border.top) if r == 0 else Side(),
+                                bottom=self._get_border_side(cell_detail.border.bottom) if r == cell_detail.row_span - 1 else Side(),
+                            )
+                            merged_cell.border = merged_border
+                        except:
+                            pass
 
 
 # ============================================================
