@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from hwpxml.get_table_property import GetTableProperty, TableProperty
 from hwpxml.get_page_property import GetPageProperty, PageProperty, Unit
 from hwpxml.get_cell_detail import GetCellDetail, CellDetail
+from hwpxml.get_document_content import GetDocumentContent, DocumentContent, ParagraphContent, TableMarker
 
 
 @dataclass
@@ -79,6 +80,7 @@ class HwpxToExcel:
         self.table_parser = GetTableProperty()
         self.page_parser = GetPageProperty()
         self.cell_detail_parser = GetCellDetail()
+        self.document_parser = GetDocumentContent()
         self.table_hierarchy: List[TableHierarchy] = []
 
     def _parse_table_hierarchy(self, hwpx_path: Union[str, Path]) -> List[TableHierarchy]:
@@ -368,6 +370,241 @@ class HwpxToExcel:
         nested_count = len(nested_tables)
         print(f"  {len(tables)}개 테이블 (최상위: {top_count}, 중첩: {nested_count})")
         return output_path
+
+    def convert_document(
+        self,
+        hwpx_path: Union[str, Path],
+        output_path: Optional[Union[str, Path]] = None,
+    ) -> Path:
+        """
+        HWPX 문서 전체를 Excel로 변환
+        - 본문 시트: 문단들을 행으로 배치
+        - tables 시트: 모든 테이블을 순차적으로 배치 (빈 행으로 구분)
+
+        Args:
+            hwpx_path: HWPX 파일 경로
+            output_path: 출력 Excel 경로 (없으면 자동 생성)
+
+        Returns:
+            생성된 Excel 파일 경로
+        """
+        hwpx_path = Path(hwpx_path)
+
+        if output_path is None:
+            output_path = hwpx_path.with_suffix('.xlsx')
+        else:
+            output_path = Path(output_path)
+
+        # HWPX에서 데이터 추출
+        doc_content = self.document_parser.from_hwpx(hwpx_path)
+        tables = self.table_parser.from_hwpx(hwpx_path)
+        pages = self.page_parser.from_hwpx(hwpx_path)
+        table_cell_details = self.cell_detail_parser.from_hwpx_by_table(hwpx_path)
+
+        # 테이블 계층 구조 파악
+        self.table_hierarchy = self._parse_table_hierarchy(hwpx_path)
+
+        page = pages[0] if pages else None
+
+        # Excel 워크북 생성
+        wb = Workbook()
+
+        # 1. 본문 시트 생성
+        ws_body = wb.active
+        ws_body.title = "본문"
+
+        if page:
+            self._apply_page_settings(ws_body, page)
+
+        # 본문 문단 배치
+        body_row = 1
+        for item in doc_content.items:
+            if isinstance(item, ParagraphContent):
+                if item.text.strip():  # 빈 문단 제외
+                    cell = ws_body.cell(row=body_row, column=1, value=item.text)
+                    cell.alignment = Alignment(wrap_text=True, vertical='top')
+                    body_row += 1
+            elif isinstance(item, TableMarker):
+                # 테이블 위치에 마커 삽입
+                cell = ws_body.cell(row=body_row, column=1)
+                cell.value = f"[테이블 {item.table_idx}]"
+                cell.hyperlink = f"#tables!A{self._get_table_start_row(item.table_idx, tables)}"
+                cell.style = "Hyperlink"
+                cell.font = Font(color="0000FF", italic=True)
+                body_row += 1
+
+        # 본문 열 너비 설정
+        ws_body.column_dimensions['A'].width = 100
+
+        # 2. tables 시트 생성 - 모든 테이블 순차 배치
+        ws_tables = wb.create_sheet(title="tables")
+
+        if page:
+            self._apply_page_settings(ws_tables, page)
+
+        # 최대 열 개수 계산
+        max_cols = max(table.col_count for table in tables) if tables else 10
+
+        # 기본 열 너비 설정 (균등 분배)
+        default_width = 15
+        for col_idx in range(1, max_cols + 1):
+            col_letter = get_column_letter(col_idx)
+            ws_tables.column_dimensions[col_letter].width = default_width
+
+        current_row = 1
+        table_start_rows = []  # 각 테이블 시작 행 기록
+
+        for idx, table in enumerate(tables):
+            table_start_rows.append(current_row)
+
+            # 테이블 헤더 (구분선)
+            header_cell = ws_tables.cell(row=current_row, column=1)
+            header_cell.value = f"── tbl_{idx} ({table.row_count}x{table.col_count}) ──"
+            header_cell.font = Font(bold=True, color="666666")
+            current_row += 1
+
+            # 테이블 데이터 배치
+            table_data_start = current_row
+
+            # 행 높이 설정
+            row_heights = self._get_row_heights(table)
+            for row_idx, height in enumerate(row_heights):
+                excel_height = max(height / self.HWPUNIT_TO_PT, 10)
+                ws_tables.row_dimensions[table_data_start + row_idx].height = excel_height
+
+            # 셀 병합 처리 (원래 인덱스 그대로 사용)
+            for row in table.cells:
+                for cell_info in row:
+                    if cell_info.col_span > 1 or cell_info.row_span > 1:
+                        start_row = table_data_start + cell_info.row_index
+                        start_col = cell_info.col_index + 1
+                        end_row = start_row + cell_info.row_span - 1
+                        end_col = start_col + cell_info.col_span - 1
+
+                        start_cell = f"{get_column_letter(start_col)}{start_row}"
+                        end_cell = f"{get_column_letter(end_col)}{end_row}"
+
+                        try:
+                            ws_tables.merge_cells(f"{start_cell}:{end_cell}")
+                        except ValueError:
+                            pass
+
+            # 셀 스타일 적용
+            if idx < len(table_cell_details):
+                self._apply_cell_styles_with_offset(
+                    ws_tables, table_cell_details[idx], table_data_start
+                )
+
+            current_row = table_data_start + table.row_count + 2  # 빈 행 2개 추가
+
+        # 테이블 시작 행 저장 (하이퍼링크용)
+        self._table_start_rows = table_start_rows
+
+        # 저장
+        wb.save(output_path)
+
+        para_count = sum(1 for item in doc_content.items if isinstance(item, ParagraphContent) and item.text.strip())
+        print(f"  본문: {para_count}개 문단, 테이블: {len(tables)}개")
+        return output_path
+
+    def _get_table_start_row(self, table_idx: int, tables: List[TableProperty]) -> int:
+        """테이블 시작 행 계산"""
+        if hasattr(self, '_table_start_rows') and table_idx < len(self._table_start_rows):
+            return self._table_start_rows[table_idx]
+
+        # 대략적 계산 (헤더 1행 + 테이블 행수 + 빈 행 2개)
+        row = 1
+        for idx in range(table_idx):
+            if idx < len(tables):
+                row += 1 + tables[idx].row_count + 2
+        return row
+
+    def _apply_cell_styles_with_offset(
+        self, ws: Worksheet, cell_details: List[CellDetail], row_offset: int
+    ):
+        """셀 스타일 적용 (행 오프셋 적용)"""
+        for cell_detail in cell_details:
+            row = cell_detail.row + row_offset
+            col = cell_detail.col + 1
+
+            try:
+                excel_cell = ws.cell(row=row, column=col)
+            except:
+                continue
+
+            # 병합된 셀의 마스터가 아닌 경우 스킵
+            if hasattr(excel_cell, 'is_merged') or type(excel_cell).__name__ == 'MergedCell':
+                cell_coord = f"{get_column_letter(col)}{row}"
+                is_master = True
+                for merged_range in ws.merged_cells.ranges:
+                    if cell_coord in merged_range and cell_coord != str(merged_range).split(':')[0]:
+                        is_master = False
+                        break
+                if not is_master:
+                    continue
+
+            # 텍스트 설정
+            try:
+                if not excel_cell.hyperlink and cell_detail.text:
+                    excel_cell.value = cell_detail.text
+            except AttributeError:
+                pass
+
+            # 테두리 설정
+            border = Border(
+                left=self._get_border_side(cell_detail.border.left),
+                right=self._get_border_side(cell_detail.border.right),
+                top=self._get_border_side(cell_detail.border.top),
+                bottom=self._get_border_side(cell_detail.border.bottom),
+            )
+            excel_cell.border = border
+
+            # 배경색 설정
+            bg_color = self._hwp_color_to_rgb(cell_detail.border.bg_color)
+            if bg_color and bg_color != 'FFFFFF':
+                excel_cell.fill = PatternFill(start_color=bg_color, end_color=bg_color, fill_type='solid')
+
+            # 폰트 설정
+            font_color = self._hwp_color_to_rgb(cell_detail.font.color)
+            excel_cell.font = Font(
+                name=cell_detail.font.name if cell_detail.font.name else None,
+                size=cell_detail.font.size_pt() if cell_detail.font.size > 0 else None,
+                bold=cell_detail.font.bold,
+                italic=cell_detail.font.italic,
+                underline='single' if cell_detail.font.underline else None,
+                strike=cell_detail.font.strikeout,
+                color=font_color if font_color else None,
+            )
+
+            # 정렬 설정
+            h_align_map = {'LEFT': 'left', 'CENTER': 'center', 'RIGHT': 'right', 'JUSTIFY': 'justify'}
+            v_align_map = {'TOP': 'top', 'CENTER': 'center', 'BOTTOM': 'bottom', 'BASELINE': 'center'}
+
+            h_align = 'left'
+            v_align = 'center'
+            if cell_detail.paragraphs:
+                h_align = h_align_map.get(cell_detail.paragraphs[0].align_h, 'left')
+                v_align = v_align_map.get(cell_detail.paragraphs[0].align_v, 'center')
+
+            excel_cell.alignment = Alignment(horizontal=h_align, vertical=v_align, wrap_text=True)
+
+            # 병합된 셀의 나머지 영역에도 테두리 적용
+            if cell_detail.row_span > 1 or cell_detail.col_span > 1:
+                for r in range(cell_detail.row_span):
+                    for c in range(cell_detail.col_span):
+                        if r == 0 and c == 0:
+                            continue
+                        try:
+                            merged_cell = ws.cell(row=row + r, column=col + c)
+                            merged_border = Border(
+                                left=self._get_border_side(cell_detail.border.left) if c == 0 else Side(),
+                                right=self._get_border_side(cell_detail.border.right) if c == cell_detail.col_span - 1 else Side(),
+                                top=self._get_border_side(cell_detail.border.top) if r == 0 else Side(),
+                                bottom=self._get_border_side(cell_detail.border.bottom) if r == cell_detail.row_span - 1 else Side(),
+                            )
+                            merged_cell.border = merged_border
+                        except:
+                            pass
 
     # 용지 크기 매핑 (mm → Excel paperSize 코드)
     PAPER_SIZES = {
