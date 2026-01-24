@@ -50,8 +50,18 @@ table_cell_details = parser.from_hwpx_by_table(hwpx_path)
 
 ## 폴더 구조 (계속)
 
+### core/
+공통 유틸리티 모듈
+- `unit.py`: HWPUNIT 단위 변환
+- `file_dialog.py`: Windows 파일 탐색기 대화상자 (WSL에서 PowerShell 사용)
+  - `open_hwp_dialog()`: HWP/HWPX 파일 선택
+  - `windows_to_wsl_path()`: Windows↔WSL 경로 변환
+
 ### win32/
 Windows 한글 COM API 연동 (WSL에서 cmd.exe로 실행)
+- `convert_hwp.py`: HWP↔HWPX 변환
+  - `convert_hwp_to_hwpx()`: HWP → HWPX
+  - `convert_hwpx_to_hwp()`: HWPX → HWP
 - `insert_ctrl_id.py`: 테이블에 ctrl_id 메타데이터 삽입
 - `insert_table_field.py`: 테이블 셀에 필드 이름(메타데이터) 설정
   - tc 태그 name 속성에 JSON 삽입: `{"tblIdx":N,"rowAddr":R,"colAddr":C,"rowSpan":RS,"colSpan":CS}`
