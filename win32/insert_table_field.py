@@ -42,6 +42,23 @@ except ImportError:
 from cursor import get_hwp_instance
 from dataclasses import dataclass
 from typing import List
+import win32com.client as win32
+
+
+def get_or_create_hwp():
+    """실행 중인 한글에 연결하거나, 없으면 새로 실행"""
+    hwp = get_hwp_instance()
+    if hwp:
+        # 기존 인스턴스도 보안 모듈 등록 확인
+        try:
+            hwp.RegisterModule("FilePathCheckDLL", "FilePathCheckerModule")
+        except:
+            pass
+        return hwp
+    # 한글 새로 실행
+    hwp = win32.gencache.EnsureDispatch("hwpframe.hwpobject")
+    hwp.RegisterModule("FilePathCheckDLL", "FilePathCheckerModule")
+    return hwp
 
 
 @dataclass
@@ -67,7 +84,7 @@ class InsertTableField:
     }
 
     def __init__(self, hwp=None):
-        self.hwp = hwp or get_hwp_instance()
+        self.hwp = hwp or get_or_create_hwp()
         self.tables: List[TableInfo] = []
 
         if not self.hwp:
@@ -90,7 +107,10 @@ class InsertTableField:
     def save_as(self, filepath: str, format: str = "HWP") -> bool:
         """파일 저장"""
         try:
-            self.hwp.SaveAs(filepath, format.upper())
+            self.hwp.HAction.GetDefault("FileSaveAs_S", self.hwp.HParameterSet.HFileOpenSave.HSet)
+            self.hwp.HParameterSet.HFileOpenSave.filename = filepath
+            self.hwp.HParameterSet.HFileOpenSave.Format = format.upper()
+            self.hwp.HAction.Execute("FileSaveAs_S", self.hwp.HParameterSet.HFileOpenSave.HSet)
             print(f"파일 저장: {filepath} ({format})")
             return True
         except Exception as e:
@@ -365,7 +385,25 @@ def process_hwp_file(input_hwp: str, output_hwp: str = None) -> bool:
     if not inserter.save_as(output_hwp, "HWP"):
         return False
 
-    # 7. 임시 파일 삭제
+    # 7. 문서 닫기 (파일 잠금 해제)
+    try:
+        inserter.hwp.Clear(1)  # 1: 저장 안 함 (이미 저장했으므로)
+        print("문서 닫기 완료")
+    except:
+        pass
+
+    # 8. HWPX → Excel 변환
+    try:
+        from excel.hwpx_to_excel import HwpxToExcel
+
+        excel_path = os.path.splitext(output_hwp)[0] + ".xlsx"
+        converter = HwpxToExcel()
+        converter.convert(temp_hwpx, excel_path)
+        print(f"Excel 변환 완료: {excel_path}")
+    except Exception as e:
+        print(f"Excel 변환 실패: {e}")
+
+    # 9. 임시 파일 삭제
     try:
         os.remove(temp_hwpx)
         print(f"임시 파일 삭제: {temp_hwpx}")
@@ -379,11 +417,64 @@ def process_hwp_file(input_hwp: str, output_hwp: str = None) -> bool:
     return True
 
 
-def main():
-    input_file = r"C:\hwp_xml\extract_table_field_xml.hwp"
+def get_file_from_dialog() -> str:
+    """파일 탐색 대화상자로 HWP 파일 선택"""
+    import tkinter as tk
+    from tkinter import filedialog
 
+    root = tk.Tk()
+    root.withdraw()  # 메인 창 숨김
+    root.attributes('-topmost', True)  # 최상위로
+
+    file_path = filedialog.askopenfilename(
+        title="HWP 파일 선택",
+        filetypes=[("HWP 파일", "*.hwp"), ("모든 파일", "*.*")],
+        initialdir=r"C:\hwp_xml"
+    )
+
+    root.destroy()
+    return file_path
+
+
+def get_file_from_hwp(hwp) -> str:
+    """열려있는 한글 문서 경로 반환"""
+    try:
+        path = hwp.XHwpDocuments.Active_XHwpDocument.FullName
+        if path and os.path.exists(path):
+            return path
+    except:
+        pass
+    return ""
+
+
+def main():
+    input_file = None
+
+    # 1. 명령줄 인자 확인
     if len(sys.argv) > 1:
         input_file = sys.argv[1]
+        if not os.path.exists(input_file):
+            print(f"파일을 찾을 수 없습니다: {input_file}")
+            input_file = None
+
+    # 2. 열려있는 한글 문서 확인
+    if not input_file:
+        try:
+            hwp = get_hwp_instance()
+            if hwp:
+                input_file = get_file_from_hwp(hwp)
+                if input_file:
+                    print(f"열려있는 문서 사용: {input_file}")
+        except:
+            pass
+
+    # 3. 파일 탐색 대화상자
+    if not input_file:
+        print("파일을 선택하세요...")
+        input_file = get_file_from_dialog()
+        if not input_file:
+            print("파일이 선택되지 않았습니다.")
+            return
 
     output_file = input_file
     process_hwp_file(input_file, output_file)
