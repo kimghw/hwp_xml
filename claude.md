@@ -24,9 +24,31 @@ HWPX → Excel 변환 모듈
 ### hwpxml/
 HWPX 파일 파싱 모듈
 - `get_table_property.py`: 테이블/셀 속성 추출
-- `get_cell_detail.py`: 셀 스타일 정보
+- `get_cell_detail.py`: 셀 스타일 정보, 중첩 테이블 분리 파싱
 - `extract_cell_index.py`: `[index:##숫자]` 패턴 매핑
 - `get_page_property.py`: 페이지 속성, 단위 변환
+
+## 중첩 테이블 처리
+
+HWPX에서 테이블 셀(`tc`) 안에 또 다른 테이블(`tbl`)이 포함될 수 있음.
+
+### 문제점
+`root.iter('tc')`로 모든 셀을 가져오면 부모/자식 테이블 셀이 문서 순서로 섞여서 테이블별 셀 개수로 나눌 때 데이터가 어긋남.
+
+### 해결 방법 (get_cell_detail.py)
+- `from_hwpx_by_table()`: 테이블별로 그룹화된 셀 정보 반환
+- `_find_tables_recursive()`: 재귀적으로 테이블을 문서 순서대로 탐색
+- `_parse_table_direct_cells()`: 각 테이블의 직접 셀만 파싱 (중첩 테이블 내부 셀 제외)
+
+```python
+# 사용 예시
+parser = GetCellDetail()
+table_cell_details = parser.from_hwpx_by_table(hwpx_path)
+# table_cell_details[0]: 첫 번째 테이블의 셀들
+# table_cell_details[1]: 두 번째 테이블의 셀들 (중첩 테이블 포함)
+```
+
+## 폴더 구조 (계속)
 
 ### win32/
 Windows 한글 COM API 연동 (WSL에서 cmd.exe로 실행)

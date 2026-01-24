@@ -258,7 +258,8 @@ class HwpxToExcel:
         # HWPX에서 데이터 추출
         tables = self.table_parser.from_hwpx(hwpx_path)
         pages = self.page_parser.from_hwpx(hwpx_path)
-        all_cell_details = self.cell_detail_parser.from_hwpx(hwpx_path)
+        # 테이블별로 그룹화된 셀 디테일 가져오기
+        table_cell_details = self.cell_detail_parser.from_hwpx_by_table(hwpx_path)
 
         if not tables:
             raise ValueError(f"테이블을 찾을 수 없습니다: {hwpx_path}")
@@ -269,9 +270,6 @@ class HwpxToExcel:
         # 최상위 테이블과 중첩 테이블 분리
         top_level_tables = [h for h in self.table_hierarchy if h.parent_tbl_idx == -1]
         nested_tables = [h for h in self.table_hierarchy if h.parent_tbl_idx != -1]
-
-        # 셀 디테일을 테이블별로 분리
-        table_cell_details = self._group_cells_by_table(tables, all_cell_details)
 
         page = pages[0] if pages else None
 

@@ -175,6 +175,119 @@ class GetCellDetail:
 
         return cells
 
+    def from_hwpx_by_table(self, hwpx_path: Union[str, Path]) -> List[List[CellDetail]]:
+        """HWPX 파일에서 테이블별로 그룹화된 셀 상세 정보 추출"""
+        hwpx_path = Path(hwpx_path)
+        tables_cells = []
+
+        with zipfile.ZipFile(hwpx_path, 'r') as zf:
+            # 1. header.xml에서 스타일 정의 로드
+            if 'Contents/header.xml' in zf.namelist():
+                header_content = zf.read('Contents/header.xml')
+                self._parse_header(header_content)
+
+            # 2. section 파일들에서 테이블별 셀 정보 추출
+            section_files = sorted([
+                f for f in zf.namelist()
+                if f.startswith('Contents/section') and f.endswith('.xml')
+            ])
+
+            for section_file in section_files:
+                section_content = zf.read(section_file)
+                section_tables = self._parse_section_by_table(section_content)
+                tables_cells.extend(section_tables)
+
+        return tables_cells
+
+    def _parse_section_by_table(self, xml_content: bytes) -> List[List[CellDetail]]:
+        """section XML에서 테이블별로 셀 정보 파싱 (중첩 테이블 순서 유지)"""
+        tables_cells = []
+        root = ET.parse(BytesIO(xml_content)).getroot()
+
+        # 재귀적으로 테이블 찾기
+        self._find_tables_recursive(root, tables_cells)
+
+        return tables_cells
+
+    def _find_tables_recursive(self, element, tables_cells: List[List[CellDetail]]):
+        """재귀적으로 테이블을 찾아 순서대로 처리"""
+        for child in element:
+            if child.tag.endswith('}tbl'):
+                # 이 테이블의 직접 셀만 파싱 (중첩 테이블 제외)
+                table_cells = self._parse_table_direct_cells(child)
+                tables_cells.append(table_cells)
+
+                # 셀 내부의 중첩 테이블 재귀 탐색
+                for tr in child:
+                    if not tr.tag.endswith('}tr'):
+                        continue
+                    for tc in tr:
+                        if not tc.tag.endswith('}tc'):
+                            continue
+                        # 셀 내부에서 중첩 테이블 찾기
+                        self._find_tables_recursive(tc, tables_cells)
+            else:
+                # tbl이 아닌 요소 내부도 탐색
+                self._find_tables_recursive(child, tables_cells)
+
+    def _parse_table_direct_cells(self, tbl_element) -> List[CellDetail]:
+        """테이블의 직접 셀만 파싱 (중첩 테이블 내부 셀 제외)"""
+        cells = []
+
+        for tr in tbl_element:
+            if not tr.tag.endswith('}tr'):
+                continue
+            for tc in tr:
+                if not tc.tag.endswith('}tc'):
+                    continue
+
+                cell = CellDetail()
+                cell.border_fill_id = tc.get('borderFillIDRef', '')
+
+                # 테두리/배경 적용
+                if cell.border_fill_id in self._border_fills:
+                    bf = self._border_fills[cell.border_fill_id]
+                    cell.border = BorderInfo(
+                        left=bf['left'],
+                        right=bf['right'],
+                        top=bf['top'],
+                        bottom=bf['bottom'],
+                        bg_color=bf['bg_color'],
+                    )
+
+                # 셀 내부 요소 파싱
+                for child in tc:
+                    tag = child.tag.split('}')[-1]
+
+                    if tag == 'subList':
+                        cell.list_id = child.get('id', '')
+                        # 문단들 파싱
+                        self._parse_paragraphs(child, cell)
+
+                    elif tag == 'cellAddr':
+                        cell.col = int(child.get('colAddr', 0))
+                        cell.row = int(child.get('rowAddr', 0))
+
+                    elif tag == 'cellSpan':
+                        cell.col_span = int(child.get('colSpan', 1))
+                        cell.row_span = int(child.get('rowSpan', 1))
+                        cell.end_col = cell.col + cell.col_span - 1
+                        cell.end_row = cell.row + cell.row_span - 1
+
+                    elif tag == 'cellSz':
+                        cell.width = int(child.get('width', 0))
+                        cell.height = int(child.get('height', 0))
+
+                    elif tag == 'cellMargin':
+                        cell.margin_left = int(child.get('left', 0))
+                        cell.margin_right = int(child.get('right', 0))
+                        cell.margin_top = int(child.get('top', 0))
+                        cell.margin_bottom = int(child.get('bottom', 0))
+
+                cells.append(cell)
+
+        return cells
+
     def _parse_header(self, xml_content: bytes):
         """header.xml에서 스타일 정의 파싱"""
         root = ET.parse(BytesIO(xml_content)).getroot()
