@@ -23,7 +23,6 @@ from dataclasses import dataclass
 from hwpxml.get_table_property import GetTableProperty, TableProperty
 from hwpxml.get_page_property import GetPageProperty, PageProperty, Unit
 from hwpxml.get_cell_detail import GetCellDetail, CellDetail
-from hwpxml.get_document_content import GetDocumentContent, DocumentContent, ParagraphContent, TableMarker
 
 
 @dataclass
@@ -80,7 +79,6 @@ class HwpxToExcel:
         self.table_parser = GetTableProperty()
         self.page_parser = GetPageProperty()
         self.cell_detail_parser = GetCellDetail()
-        self.document_parser = GetDocumentContent()
         self.table_hierarchy: List[TableHierarchy] = []
 
     def _parse_table_hierarchy(self, hwpx_path: Union[str, Path]) -> List[TableHierarchy]:
@@ -370,146 +368,6 @@ class HwpxToExcel:
         nested_count = len(nested_tables)
         print(f"  {len(tables)}개 테이블 (최상위: {top_count}, 중첩: {nested_count})")
         return output_path
-
-    def convert_document(
-        self,
-        hwpx_path: Union[str, Path],
-        output_path: Optional[Union[str, Path]] = None,
-    ) -> Path:
-        """
-        HWPX 문서 전체를 Excel로 변환
-        - 단일 시트에 본문 문단과 테이블을 순서대로 배치
-        - 테이블 위아래에 빈 행 1개씩 추가
-        - 셀 높이는 한글 원본 값 적용
-
-        Args:
-            hwpx_path: HWPX 파일 경로
-            output_path: 출력 Excel 경로 (없으면 자동 생성)
-
-        Returns:
-            생성된 Excel 파일 경로
-        """
-        hwpx_path = Path(hwpx_path)
-
-        if output_path is None:
-            output_path = hwpx_path.with_suffix('.xlsx')
-        else:
-            output_path = Path(output_path)
-
-        # HWPX에서 데이터 추출
-        doc_content = self.document_parser.from_hwpx(hwpx_path)
-        tables = self.table_parser.from_hwpx(hwpx_path)
-        pages = self.page_parser.from_hwpx(hwpx_path)
-        table_cell_details = self.cell_detail_parser.from_hwpx_by_table(hwpx_path)
-
-        page = pages[0] if pages else None
-
-        # Excel 워크북 생성
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "문서"
-
-        if page:
-            self._apply_page_settings(ws, page)
-
-        # 최대 열 개수 계산 (테이블 중 가장 넓은 것 기준)
-        max_cols = max((table.col_count for table in tables), default=1)
-
-        # 기본 열 너비 설정
-        default_width = 15
-        for col_idx in range(1, max_cols + 1):
-            col_letter = get_column_letter(col_idx)
-            ws.column_dimensions[col_letter].width = default_width
-
-        current_row = 1
-        table_idx = 0
-        para_count = 0
-
-        for item in doc_content.items:
-            if isinstance(item, ParagraphContent):
-                if item.text.strip():  # 빈 문단 제외
-                    # 문단을 A열에 배치
-                    cell = ws.cell(row=current_row, column=1, value=item.text)
-                    cell.alignment = Alignment(wrap_text=True, vertical='top')
-                    current_row += 1
-                    para_count += 1
-
-            elif isinstance(item, TableMarker):
-                # 테이블 앞에 빈 행 1개
-                current_row += 1
-
-                # 테이블 데이터 가져오기
-                if table_idx < len(tables):
-                    table = tables[table_idx]
-                    cell_details = table_cell_details[table_idx] if table_idx < len(table_cell_details) else []
-
-                    # 테이블 시작 행
-                    table_start_row = current_row
-
-                    # 셀 높이 맵 생성 (행별 최대 높이)
-                    row_height_map = {}
-                    for cd in cell_details:
-                        if cd.height > 0:
-                            # 셀 높이를 행 span으로 나눠서 각 행에 분배
-                            per_row_height = cd.height / cd.row_span
-                            for r in range(cd.row_span):
-                                row_num = cd.row + r
-                                if row_num not in row_height_map:
-                                    row_height_map[row_num] = per_row_height
-                                else:
-                                    row_height_map[row_num] = max(row_height_map[row_num], per_row_height)
-
-                    # 행 높이 적용
-                    for row_num, height in row_height_map.items():
-                        excel_row = table_start_row + row_num
-                        excel_height = max(height / self.HWPUNIT_TO_PT, 10)
-                        ws.row_dimensions[excel_row].height = excel_height
-
-                    # 셀 병합 처리
-                    for row in table.cells:
-                        for cell_info in row:
-                            if cell_info.col_span > 1 or cell_info.row_span > 1:
-                                start_row = table_start_row + cell_info.row_index
-                                start_col = cell_info.col_index + 1
-                                end_row = start_row + cell_info.row_span - 1
-                                end_col = start_col + cell_info.col_span - 1
-
-                                start_cell = f"{get_column_letter(start_col)}{start_row}"
-                                end_cell = f"{get_column_letter(end_col)}{end_row}"
-
-                                try:
-                                    ws.merge_cells(f"{start_cell}:{end_cell}")
-                                except ValueError:
-                                    pass
-
-                    # 셀 스타일 적용
-                    self._apply_cell_styles_with_offset(ws, cell_details, table_start_row)
-
-                    # 테이블 끝 행으로 이동
-                    current_row = table_start_row + table.row_count
-
-                    table_idx += 1
-
-                # 테이블 뒤에 빈 행 1개
-                current_row += 1
-
-        # 저장
-        wb.save(output_path)
-
-        print(f"  문단: {para_count}개, 테이블: {len(tables)}개")
-        return output_path
-
-    def _get_table_start_row(self, table_idx: int, tables: List[TableProperty]) -> int:
-        """테이블 시작 행 계산 (legacy)"""
-        if hasattr(self, '_table_start_rows') and table_idx < len(self._table_start_rows):
-            return self._table_start_rows[table_idx]
-
-        # 대략적 계산 (헤더 1행 + 테이블 행수 + 빈 행 2개)
-        row = 1
-        for idx in range(table_idx):
-            if idx < len(tables):
-                row += 1 + tables[idx].row_count + 2
-        return row
 
     def _apply_cell_styles_with_offset(
         self, ws: Worksheet, cell_details: List[CellDetail], row_offset: int
