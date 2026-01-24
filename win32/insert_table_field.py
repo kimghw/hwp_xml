@@ -8,12 +8,15 @@ HWP 파일의 테이블 셀에 필드 이름 삽입
 3. HWPX -> HWP 변환 후 저장
 
 삽입되는 필드 이름 (JSON 형식, XML 속성명 사용):
-- {"tblIdx":N,"rowAddr":R,"colAddr":C,"rowSpan":RS,"colSpan":CS}
+- {"tblIdx":N,"rowAddr":R,"colAddr":C,"rowSpan":RS,"colSpan":CS,"type":"parent|nested","parentTbl":P,"parentCell":[R,C]}
   - tblIdx: 테이블 인덱스
   - rowAddr: 행 번호 (cellAddr/@rowAddr)
   - colAddr: 열 번호 (cellAddr/@colAddr)
   - rowSpan: 행 병합 (cellSpan/@rowSpan)
   - colSpan: 열 병합 (cellSpan/@colSpan)
+  - type: "parent" (최상위) 또는 "nested" (중첩)
+  - parentTbl: 부모 테이블 인덱스 (nested인 경우)
+  - parentCell: 부모 셀 위치 [row, col] (nested인 경우)
 """
 
 import sys
@@ -142,7 +145,7 @@ class InsertTableField:
             수정된 테이블 수
         """
         temp_dir = tempfile.mkdtemp()
-        modified_count = 0
+        self._table_global_index = 0
 
         try:
             # HWPX 압축 해제
@@ -156,8 +159,6 @@ class InsertTableField:
                 if f.startswith('section') and f.endswith('.xml')
             ])
 
-            table_global_index = 0
-
             for section_idx, section_file in enumerate(section_files):
                 section_path = os.path.join(contents_dir, section_file)
 
@@ -165,64 +166,8 @@ class InsertTableField:
                 tree = ET.parse(section_path)
                 root = tree.getroot()
 
-                # 모든 tbl 요소 찾기
-                for tbl in root.iter():
-                    if not tbl.tag.endswith('}tbl'):
-                        continue
-
-                    table_id = tbl.get('id', '')
-                    row_cnt = int(tbl.get('rowCnt', '0'))
-                    col_cnt = int(tbl.get('colCnt', '0'))
-
-                    cell_count = 0
-                    is_first_cell = True
-
-                    # 모든 행(tr) 순회
-                    for tr in tbl:
-                        if not tr.tag.endswith('}tr'):
-                            continue
-
-                        # 모든 셀(tc) 순회
-                        for tc in tr:
-                            if not tc.tag.endswith('}tc'):
-                                continue
-
-                            # 셀 정보 추출
-                            cell_info = self._get_cell_info(tc)
-
-                            # JSON 형식 필드 이름 (XML 속성명 사용)
-                            field_data = {
-                                "tblIdx": table_global_index,
-                                "rowAddr": cell_info['row'],
-                                "colAddr": cell_info['col'],
-                                "rowSpan": cell_info['row_span'],
-                                "colSpan": cell_info['col_span']
-                            }
-                            cell_field_name = json.dumps(field_data, separators=(',', ':'))
-
-                            # 첫 번째 셀 로그 출력
-                            if is_first_cell:
-                                print(f"테이블 {table_global_index}: (id:{table_id}, {row_cnt}x{col_cnt})")
-                                is_first_cell = False
-
-                            # tc 태그의 name 속성 설정
-                            tc.set('name', cell_field_name)
-                            cell_count += 1
-
-                    if cell_count > 0:
-                        info = TableInfo(
-                            index=table_global_index,
-                            table_id=table_id,
-                            row_count=row_cnt,
-                            col_count=col_cnt,
-                            section_index=section_idx,
-                            cell_count=cell_count
-                        )
-                        self.tables.append(info)
-                        modified_count += 1
-                        print(f"  - {cell_count}개 셀에 필드 이름 설정")
-
-                    table_global_index += 1
+                # 재귀적으로 테이블 처리
+                self._process_tables_recursive(root, section_idx, None, None, None)
 
                 # 수정된 XML 저장
                 tree.write(section_path, encoding='utf-8', xml_declaration=True)
@@ -238,7 +183,93 @@ class InsertTableField:
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)
 
-        return modified_count
+        return len(self.tables)
+
+    def _process_tables_recursive(self, element, section_idx: int,
+                                   parent_tbl_idx: int, parent_cell_row: int, parent_cell_col: int):
+        """재귀적으로 테이블을 찾아 필드 이름 설정"""
+        for child in element:
+            if child.tag.endswith('}tbl'):
+                # 먼저 현재 테이블 인덱스 할당 후 증가
+                current_tbl_idx = self._table_global_index
+                self._table_global_index += 1
+
+                table_id = child.get('id', '')
+                row_cnt = int(child.get('rowCnt', '0'))
+                col_cnt = int(child.get('colCnt', '0'))
+
+                is_nested = parent_tbl_idx is not None
+                tbl_type = "nested" if is_nested else "parent"
+
+                cell_count = 0
+                is_first_cell = True
+
+                # 모든 행(tr) 순회
+                for tr in child:
+                    if not tr.tag.endswith('}tr'):
+                        continue
+
+                    # 모든 셀(tc) 순회
+                    for tc in tr:
+                        if not tc.tag.endswith('}tc'):
+                            continue
+
+                        # 셀 정보 추출
+                        cell_info = self._get_cell_info(tc)
+
+                        # JSON 형식 필드 이름
+                        field_data = {
+                            "tblIdx": current_tbl_idx,
+                            "rowAddr": cell_info['row'],
+                            "colAddr": cell_info['col'],
+                            "rowSpan": cell_info['row_span'],
+                            "colSpan": cell_info['col_span'],
+                            "type": tbl_type
+                        }
+
+                        # nested인 경우 부모 정보 추가
+                        if is_nested:
+                            field_data["parentTbl"] = parent_tbl_idx
+                            field_data["parentCell"] = [parent_cell_row, parent_cell_col]
+
+                        cell_field_name = json.dumps(field_data, separators=(',', ':'))
+
+                        # 첫 번째 셀 로그 출력
+                        if is_first_cell:
+                            if is_nested:
+                                print(f"테이블 {current_tbl_idx}: (id:{table_id}, {row_cnt}x{col_cnt}) [nested in tbl_{parent_tbl_idx} cell[{parent_cell_row},{parent_cell_col}]]")
+                            else:
+                                print(f"테이블 {current_tbl_idx}: (id:{table_id}, {row_cnt}x{col_cnt}) [parent]")
+                            is_first_cell = False
+
+                        # tc 태그의 name 속성 설정
+                        tc.set('name', cell_field_name)
+                        cell_count += 1
+
+                        # 셀 내부의 중첩 테이블 재귀 탐색
+                        self._process_tables_recursive(
+                            tc, section_idx,
+                            current_tbl_idx, cell_info['row'], cell_info['col']
+                        )
+
+                if cell_count > 0:
+                    info = TableInfo(
+                        index=current_tbl_idx,
+                        table_id=table_id,
+                        row_count=row_cnt,
+                        col_count=col_cnt,
+                        section_index=section_idx,
+                        cell_count=cell_count
+                    )
+                    self.tables.append(info)
+                    print(f"  - {cell_count}개 셀에 필드 이름 설정")
+
+            else:
+                # tbl이 아닌 요소는 자식 탐색
+                self._process_tables_recursive(element=child, section_idx=section_idx,
+                                               parent_tbl_idx=parent_tbl_idx,
+                                               parent_cell_row=parent_cell_row,
+                                               parent_cell_col=parent_cell_col)
 
     def collect_table_list_ids(self) -> List[dict]:
         """win32 API로 테이블 list_id 수집 (첫 셀 list_id 기준)"""
@@ -366,6 +397,11 @@ def process_hwp_file(input_hwp: str, output_hwp: str = None) -> bool:
 
     if count == 0:
         print("테이블이 없습니다.")
+        inserter.hwp.Clear(1)
+        try:
+            os.remove(temp_hwpx)
+        except:
+            pass
         return False
 
     # 4. 테이블 정보 출력

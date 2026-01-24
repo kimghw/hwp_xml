@@ -10,3 +10,5 @@
 8. GetCurFieldName으로 필드명 읽기 - `extract_cell_meta.py`
 9. GetPos로 list_id 추출 - `extract_cell_meta.py`
 10. YAML 저장 - `extract_cell_meta.py` → `파일_meta.yaml`
+11. 필드명 삭제 (tc.name 속성 제거) - `extract_cell_meta.py`
+12. HWP 저장 - `extract_cell_meta.py` → `파일.hwp`

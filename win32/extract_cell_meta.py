@@ -90,13 +90,66 @@ class ExtractCellMeta:
         with open(output_yaml, 'w', encoding='utf-8') as f:
             f.write(yaml_content)
 
-        # 7. 임시 파일 삭제
+        # 7. tc.name 속성 삭제 후 HWP 저장
+        self._clear_field_names_and_save(temp_hwpx, hwp_path)
+
+        # 8. 임시 파일 삭제
         try:
             os.remove(temp_hwpx)
         except:
             pass
 
+        # 9. 문서 닫기 (파일 잠금 해제)
+        self.hwp.Clear(1)  # 1: 저장 안 함 (이미 저장했으므로)
+
         return output_yaml
+
+    def _clear_field_names_and_save(self, hwpx_path: str, output_hwp: str):
+        """HWPX에서 tc.name 속성 삭제 후 HWP로 저장"""
+        import shutil
+
+        extract_dir = tempfile.mkdtemp()
+        total_cleared = 0
+
+        try:
+            with zipfile.ZipFile(hwpx_path, 'r') as zf:
+                zf.extractall(extract_dir)
+
+            contents_dir = os.path.join(extract_dir, 'Contents')
+            section_files = sorted([
+                f for f in os.listdir(contents_dir)
+                if f.startswith('section') and f.endswith('.xml')
+            ])
+
+            for section_file in section_files:
+                section_path = os.path.join(contents_dir, section_file)
+                tree = ET.parse(section_path)
+                root = tree.getroot()
+
+                # 모든 tc 태그에서 name 속성 제거
+                for tc in root.iter():
+                    if tc.tag.endswith('}tc'):
+                        if 'name' in tc.attrib:
+                            del tc.attrib['name']
+                            total_cleared += 1
+
+                tree.write(section_path, encoding='utf-8', xml_declaration=True)
+
+            # 수정된 HWPX 다시 압축
+            with zipfile.ZipFile(hwpx_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for root_dir, dirs, files in os.walk(extract_dir):
+                    for file in files:
+                        file_path = os.path.join(root_dir, file)
+                        arcname = os.path.relpath(file_path, extract_dir)
+                        zf.write(file_path, arcname)
+
+            # 수정된 HWPX 열어서 HWP로 저장
+            self.hwp.Open(hwpx_path)
+            self._save_as(output_hwp, "HWP")
+            print(f"필드 삭제 후 저장: {total_cleared}개 셀, {output_hwp}")
+
+        finally:
+            shutil.rmtree(extract_dir, ignore_errors=True)
 
     def _save_as(self, filepath: str, format_type: str):
         """파일 저장"""
@@ -115,7 +168,7 @@ class ExtractCellMeta:
             if ctrl.CtrlID == "tbl":
                 table_data = {
                     'tbl_idx': tbl_idx,
-                    'cells': {}  # (row, col) -> list_id
+                    'cells': {}  # (row, col) -> (list_id, para_id)
                 }
 
                 try:
@@ -153,8 +206,9 @@ class ExtractCellMeta:
                                     fd = json.loads(field_name)
                                     r = fd.get('rowAddr', 0)
                                     c = fd.get('colAddr', 0)
+                                    para_id = pos[1]
                                     if (r, c) not in table_data['cells']:
-                                        table_data['cells'][(r, c)] = list_id
+                                        table_data['cells'][(r, c)] = (list_id, para_id)
                                 except:
                                     pass
 
@@ -209,14 +263,18 @@ class ExtractCellMeta:
 
         return tables
 
-    def _find_tables_recursive(self, element, tables: list):
+    def _find_tables_recursive(self, element, tables: list, depth: int = 0, parent_tbl_idx: int = None):
         """재귀적으로 테이블 찾아 셀 정보 추출"""
         for child in element:
             if child.tag.endswith('}tbl'):
+                current_tbl_idx = len(tables)
                 table_data = {
                     'table_id': child.get('id', ''),
                     'row_count': int(child.get('rowCnt', 0)),
                     'col_count': int(child.get('colCnt', 0)),
+                    'type': 'parent' if depth == 0 else 'nested',
+                    'depth': depth,
+                    'parent_tbl_idx': parent_tbl_idx,
                     'cells': []
                 }
 
@@ -266,9 +324,9 @@ class ExtractCellMeta:
                     for tc in tr:
                         if not tc.tag.endswith('}tc'):
                             continue
-                        self._find_tables_recursive(tc, tables)
+                        self._find_tables_recursive(tc, tables, depth + 1, current_tbl_idx)
             else:
-                self._find_tables_recursive(child, tables)
+                self._find_tables_recursive(child, tables, depth, parent_tbl_idx)
 
     def _merge_to_yaml(self, cell_positions: list, field_names: list) -> str:
         """COM API 결과와 HWPX 결과 병합하여 YAML 생성"""
@@ -281,27 +339,87 @@ class ExtractCellMeta:
         ]
         lines.append('tables:')
 
+        # 먼저 parent별 nested 테이블 정보 수집
+        # parent_tbl_idx -> [(cell_row, cell_col, nested_tbl_idx), ...]
+        nested_info = {}
+        for tbl_idx, tbl_xml in enumerate(field_names):
+            if tbl_xml.get('cells'):
+                first_cell = tbl_xml['cells'][0]
+                if first_cell.get('field_name'):
+                    try:
+                        fd = json.loads(first_cell['field_name'])
+                        if fd.get('type') == 'nested' and fd.get('parentTbl') is not None:
+                            parent_idx = fd['parentTbl']
+                            parent_cell = fd.get('parentCell', [0, 0])
+                            if parent_idx not in nested_info:
+                                nested_info[parent_idx] = []
+                            nested_info[parent_idx].append((parent_cell[0], parent_cell[1], tbl_idx))
+                    except:
+                        pass
+
         for tbl_idx, tbl_xml in enumerate(field_names):
             lines.append(f'  - tbl_idx: {tbl_idx}')
             lines.append(f'    table_id: "{tbl_xml.get("table_id", "")}"')
+
+            # 첫 셀의 field_name에서 type, parentTbl, parentCell 파싱
+            tbl_type = "parent"
+            parent_tbl = None
+            parent_cell = None
+            if tbl_xml.get('cells'):
+                first_cell = tbl_xml['cells'][0]
+                if first_cell.get('field_name'):
+                    try:
+                        fd = json.loads(first_cell['field_name'])
+                        tbl_type = fd.get('type', 'parent')
+                        parent_tbl = fd.get('parentTbl')
+                        parent_cell = fd.get('parentCell')
+                    except:
+                        pass
+
+            lines.append(f'    type: "{tbl_type}"')
+            if tbl_type == 'nested' and parent_tbl is not None:
+                lines.append(f'    parent_tbl_idx: {parent_tbl}')
+                if parent_cell:
+                    lines.append(f'    parent_cell: [{parent_cell[0]}, {parent_cell[1]}]')
+                    # 부모 셀의 para_id 조회
+                    if parent_tbl < len(cell_positions):
+                        parent_com_cells = cell_positions[parent_tbl].get('cells', {})
+                        parent_cell_pos = parent_com_cells.get((parent_cell[0], parent_cell[1]))
+                        if parent_cell_pos and isinstance(parent_cell_pos, tuple):
+                            lines.append(f'    parent_para_id: {parent_cell_pos[1]}')
+            elif tbl_type == 'parent' and tbl_idx in nested_info:
+                # parent 테이블에 중첩 테이블 정보 추가
+                nested_list = nested_info[tbl_idx]
+                # [[row, col, nested_tbl_idx], ...] 형식
+                nested_str = ', '.join([f'[{r}, {c}, {n}]' for r, c, n in nested_list])
+                lines.append(f'    nested_tables: [{nested_str}]')
             lines.append(f'    size: "{tbl_xml.get("row_count", 0)}x{tbl_xml.get("col_count", 0)}"')
 
-            # COM API에서 가져온 list_id 매핑 (row, col) -> list_id
+            # COM API에서 가져온 list_id 매핑 (row, col) -> (list_id, para_id)
             com_cells = {}
             if tbl_idx < len(cell_positions):
                 com_cells = cell_positions[tbl_idx].get('cells', {})
 
             # list_range 계산 (min ~ max list_id)
+            caption = tbl_xml.get('caption', '')
             if com_cells:
-                list_ids = list(com_cells.values())
+                list_ids = [v[0] for v in com_cells.values()]
                 min_list_id = min(list_ids)
                 max_list_id = max(list_ids)
                 lines.append(f'    list_range: [{min_list_id}, {max_list_id}]')
-                # caption_list_id = 첫 번째 셀 list_id - 1
-                caption_list_id = min_list_id - 1
-                lines.append(f'    caption_list_id: {caption_list_id}')
 
-            caption = tbl_xml.get('caption', '')
+                # caption_list_id 처리
+                # parent: 항상 caption_list_id 존재 (첫 셀 list_id - 1)
+                # nested: caption이 있을 때만 caption_list_id 존재
+                if tbl_type == 'parent':
+                    caption_list_id = min_list_id - 1
+                    lines.append(f'    caption_list_id: {caption_list_id}')
+                elif tbl_type == 'nested' and caption:
+                    caption_list_id = min_list_id - 1
+                    lines.append(f'    caption_list_id: {caption_list_id}')
+                else:
+                    # nested이고 caption이 없으면 null
+                    lines.append(f'    caption_list_id: null')
             if caption:
                 caption_escaped = caption.replace('"', '\\"').replace('\n', ' ')
                 lines.append(f'    caption: "{caption_escaped}"')
@@ -315,7 +433,8 @@ class ExtractCellMeta:
                 col_span = cell['col_span']
 
                 # COM API에서 list_id 가져오기
-                list_id = com_cells.get((row, col), 0)
+                cell_pos = com_cells.get((row, col), (0, 0))
+                list_id = cell_pos[0] if isinstance(cell_pos, tuple) else cell_pos
 
                 # field_name에서 tblIdx 파싱
                 field_tbl_idx = tbl_idx
