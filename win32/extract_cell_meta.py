@@ -286,17 +286,27 @@ class ExtractCellMeta:
             lines.append(f'    table_id: "{tbl_xml.get("table_id", "")}"')
             lines.append(f'    size: "{tbl_xml.get("row_count", 0)}x{tbl_xml.get("col_count", 0)}"')
 
+            # COM API에서 가져온 list_id 매핑 (row, col) -> list_id
+            com_cells = {}
+            if tbl_idx < len(cell_positions):
+                com_cells = cell_positions[tbl_idx].get('cells', {})
+
+            # list_range 계산 (min ~ max list_id)
+            if com_cells:
+                list_ids = list(com_cells.values())
+                min_list_id = min(list_ids)
+                max_list_id = max(list_ids)
+                lines.append(f'    list_range: [{min_list_id}, {max_list_id}]')
+                # caption_list_id = 첫 번째 셀 list_id - 1
+                caption_list_id = min_list_id - 1
+                lines.append(f'    caption_list_id: {caption_list_id}')
+
             caption = tbl_xml.get('caption', '')
             if caption:
                 caption_escaped = caption.replace('"', '\\"').replace('\n', ' ')
                 lines.append(f'    caption: "{caption_escaped}"')
 
             lines.append('    cells:')
-
-            # COM API에서 가져온 list_id 매핑 (row, col) -> list_id
-            com_cells = {}
-            if tbl_idx < len(cell_positions):
-                com_cells = cell_positions[tbl_idx].get('cells', {})
 
             for cell in tbl_xml.get('cells', []):
                 row = cell['row']
