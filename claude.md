@@ -91,3 +91,8 @@ hwp.HAction.Execute("FileSaveAs_S", hwp.HParameterSet.HFileOpenSave.HSet)
 ```python
 hwp.Clear(1)  # 1: 저장 안 함 (이미 저장했으므로)
 ```
+
+## caption_list_id 규칙
+
+- **parent 테이블**: 항상 caption_list_id 존재 (첫 셀 list_id - 1)
+- **nested 테이블**: caption이 있으면 caption_list_id, 없으면 null
