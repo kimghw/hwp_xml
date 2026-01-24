@@ -115,6 +115,72 @@ class HwpxToExcel:
         wb.save(output_path)
         return output_path
 
+    def convert_all(
+        self,
+        hwpx_path: Union[str, Path],
+        output_path: Optional[Union[str, Path]] = None,
+        include_cell_info: bool = False,
+        hide_para_rows: bool = True
+    ) -> Path:
+        """
+        HWPX 파일의 모든 테이블을 Excel 시트로 변환
+
+        Args:
+            hwpx_path: HWPX 파일 경로
+            output_path: 출력 Excel 경로 (없으면 자동 생성)
+            include_cell_info: 셀 상세 정보 시트 포함 여부
+            hide_para_rows: para_id 행 숨김 여부
+
+        Returns:
+            생성된 Excel 파일 경로
+        """
+        hwpx_path = Path(hwpx_path)
+
+        if output_path is None:
+            output_path = hwpx_path.with_suffix('.xlsx')
+        else:
+            output_path = Path(output_path)
+
+        # HWPX에서 데이터 추출
+        tables = self.table_parser.from_hwpx(hwpx_path)
+        pages = self.page_parser.from_hwpx(hwpx_path)
+
+        if not tables:
+            raise ValueError(f"테이블을 찾을 수 없습니다: {hwpx_path}")
+
+        page = pages[0] if pages else None
+
+        # Excel 워크북 생성
+        wb = Workbook()
+
+        # 기본 시트 제거
+        default_sheet = wb.active
+
+        for idx, table in enumerate(tables):
+            # 시트 생성
+            ws = wb.create_sheet(title=f"tbl_{idx}")
+
+            # 1. 페이지 설정 적용
+            if page:
+                self._apply_page_settings(ws, page)
+
+            # 2. 열 너비 설정
+            self._apply_column_widths(ws, table)
+
+            # 3. 행 높이 설정
+            self._apply_row_heights(ws, table)
+
+            # 4. 셀 병합 처리
+            self._apply_cell_merges(ws, table)
+
+        # 기본 시트 삭제
+        wb.remove(default_sheet)
+
+        # 저장
+        wb.save(output_path)
+        print(f"  {len(tables)}개 테이블 → {len(tables)}개 시트 생성")
+        return output_path
+
     # 용지 크기 매핑 (mm → Excel paperSize 코드)
     PAPER_SIZES = {
         (210, 297): 9,    # A4

@@ -392,13 +392,13 @@ def process_hwp_file(input_hwp: str, output_hwp: str = None) -> bool:
     except:
         pass
 
-    # 8. HWPX → Excel 변환
+    # 8. HWPX → Excel 변환 (모든 테이블)
     try:
         from excel.hwpx_to_excel import HwpxToExcel
 
         excel_path = os.path.splitext(output_hwp)[0] + ".xlsx"
         converter = HwpxToExcel()
-        converter.convert(temp_hwpx, excel_path)
+        converter.convert_all(temp_hwpx, excel_path)
         print(f"Excel 변환 완료: {excel_path}")
     except Exception as e:
         print(f"Excel 변환 실패: {e}")
