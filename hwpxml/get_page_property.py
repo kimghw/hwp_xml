@@ -278,11 +278,9 @@ class GetPageProperty:
         page.page_size.width = int(pagePr_elem.get('width', 0))
         page.page_size.height = int(pagePr_elem.get('height', 0))
 
-        # 용지 방향
-        landscape = pagePr_elem.get('landscape', 'NORMAL')
-        if landscape == 'WIDELY':
-            page.page_size.orientation = 'landscape'
-        elif landscape == 'ROTATE':
+        # 용지 방향: width/height 실제 값으로 판단
+        # (landscape 속성은 WIDELY/ROTATE 등 의미가 다름)
+        if page.page_size.width > page.page_size.height:
             page.page_size.orientation = 'landscape'
         else:
             page.page_size.orientation = 'portrait'

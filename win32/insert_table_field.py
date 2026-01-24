@@ -403,7 +403,17 @@ def process_hwp_file(input_hwp: str, output_hwp: str = None) -> bool:
     except Exception as e:
         print(f"Excel 변환 실패: {e}")
 
-    # 9. 임시 파일 삭제
+    # 9. 메타데이터 YAML 추출
+    try:
+        from hwpxml.export_meta_yaml import export_meta_yaml
+
+        yaml_path = os.path.splitext(output_hwp)[0] + "_meta.yaml"
+        export_meta_yaml(temp_hwpx, yaml_path)
+        print(f"메타데이터 YAML 저장: {yaml_path}")
+    except Exception as e:
+        print(f"YAML 추출 실패: {e}")
+
+    # 10. 임시 파일 삭제
     try:
         os.remove(temp_hwpx)
         print(f"임시 파일 삭제: {temp_hwpx}")

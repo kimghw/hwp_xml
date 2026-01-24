@@ -12,10 +12,11 @@ if str(_project_root) not in sys.path:
 
 from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
-from openpyxl.worksheet.page import PageMargins
+from openpyxl.worksheet.page import PageMargins, PrintPageSetup
 from openpyxl.utils import get_column_letter
 from openpyxl.comments import Comment
 from openpyxl.styles import Border, Side, PatternFill, Font, Alignment
+from openpyxl.worksheet.properties import PageSetupProperties
 import zipfile
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
