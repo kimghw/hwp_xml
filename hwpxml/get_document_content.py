@@ -50,8 +50,8 @@ class GetDocumentContent:
         """HWPX 파일에서 문서 내용 추출 (문단 + 테이블 순서 유지)"""
         hwpx_path = Path(hwpx_path)
         content = DocumentContent()
-        order = 0
-        table_idx = 0
+        self._order = 0
+        self._table_idx = 0
 
         with zipfile.ZipFile(hwpx_path, 'r') as zf:
             # section 파일 목록
@@ -64,34 +64,83 @@ class GetDocumentContent:
                 xml_content = zf.read(section_file)
                 root = ET.fromstring(xml_content)
 
-                # 최상위 요소들을 순서대로 처리
-                for child in root:
-                    tag = child.tag.split('}')[-1]
-
-                    if tag == 'p':
-                        # 문단 처리
-                        para = self._parse_paragraph(child)
-                        para.order = order
-                        order += 1
-                        content.items.append(para)
-
-                    elif tag == 'tbl':
-                        # 테이블 마커
-                        marker = TableMarker(
-                            table_idx=table_idx,
-                            table_id=child.get('id', ''),
-                            row_count=int(child.get('rowCnt', 0)),
-                            col_count=int(child.get('colCnt', 0)),
-                            order=order
-                        )
-                        order += 1
-                        table_idx += 1
-                        content.items.append(marker)
-
-                        # 테이블 내부의 중첩 테이블도 카운트
-                        table_idx = self._count_nested_tables(child, table_idx)
+                # 재귀적으로 문단과 테이블 탐색
+                self._parse_element_recursive(root, content)
 
         return content
+
+    def _parse_element_recursive(self, element, content: DocumentContent):
+        """요소를 재귀적으로 탐색하여 문단과 테이블 추출"""
+        for child in element:
+            tag = child.tag.split('}')[-1]
+
+            if tag == 'p':
+                # 문단 텍스트 추출 (테이블 내부 텍스트 제외)
+                para = self._parse_paragraph_text_only(child)
+                if para.text.strip():
+                    para.order = self._order
+                    self._order += 1
+                    content.items.append(para)
+
+                # 문단 내부에 테이블이 있을 수 있음 (run 안에)
+                self._parse_element_recursive(child, content)
+
+            elif tag == 'tbl':
+                # 테이블 마커
+                marker = TableMarker(
+                    table_idx=self._table_idx,
+                    table_id=child.get('id', ''),
+                    row_count=int(child.get('rowCnt', 0)),
+                    col_count=int(child.get('colCnt', 0)),
+                    order=self._order
+                )
+                self._order += 1
+                self._table_idx += 1
+                content.items.append(marker)
+
+                # 테이블 내부의 중첩 테이블 탐색 (셀 안의 테이블)
+                self._parse_tables_in_cells(child, content)
+
+            elif tag in ('run', 'subList', 'ctrl'):
+                # 이 요소들 안에 테이블이 있을 수 있음
+                self._parse_element_recursive(child, content)
+
+    def _parse_tables_in_cells(self, tbl_elem, content: DocumentContent):
+        """테이블 셀 내부의 중첩 테이블 탐색"""
+        for tr in tbl_elem:
+            if not tr.tag.endswith('}tr'):
+                continue
+            for tc in tr:
+                if not tc.tag.endswith('}tc'):
+                    continue
+                # 셀 내부의 subList에서 테이블 찾기
+                for child in tc:
+                    self._parse_element_recursive(child, content)
+
+    def _parse_paragraph_text_only(self, p_elem) -> ParagraphContent:
+        """문단 요소에서 직접 텍스트만 추출 (테이블 내용 제외)"""
+        para = ParagraphContent()
+        para.para_id = p_elem.get('id', '')
+        para.style_id = p_elem.get('paraPrIDRef', '')
+
+        # 문단 내 직접 텍스트 추출 (tbl 요소 안의 텍스트 제외)
+        texts = []
+        self._extract_text_excluding_tables(p_elem, texts)
+        para.text = ''.join(texts)
+        return para
+
+    def _extract_text_excluding_tables(self, elem, texts: List[str]):
+        """테이블 내부 텍스트를 제외하고 텍스트 추출"""
+        for child in elem:
+            tag = child.tag.split('}')[-1]
+            if tag == 'tbl':
+                # 테이블 내용은 건너뜀
+                continue
+            elif tag == 't':
+                if child.text:
+                    texts.append(child.text)
+            else:
+                self._extract_text_excluding_tables(child, texts)
 
     def _parse_paragraph(self, p_elem) -> ParagraphContent:
         """문단 요소 파싱"""
