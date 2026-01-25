@@ -678,6 +678,8 @@ def open_file_dialog_win32() -> Optional[str]:
 
 def main():
     """메인 함수"""
+    import os
+
     print("=" * 60)
     print("한글 문단/글자 스타일 추출")
     print("=" * 60)
@@ -685,9 +687,17 @@ def main():
 
     # 열린 한글 인스턴스 확인
     hwp = get_hwp_instance()
+    filepath = None
 
     if hwp:
         print("열린 한글 문서를 사용합니다.")
+        # 열린 문서의 경로 가져오기
+        try:
+            filepath = hwp.XHwpDocuments.Active_XHwpDocument.Path
+            if not filepath:
+                filepath = None
+        except:
+            filepath = None
         getter = GetParaStyle(hwp)
     else:
         print("열린 한글 문서가 없습니다. 파일을 선택하세요.")
@@ -739,8 +749,11 @@ def main():
         print(f"  내용: {text_preview}")
         print()
 
-    # YAML 파일로 저장
-    output_path = r"C:\hwp_xml\win32\para_styles.yaml"
+    # YAML 파일로 저장 (파일명_para.yaml)
+    if filepath:
+        output_path = os.path.splitext(filepath)[0] + "_para.yaml"
+    else:
+        output_path = r"C:\hwp_xml\win32\para_styles.yaml"
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(getter.to_yaml(para_styles))
     print(f"YAML 저장: {output_path}")

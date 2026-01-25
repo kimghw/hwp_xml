@@ -12,3 +12,12 @@
 10. YAML 저장 - `extract_cell_meta.py` → `파일_meta.yaml`
 11. 필드명 삭제 (tc.name 속성 제거) - `extract_cell_meta.py`
 12. HWP 저장 - `extract_cell_meta.py` → `파일.hwp`
+
+---
+
+# Workflow 2: 문단 스타일 추출
+
+1. 열린 한글 연결 - `get_para_style.py`
+2. list_id 순차 조회 (0~1000) - `SetPos(list_id, para_id, 0)`
+3. 문단 정보 추출 (text, line_count, char_id, 스타일) - `get_para_style.py`
+4. YAML 저장 - `get_para_style.py` → `파일_para.yaml`
