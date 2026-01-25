@@ -8,7 +8,7 @@ HWPX 셀 상세 정보 추출 모듈
 import zipfile
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Any, Union
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
 from pathlib import Path
 from io import BytesIO
 
@@ -31,7 +31,9 @@ class FontInfo:
 @dataclass
 class ParaInfo:
     """문단 정보"""
-    para_id: str = ""
+    para_id: str = ""  # p 요소의 id (HWPX에서는 동일할 수 있음)
+    para_pr_id: str = ""  # paraPrIDRef (문단 스타일 참조 ID)
+    style_id: str = ""  # styleIDRef (스타일 ID)
     align_h: str = "LEFT"  # JUSTIFY, LEFT, RIGHT, CENTER
     align_v: str = "BASELINE"
     line_spacing: int = 160  # percent
@@ -45,6 +47,9 @@ class ParaInfo:
 
     # 중첩 테이블 포함 여부
     has_nested_table: bool = False
+
+    # 문단별 폰트 정보
+    font: Optional['FontInfo'] = None
 
 
 @dataclass
@@ -60,6 +65,9 @@ class BorderInfo:
 @dataclass
 class CellDetail:
     """셀 상세 정보"""
+    # 테이블 정보
+    table_id: str = ""
+
     # 위치 정보
     list_id: str = ""
     row: int = 0
@@ -104,6 +112,7 @@ class CellDetail:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
+            'table_id': self.table_id,
             'list_id': self.list_id,
             'row': self.row,
             'col': self.col,
@@ -161,8 +170,16 @@ class GetCellDetail:
         self._border_fills: Dict[str, Dict] = {}
         self._fonts: Dict[str, str] = {}
 
+    def _clear_caches(self):
+        """스타일 캐시 초기화 (파일별 독립 처리를 위해)"""
+        self._char_props.clear()
+        self._para_props.clear()
+        self._border_fills.clear()
+        self._fonts.clear()
+
     def from_hwpx(self, hwpx_path: Union[str, Path]) -> List[CellDetail]:
         """HWPX 파일에서 모든 셀 상세 정보 추출"""
+        self._clear_caches()
         hwpx_path = Path(hwpx_path)
         cells = []
 
@@ -187,6 +204,7 @@ class GetCellDetail:
 
     def from_hwpx_by_table(self, hwpx_path: Union[str, Path]) -> List[List[CellDetail]]:
         """HWPX 파일에서 테이블별로 그룹화된 셀 상세 정보 추출"""
+        self._clear_caches()
         hwpx_path = Path(hwpx_path)
         tables_cells = []
 
@@ -223,8 +241,11 @@ class GetCellDetail:
         """재귀적으로 테이블을 찾아 순서대로 처리"""
         for child in element:
             if child.tag.endswith('}tbl'):
+                # 테이블 ID 추출
+                table_id = child.get('id', '')
+
                 # 이 테이블의 직접 셀만 파싱 (중첩 테이블 제외)
-                table_cells = self._parse_table_direct_cells(child)
+                table_cells = self._parse_table_direct_cells(child, table_id)
                 tables_cells.append(table_cells)
 
                 # 셀 내부의 중첩 테이블 재귀 탐색
@@ -240,7 +261,7 @@ class GetCellDetail:
                 # tbl이 아닌 요소 내부도 탐색
                 self._find_tables_recursive(child, tables_cells)
 
-    def _parse_table_direct_cells(self, tbl_element) -> List[CellDetail]:
+    def _parse_table_direct_cells(self, tbl_element, table_id: str = "") -> List[CellDetail]:
         """테이블의 직접 셀만 파싱 (중첩 테이블 내부 셀 제외)"""
         cells = []
 
@@ -252,6 +273,7 @@ class GetCellDetail:
                     continue
 
                 cell = CellDetail()
+                cell.table_id = table_id
                 cell.border_fill_id = tc.get('borderFillIDRef', '')
 
                 # 테두리/배경 적용
@@ -430,7 +452,7 @@ class GetCellDetail:
         return cells
 
     def _parse_paragraphs(self, sublist_elem, cell: CellDetail):
-        """subList 내의 문단들 파싱 (텍스트, 줄수, 높이 포함)"""
+        """subList 내의 문단들 파싱 (텍스트, 줄수, 높이, 폰트 포함)"""
         all_texts = []
 
         for p_elem in sublist_elem:
@@ -440,6 +462,8 @@ class GetCellDetail:
             para_info = ParaInfo()
             para_info.para_id = p_elem.get('id', '')
             para_pr_id = p_elem.get('paraPrIDRef', '')
+            para_info.para_pr_id = para_pr_id
+            para_info.style_id = p_elem.get('styleIDRef', '')
 
             # 문단 속성 적용
             if para_pr_id in self._para_props:
@@ -450,6 +474,7 @@ class GetCellDetail:
 
             # 문단별 텍스트
             para_texts = []
+            para_font_set = False  # 문단 폰트가 설정되었는지
 
             # run 요소에서 텍스트와 문자 속성 추출
             for child in p_elem:
@@ -457,9 +482,28 @@ class GetCellDetail:
 
                 if tag == 'run':
                     char_pr_id = child.get('charPrIDRef', '')
+
+                    # 문단의 첫 번째 run에서 폰트 정보 설정
+                    if char_pr_id and not para_font_set:
+                        para_font_set = True
+                        if char_pr_id in self._char_props:
+                            cp = self._char_props[char_pr_id]
+                            para_info.font = FontInfo(
+                                size=cp.get('height', 1000),
+                                bold=cp.get('bold', False),
+                                italic=cp.get('italic', False),
+                                underline=cp.get('underline', False),
+                                strikeout=cp.get('strikeout', False),
+                                color=cp.get('textColor', '#000000'),
+                            )
+                            # 폰트 이름
+                            font_ref = cp.get('font_ref', '0')
+                            if font_ref in self._fonts:
+                                para_info.font.name = self._fonts[font_ref]
+
+                    # 셀의 기본 폰트 (첫 번째 문단의 첫 번째 run)
                     if char_pr_id and not cell.char_pr_id:
                         cell.char_pr_id = char_pr_id
-                        # 첫 번째 문자 속성을 셀의 기본 폰트로 사용
                         if char_pr_id in self._char_props:
                             cp = self._char_props[char_pr_id]
                             cell.font = FontInfo(
@@ -470,7 +514,6 @@ class GetCellDetail:
                                 strikeout=cp.get('strikeout', False),
                                 color=cp.get('textColor', '#000000'),
                             )
-                            # 폰트 이름
                             font_ref = cp.get('font_ref', '0')
                             if font_ref in self._fonts:
                                 cell.font.name = self._fonts[font_ref]
@@ -486,12 +529,13 @@ class GetCellDetail:
                     para_info.line_count = len(linesegs) if linesegs else 1
 
                     if linesegs:
-                        # 문단 높이 = 각 줄의 vertsize 합계
-                        total_height = 0
-                        for ls in linesegs:
-                            vertsize = int(ls.get('vertsize', 0))
-                            total_height += vertsize
-                        para_info.height = total_height
+                        # 문단 높이 = (마지막줄 vertpos + vertsize) - 첫줄 vertpos
+                        first_ls = linesegs[0]
+                        last_ls = linesegs[-1]
+                        first_vertpos = int(first_ls.get('vertpos', 0))
+                        last_vertpos = int(last_ls.get('vertpos', 0))
+                        last_vertsize = int(last_ls.get('vertsize', 0))
+                        para_info.height = (last_vertpos + last_vertsize) - first_vertpos
 
                 elif tag == 'ctrl':
                     # ctrl 내에 테이블이 있는지 확인
