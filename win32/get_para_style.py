@@ -648,17 +648,19 @@ class GetParaStyle:
         return header + yaml_content
 
 
-def get_hwp_instance():
-    """열린 한글 인스턴스 가져오기 또는 None"""
-    try:
-        import win32com.client as win32
-        return win32.GetActiveObject("HWPFrame.HwpObject")
-    except:
-        return None
+try:
+    from hwp_utils import get_hwp_instance, open_file_dialog, get_active_filepath, create_hwp_instance
+except ImportError:
+    from win32.hwp_utils import get_hwp_instance, open_file_dialog, get_active_filepath, create_hwp_instance
 
 
 def open_file_dialog_win32() -> Optional[str]:
-    """Windows 파일 선택 대화상자"""
+    """Windows 파일 선택 대화상자 (하위 호환용)"""
+    return open_file_dialog()
+
+
+def _legacy_open_file_dialog_win32() -> Optional[str]:
+    """Windows 파일 선택 대화상자 (레거시)"""
     try:
         import win32gui
         import win32con
@@ -691,13 +693,7 @@ def main():
 
     if hwp:
         print("열린 한글 문서를 사용합니다.")
-        # 열린 문서의 경로 가져오기
-        try:
-            filepath = hwp.XHwpDocuments.Active_XHwpDocument.Path
-            if not filepath:
-                filepath = None
-        except:
-            filepath = None
+        filepath = get_active_filepath(hwp)
         getter = GetParaStyle(hwp)
     else:
         print("열린 한글 문서가 없습니다. 파일을 선택하세요.")

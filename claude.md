@@ -59,37 +59,24 @@ table_cell_details = parser.from_hwpx_by_table(hwpx_path)
 
 ### win32/
 Windows 한글 COM API 연동 (WSL에서 cmd.exe로 실행)
+- `hwp_utils.py`: 공통 유틸리티 (인스턴스 연결, 파일 대화상자, 저장)
 - `convert_hwp.py`: HWP↔HWPX 변환
-  - `convert_hwp_to_hwpx()`: HWP → HWPX
-  - `convert_hwpx_to_hwp()`: HWPX → HWP
 - `insert_ctrl_id.py`: 테이블에 ctrl_id 메타데이터 삽입
 - `insert_table_field.py`: 테이블 셀에 필드 이름(메타데이터) 설정
-  - tc 태그 name 속성에 JSON 삽입: `{"tblIdx":N,"rowAddr":R,"colAddr":C,"rowSpan":RS,"colSpan":CS}`
-  - 캡션에 `{caption:tbl_N|}` 삽입
-  - 값 채우기용 참조 메타데이터 (실제 값 삽입 로직 없음)
+- `get_para_style.py`: 문단 스타일 추출 → `파일_para.yaml`
 - `get_table_property.py`: COM API로 테이블 속성 추출
 - `get_table_info.py`: 테이블 위치/구조 조회
 
-## 한글 COM API 주의사항
+## 한글 COM API 공통 유틸리티 (hwp_utils.py)
 
-### 한글 인스턴스 연결
-- `get_hwp_instance()`: ROT에서 실행 중인 한글에 연결 (없으면 None)
-- 한글이 없으면 `win32.gencache.EnsureDispatch("hwpframe.hwpobject")`로 새로 실행
-- 보안 모듈 등록 필수: `hwp.RegisterModule("FilePathCheckDLL", "FilePathCheckerModule")`
-
-### 파일 저장 (편집 가능하게)
-`hwp.SaveAs()`는 읽기 전용으로 저장될 수 있음. 아래 방식 사용:
 ```python
-hwp.HAction.GetDefault("FileSaveAs_S", hwp.HParameterSet.HFileOpenSave.HSet)
-hwp.HParameterSet.HFileOpenSave.filename = filepath
-hwp.HParameterSet.HFileOpenSave.Format = "HWP"  # 또는 "HWPX"
-hwp.HAction.Execute("FileSaveAs_S", hwp.HParameterSet.HFileOpenSave.HSet)
-```
+from hwp_utils import get_hwp_instance, create_hwp_instance, get_active_filepath, open_file_dialog, save_hwp
 
-### 저장 후 문서 닫기
-저장 후 파일 잠금 해제를 위해 문서 닫기 필요:
-```python
-hwp.Clear(1)  # 1: 저장 안 함 (이미 저장했으므로)
+hwp = get_hwp_instance()  # 열린 한글 연결 (없으면 None)
+hwp = create_hwp_instance()  # 새 한글 생성 (RegisterModule 포함)
+filepath = get_active_filepath(hwp)  # 열린 문서 경로
+filepath = open_file_dialog()  # 파일 선택 대화상자
+save_hwp(hwp, filepath, "HWP")  # 편집 가능하게 저장
 ```
 
 ## caption_list_id 규칙
