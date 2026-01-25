@@ -1,0 +1,6201 @@
+# 한글 문서 문단 스타일 정보
+#
+# 구조:
+#   list_id:                # 리스트 ID (본문=0, 테이블 셀=각각 고유 ID)
+#     - para_id:            # 문단 ID (해당 list_id 내 문단 순번)
+#       line_count:         # 줄 수
+#       start_char_id:      # 시작 char_id
+#       next_line_char_id:  # 다음 줄 시작 char_id (1줄이면 null)
+#       end_char_id:        # 마지막 char_id
+#       style_name:         # 문단 스타일 이름
+#       align:              # 정렬 (왼쪽/가운데/오른쪽/양쪽/배분)
+#       indent:             # 첫줄 들여쓰기 (HWPUNIT)
+#       margin_left:        # 왼쪽 여백
+#       margin_right:       # 오른쪽 여백
+#       line_spacing:       # 줄 간격
+#       line_spacing_type:  # 줄 간격 타입 (퍼센트/고정값/여백만/최소)
+#       space_before:       # 문단 앞 간격
+#       space_after:        # 문단 뒤 간격
+#       char_style:         # 글자 스타일
+#         font_name:        # 글꼴
+#         font_size:        # 크기 (pt)
+#         bold:             # 굵게
+#         italic:           # 기울임
+#         underline:        # 밑줄
+#         strikeout:        # 취소선
+#         text_color:       # 글자색 (RGB hex)
+#         highlight_color:  # 형광펜 색상
+
+0:
+- para_id: 0
+  text: '{caption:tbl_0|} 관리번호 예산연도-내역사업고유번호-구분-연번 (P-ROME 자동부여) 산업기술분류 중분류Ⅰ 중분류Ⅱ
+    개발형태   조선/해양시스템 - 혁신도전형    AI 연계     지역(비수도권) 연계     초격차프로젝트 (해당) 분야 미래 모빌리티(조선)
+    미션 친환경선박 전주기 생태계 육성 프로젝트 친환경 선박 추진연료 대전환(암모니아/수소 등) 및 탄소저감 선도기술개발 제품·기술 무탄소 선박
+    대체연료 내연기관 세부기술 무탄소 연료(암모니아/수소 등) 내연기관 및 핵심기자재 연계유형      특성분류                  ESG      R&D
+    자율성트랙   과제명 MW급 10kV 고전압 직류 시스템용 반도체 차단기 개발 (TRL : [시작] 4단계 &#12316; [종료] 7단계)
+    1. 개념 및 정의   □ 개념   ㅇ 전력시스템의 탈탄소화는 화석연료기반 발전을 대체하기 위해 재생에너지의 대규모 통합 및 기타 에너지원의
+    활용 그리고 발전, 배전의 통합적 조정 및 최적화를 통해 추진되고 있으며 선박의 경우에도, 가변속 발전엔진, 가스터빈, 연료전지, 배터리 등
+    다양한 발전원을 효율적으로 연계할 수 있는 고전압 대용량 직류 계통시스템이 유력한 대안으로 고려되고 있으며, 관련 기술에 대한 연구개발이 국내에서도
+    활발히 진행 중임  ㅇ 선박의 직류배전은 발전기 가변속 운전을 통해 연료, 에너지 효율을 향상시킬 수 있으며 전원의 병렬, 확장이 용이하고
+    전력품질 및 제어성능이 우수하여 미래 친환경, 스마트 선박 전력구성의 기반이 될 수 있음 ㅇ 직류 전력 계통을 구성함에 있어 시스템 사고에
+    대해 건전한 구간을 신속하게 분리함으로써 전체 직류 전력 계통 정전을 방지하고 고장의 파급을 차단하는 것이 매우 중요함. 특히, 고전압 대용량
+    직류 시스템은 고장 내력이 낮은 전력변환장치로 시스템이 구성되어 있고, 고장 차단을 위한 차단기와 퓨즈가 개발되어 있지 않아 시스템 보호에
+    어려움이 있음 ㅇ 따라서, DC 전력망과 전력전자 중심 시스템에서 필수적인 보호장치로 고속, 무아크, 정밀 차단을 통해 시스템 신뢰성과 안전성을
+    향상시킬 수 있는 수십 MW급 중대형 선박에 적용 가능한 직류 10,000V 이상의 고전압 직류 시스템용 반도체 차단기 개발이 필요하고, 직류
+    시스템의 필수 기술로 안정적이고 효율적인 직류 전력 계통 구축에 기여함  □ 정의   ㅇ 직류기반 전력용 반도체 차단기(SSCB, Solid
+    State Circuit Breaker)는 기존 직류기반 기계식 차단기와 달리 IGBT, MOSFET, SiC 등의 전력용 반도체 스위치를
+    이용해 고장 전류를 매우 빠르게 차단하여 직류 전력 시스템을 보호하는 장치  ㅇ 전력용 반도체 차단기는 전력용 반도체 소자만으로 구성된 차단부를
+    통해 수십 μs 이내에 고장을 차단할 수 있는 특징을 갖고 있음 2. 연구목표 및 내용  {caption:tbl_1|} □ 최종목표   ㅇ
+    20 MW급 10,000V이상의 고전압 직류 시스템용 반도체 차단기 개발   - MVDC* SSCB** 서브 모듈(sub module) 설계
+    및 구성 기자재 개발     *MVDC : Medium-Voltage Direct Current, ** SSCB : Solid State Circuit
+    Breaker   - MVDC SSCB 서브 모듈 패키징 기술개발 및 구성 기자재 개발   - 재투입과 재차단 기능 개발   - MVDC SSCB
+    성능 검증 결과(공인시험기관 시험성적서 포함) 확보  ㅇ 정량적 목표 {caption:tbl_1|} {caption:tbl_2|}{caption:tbl_1|}연번
+    핵심 기술/제품 성능지표 단위 달성목표 세계최고수준 (보유국, 기업/기관명) 1 차단용량(@정격기준) MW 20 이상 - 2 정격전압 kVdc
+    10 이상 - 3 정격절연전압 kV 12 이상~35*이하 - 4 연속정격전류 kA 2 이상 - 5 과전류 및 단락전류 (Over current
+    and short circuit protection, Instant trip ≤ [A]) kA 정격전류의 1~5배 - 6 고장검출 us 10
+    이하 - 7 차단시간 us 100 이하 - 8 차단기효율(@정격기준) % 98 이상 - 9 냉각방식 - 수냉식 - 10 성능 검증 결과보고서
+    (공인시험기관 시험성적서 포함) 건 1 {caption:tbl_2|}-      * IEEE STD 1709 표 2의 MVDC 케이블, 퓨즈,
+    스위치 및 버스 도체를 보호하기 위한 전압 레벨   □ 개발 내용  ㅇ SSCB 서브(sub module) 모듈 기술개발    - 서브 모듈
+    토폴로지(topology) 설계 및 구성 기자재 개발   - 고효율 모듈 전력회로 설계   - 서브 모듈 과전압 보호 설계 (서지 흡수 및
+    클램핑 회로 등)   - 서브 모듈 고속 제어기 개발   - 서브 모듈 파워 서플라이(Power supplier) 개발  ㅇ SSCB 서브
+    모듈 패키징 기술개발 및 구성 기자재 개발   - 선박용 직류 10,000V이상 MVDC SSCB 사양 선정   - SSCB 서브 모듈간 과전압
+    분배 기술   - SSCB 패키징 구조 및 냉각 설계    - SSCB 제어기 및 통신 모듈 개발   - SSCB 운용 소프트웨어 개발   -
+    고장 검출 및 차단 알고리즘 개발  ㅇ SSCB 성능검증 결과(공인시험기관 시험성적서 포함) 확보   - MVDC용 SSCB 시험평가용 시험회로구성
+    및 평가 기술개발   - SSCB 서브 모듈 차단 시험 결과 확보   - SSCB Full Scale 내환경 시험 및 차단 시험 결과 확보     (공인시험기관
+    시험성적서 포함)  □ TRL 핵심기술요소(CTE)  {caption:tbl_2|} 연번 핵심 기술요소 최종단계 생산수준 또는 결과물 시험평가
+    환경 1 MVDC SSCB 6 시제품 성능 -   □ 보안과제 및 안전성 검토 여부  ㅇ보안과제 : 해당사항 없음  ㅇ안전과제 : 해당   -
+    직류 10,000V이상, 전류 2kA이상의 고전압 대전류에 대한 감전, 폭발 등 기술개발 과정에서의 사고 발생 가능성 및 안전관리 필요 3.
+    국내외 기술동향  □ 국내 기술 동향  ㅇ “친환경 선박 전주기 혁신기술개발사업”내 ‘하이브리드 추진선박 10MW급 직류배전 기술개발(’23~‘27)’
+    국책과제가 진행 중이며, 해당 과제에서 저압(1 kV급) 직류 시스템용 반도체 차단기 개발을 목표로 연구가 수행되고 있음  ㅇ “친환경 선박
+    전주기 혁신기술개발사업”내 ‘20MW급 10kV 중대형 선박용 고전압 직류시스템 개발(’25~‘28)’ 국책과제가 진행 중이며, 해당 과제
+    범위에는 반도체 차단기 개발이 포함되어 있지 않음  □ 국외 기술 동향  ㅇ 미국 ARPA-E(Advanced Research Projects
+    Agency-Energy) 프로젝트 중 ‘Breakers’ 프로그램을 통해 Drexel 대학과 Ohio 주립대학에서 MVDC 차단기를 개발하고
+    있으나, 대학 수준의 연구에 그치고 있음  ㅇ GE사는 자사 선박용 고전압 드라이브를 활용하여 중대형 선박용 고전압 대용량 직류시스템 개발
+    목표를 밝혔으며, 대용량 드라이브를 부스 타이에 적용하여 반도체 차단기를 대체할 계획을 보유함 4. 지원필요성   □ 지원필요성  ㅇ 고전압
+    대용량 직류시스템은 중대형 선박의 에너지 효율과 친환경성 확보를 위한 핵심 기술로, 다양한 무탄소 에너지원과의 연계가 가능하여 차세대 선박에서
+    경쟁력 확보를 위한 핵심 기술임. 그러나 직류 시스템의 안정성과 보호를 위해서는 고속 차단이 가능한 반도체 차단기 기술이 필수적임.  ㅇ 기존
+    기계식 차단기는 직류 특성상 차단 속도와 내구성에 한계가 있으며, 고압/대용량 환경에서는 시스템 보호에 적합하지 않음. 반도체 차단기는 이러한
+    한계를 극복할 수 있는 기술로, 고전압 대용량 직류 시스템의 실증과 상용화를 위해 반드시 선행 개발되어야 함  ㅇ 국내 조선업계가 글로벌 시장에서
+    기술 자립과 경쟁력을 확보하기 위해서는 반도체 차단기와 같은 핵심 보호 기기와 관련 기술의 국산화가 필요하며, 이를 위한 정부 및 정책적 지원이
+    요구됨 5. 활용방안 및 기대효과   □ 활용방안  ㅇ 고압 연료전지, 배전 시스템, 추진 드라이브 등과 연계되어 고전압 반도체 차단기는 시스템의
+    안정성과 신뢰성을 확보하는 핵심 요소로 작용함  ㅇ 고전압 직류 기반 전기추진 시스템의 안전성과 운용 효율을 높여, 차세대 친환경 선박 시장
+    진출에 기여함  ㅇ 대형 선박 및 군용 함정의 전기추진체계에 필수적인 보호기기로 활용 가능   □ 기술적 기대효과  ㅇ 고전압 직류배전 시스템의
+    핵심 보호기술인 반도체 차단기의 국산화를 통해 선박 전력시스템의 기술 자립도 향상 및 설계 기술 내재화 기반을 마련할 수 있음  ㅇ 고속 차단
+    성능과 안전성을 갖춘 반도체 차단기 실증을 통해 전기추진 선박의 신뢰성과 운용 안전성을 확보하고, 관련 시험/인증 기술 확보로 상업화 기반
+    강화  ㅇ 직류 기반 전력변환 기술의 핵심 요소로서, 타 산업 분야로의 기술 확장 및 신시장 개척에 기여 가능   □ 경제적 기대효과  ㅇ
+    반도체 차단기 국산화를 통해 해외 의존도를 낮추고, 국내 조선업계의 수출 경쟁력 및 기술력 강화에 기여  ㅇ 전기추진 선박 시장의 성장과 함께
+    고압 직류 보호기술 수요가 증가함에 따라, 관련 기자재 산업의 사업 다각화 및 수출 확대가 가능함  ㅇ 고부가가치 기자재 개발을 통해 조선/해운/항만
+    산업뿐만 아니라 전기/전자/기계 등 후방산업에도 긍정적 파급효과를 기대할 수 있음  □ 기타 사회·환경적 기대효과   ㅇ 반도체 차단기는 무탄소
+    에너지원 기반 선박의 안전 운용을 지원하며, 온실가스 및 대기오염 저감에 필수적인 장치임.  ㅇ 친환경 선박 기술개발과 관련 산업의 성장으로
+    새로운 일자리 창출 및 지속 가능한 산업 생태계 조성이 가능함 6. 지원기간/예산/추진체계    ㅇ 연구개발기간 : 45개월 이내(1차년도
+    개발기간 : 9개월, 2~4차년도 : 각 12개월)  ㅇ 정부지원연구개발비 : ’26년 22억원 이내(총 정부지원연구개발비 100억원 이내)  ㅇ
+    주관연구개발기관 : 기업(혁신제품형)  ㅇ 정부납부기술료 납부대상 여부 : 대상  ㅇ 기타사항 : 동 과제는 친환경선박전주기혁신기술개발사업(`22~`31)으로
+    지원하는 과제로 사업목적에 맞는 성과 창출을 위해 사업단 의사결정을 포함한 협력 필수 표  캡션입니다.'
+  line_count: 1
+  start_char_id: 16
+  next_line_char_id: null
+  end_char_id: 40
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 함초롬바탕
+    font_size: 10.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+1:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 함초롬바탕
+    font_size: 10.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+2:
+- para_id: 0
+  text: 관리번호
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 4
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+3:
+- para_id: 0
+  text: 예산연도-내역사업고유번호-구분-연번
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 17
+  end_char_id: 19
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 1
+  text: (P-ROME 자동부여)
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 13
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 8.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#FF0000'
+    highlight_color: null
+4:
+- para_id: 0
+  text: 산업기술분류
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 3
+  end_char_id: 6
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+5:
+- para_id: 0
+  text: 중분류Ⅰ
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 4
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+6:
+- para_id: 0
+  text: 중분류Ⅱ
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 4
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+7:
+- para_id: 0
+  text: 개발형태
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 4
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+8:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+9:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+10:
+- para_id: 0
+  text: 조선/해양시스템
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+11:
+- para_id: 0
+  text: '-'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+12:
+- para_id: 0
+  text: 혁신도전형
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 5
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+13:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+14:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+15:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+16:
+- para_id: 0
+  text: AI 연계
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 5
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 115
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+17:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 115
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+18:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 115
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+19:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 115
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+20:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 115
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+21:
+- para_id: 0
+  text: 지역(비수도권) 연계
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 9
+  end_char_id: 11
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 115
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+22:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 115
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+23:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 115
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+24:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 115
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+25:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 115
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+26:
+- para_id: 0
+  text: 초격차프로젝트
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 6
+  end_char_id: 7
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 1
+  text: (해당)
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 4
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 10.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+27:
+- para_id: 0
+  text: 분야
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 2
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+28:
+- para_id: 0
+  text: 미래 모빌리티(조선)
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 11
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+29:
+- para_id: 0
+  text: 미션
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 2
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+30:
+- para_id: 0
+  text: 친환경선박 전주기 생태계 육성
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 16
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+31:
+- para_id: 0
+  text: 프로젝트
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 3
+  end_char_id: 4
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+32:
+- para_id: 0
+  text: 친환경 선박 추진연료 대전환(암모니아/수소 등) 및 탄소저감 선도기술개발
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 34
+  end_char_id: 40
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+33:
+- para_id: 0
+  text: 제품·기술
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 4
+  end_char_id: 5
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+34:
+- para_id: 0
+  text: 무탄소 선박 대체연료 내연기관
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 16
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+35:
+- para_id: 0
+  text: 세부기술
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 3
+  end_char_id: 4
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+36:
+- para_id: 0
+  text: 무탄소 연료(암모니아/수소 등) 내연기관 및 핵심기자재
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 30
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+37:
+- para_id: 0
+  text: 연계유형
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 4
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+38:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+39:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+40:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+41:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+42:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+43:
+- para_id: 0
+  text: 특성분류
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 4
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+44:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 한양신명조
+    font_size: 9.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+45:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+46:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+47:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+48:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+49:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 한양신명조
+    font_size: 9.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+50:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+51:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+52:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+53:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+54:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 한양신명조
+    font_size: 9.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+55:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+56:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+57:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+58:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+59:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 한양신명조
+    font_size: 9.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+60:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+61:
+- para_id: 0
+  text: ESG
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 3
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+62:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 한양신명조
+    font_size: 9.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+63:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+64:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+65:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+66:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+67:
+- para_id: 0
+  text: R&D 자율성트랙
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 4
+  end_char_id: 9
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+68:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+69:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+70:
+- para_id: 0
+  text: 과제명
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 3
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+71:
+- para_id: 0
+  text: MW급 10kV 고전압 직류 시스템용 반도체 차단기 개발
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 31
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+72:
+- para_id: 0
+  text: '(TRL : [시작] 4단계 &#12316; [종료] 7단계)'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 27
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 1000
+  margin_right: 1000
+  line_spacing: 120
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+73:
+- para_id: 0
+  text: 1. 개념 및 정의
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 10
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+74:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 10.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#FF0000'
+    highlight_color: null
+75:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 5.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 1
+  text: □ 개념
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 4
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 14.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 2
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 2.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 3
+  text: ㅇ 전력시스템의 탈탄소화는 화석연료기반 발전을 대체하기 위해 재생에너지의 대규모 통합 및 기타 에너지원의 활용 그리고 발전, 배전의
+    통합적 조정 및 최적화를 통해 추진되고 있으며 선박의 경우에도, 가변속 발전엔진, 가스터빈, 연료전지, 배터리 등 다양한 발전원을 효율적으로
+    연계할 수 있는 고전압 대용량 직류 계통시스템이 유력한 대안으로 고려되고 있으며, 관련 기술에 대한 연구개발이 국내에서도 활발히 진행 중임
+  line_count: 6
+  start_char_id: 0
+  next_line_char_id: 39
+  end_char_id: 231
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 4
+  text: ㅇ 선박의 직류배전은 발전기 가변속 운전을 통해 연료, 에너지 효율을 향상시킬 수 있으며 전원의 병렬, 확장이 용이하고 전력품질 및
+    제어성능이 우수하여 미래 친환경, 스마트 선박 전력구성의 기반이 될 수 있음
+  line_count: 3
+  start_char_id: 0
+  next_line_char_id: 41
+  end_char_id: 117
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 5
+  text: ㅇ 직류 전력 계통을 구성함에 있어 시스템 사고에 대해 건전한 구간을 신속하게 분리함으로써 전체 직류 전력 계통 정전을 방지하고 고장의
+    파급을 차단하는 것이 매우 중요함. 특히, 고전압 대용량 직류 시스템은 고장 내력이 낮은 전력변환장치로 시스템이 구성되어 있고, 고장 차단을
+    위한 차단기와 퓨즈가 개발되어 있지 않아 시스템 보호에 어려움이 있음
+  line_count: 6
+  start_char_id: 0
+  next_line_char_id: 40
+  end_char_id: 193
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 6
+  text: ㅇ 따라서, DC 전력망과 전력전자 중심 시스템에서 필수적인 보호장치로 고속, 무아크, 정밀 차단을 통해 시스템 신뢰성과 안전성을 향상시킬
+    수 있는 수십 MW급 중대형 선박에 적용 가능한 직류 10,000V 이상의 고전압 직류 시스템용 반도체 차단기 개발이 필요하고, 직류 시스템의
+    필수 기술로 안정적이고 효율적인 직류 전력 계통 구축에 기여함
+  line_count: 5
+  start_char_id: 0
+  next_line_char_id: 41
+  end_char_id: 192
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 7
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 5.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 8
+  text: □ 정의
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 4
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 14.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 9
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 2.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 10
+  text: ㅇ 직류기반 전력용 반도체 차단기(SSCB, Solid State Circuit Breaker)는 기존 직류기반 기계식 차단기와 달리
+    IGBT, MOSFET, SiC 등의 전력용 반도체 스위치를 이용해 고장 전류를 매우 빠르게 차단하여 직류 전력 시스템을 보호하는 장치
+  line_count: 4
+  start_char_id: 0
+  next_line_char_id: 54
+  end_char_id: 151
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 11
+  text: ㅇ 전력용 반도체 차단기는 전력용 반도체 소자만으로 구성된 차단부를 통해 수십 μs 이내에 고장을 차단할 수 있는 특징을 갖고 있음
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 40
+  end_char_id: 74
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+76:
+- para_id: 0
+  text: 2. 연구목표 및 내용
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 12
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+77:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 한양중고딕
+    font_size: 10.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+78:
+- para_id: 0
+  text: '{caption:tbl_1|}'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 16
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 5.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 1
+  text: □ 최종목표
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 6
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 14.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 2
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 2.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 3
+  text: ㅇ 20 MW급 10,000V이상의 고전압 직류 시스템용 반도체 차단기 개발
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 43
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 4
+  text: '- MVDC* SSCB** 서브 모듈(sub module) 설계 및 구성 기자재 개발'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 49
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 5
+  text: '*MVDC : Medium-Voltage Direct Current, ** SSCB : Solid State Circuit Breaker'
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 73
+  end_char_id: 80
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 6
+  text: '- MVDC SSCB 서브 모듈 패키징 기술개발 및 구성 기자재 개발'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 40
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 7
+  text: '- 재투입과 재차단 기능 개발'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 18
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 8
+  text: '- MVDC SSCB 성능 검증 결과(공인시험기관 시험성적서 포함) 확보'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 42
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 9
+  text: ㅇ 정량적 목표
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 9
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 10
+  text: '{caption:tbl_1|} {caption:tbl_2|}{caption:tbl_1|}연번 핵심 기술/제품 성능지표 단위 달성목표
+    세계최고수준 (보유국, 기업/기관명) 1 차단용량(@정격기준) MW 20 이상 - 2 정격전압 kVdc 10 이상 - 3 정격절연전압 kV
+    12 이상~35*이하 - 4 연속정격전류 kA 2 이상 - 5 과전류 및 단락전류 (Over current and short circuit
+    protection, Instant trip ≤ [A]) kA 정격전류의 1~5배 - 6 고장검출 us 10 이하 - 7 차단시간 us 100
+    이하 - 8 차단기효율(@정격기준) % 98 이상 - 9 냉각방식 - 수냉식 - 10 성능 검증 결과보고서 (공인시험기관 시험성적서 포함)
+    건 1 {caption:tbl_2|}-'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 24
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 11
+  text: '* IEEE STD 1709 표 2의 MVDC 케이블, 퓨즈, 스위치 및 버스 도체를 보호하기 위한 전압 레벨'
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 63
+  end_char_id: 65
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 10.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 12
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 5.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 13
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 5.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 14
+  text: □ 개발 내용
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 7
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 14.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 15
+  text: ㅇ SSCB 서브(sub module) 모듈 기술개발
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 31
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 16
+  text: '- 서브 모듈 토폴로지(topology) 설계 및 구성 기자재 개발'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 39
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 17
+  text: '- 고효율 모듈 전력회로 설계'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 18
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 18
+  text: '- 서브 모듈 과전압 보호 설계 (서지 흡수 및 클램핑 회로 등)'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 38
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 19
+  text: '- 서브 모듈 고속 제어기 개발'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 19
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 20
+  text: '- 서브 모듈 파워 서플라이(Power supplier) 개발'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 36
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 21
+  text: ㅇ SSCB 서브 모듈 패키징 기술개발 및 구성 기자재 개발
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 34
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 22
+  text: '- 선박용 직류 10,000V이상 MVDC SSCB 사양 선정'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 36
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 23
+  text: '- SSCB 서브 모듈간 과전압 분배 기술'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 25
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 24
+  text: '- SSCB 패키징 구조 및 냉각 설계'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 24
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 25
+  text: '- SSCB 제어기 및 통신 모듈 개발'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 23
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 26
+  text: '- SSCB 운용 소프트웨어 개발'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 20
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 27
+  text: '- 고장 검출 및 차단 알고리즘 개발'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 22
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 28
+  text: ㅇ SSCB 성능검증 결과(공인시험기관 시험성적서 포함) 확보
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 35
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 29
+  text: '- MVDC용 SSCB 시험평가용 시험회로구성 및 평가 기술개발'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 37
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 30
+  text: '- SSCB 서브 모듈 차단 시험 결과 확보'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 26
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 31
+  text: '- SSCB Full Scale 내환경 시험 및 차단 시험 결과 확보'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 40
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 32
+  text: (공인시험기관 시험성적서 포함)
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 21
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 33
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 5.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 34
+  text: □ TRL 핵심기술요소(CTE)
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 18
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 14.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 35
+  text: '{caption:tbl_2|} 연번 핵심 기술요소 최종단계 생산수준 또는 결과물 시험평가 환경 1 MVDC SSCB 6 시제품 성능
+    -'
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 16
+  end_char_id: 24
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 36
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 5.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 37
+  text: □ 보안과제 및 안전성 검토 여부
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 18
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 14.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 38
+  text: 'ㅇ보안과제 : 해당사항 없음'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 16
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 39
+  text: 'ㅇ안전과제 : 해당'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 11
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 40
+  text: '- 직류 10,000V이상, 전류 2kA이상의 고전압 대전류에 대한 감전, 폭발 등 기술개발 과정에서의 사고 발생 가능성 및 안전관리
+    필요'
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 47
+  end_char_id: 79
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+79:
+- para_id: 0
+  text: '{caption:tbl_2|}{caption:tbl_1|}연번'
+  line_count: 8
+  start_char_id: 0
+  next_line_char_id: 4
+  end_char_id: 34
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+80:
+- para_id: 0
+  text: 핵심 기술/제품 성능지표
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 13
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+81:
+- para_id: 0
+  text: 단위
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 2
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+82:
+- para_id: 0
+  text: 달성목표
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 4
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+83:
+- para_id: 0
+  text: 세계최고수준
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 6
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 1
+  text: (보유국, 기업/기관명)
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 13
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 10.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+84:
+- para_id: 0
+  text: '1'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+85:
+- para_id: 0
+  text: 차단용량(@정격기준)
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 11
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+86:
+- para_id: 0
+  text: MW
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 2
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+87:
+- para_id: 0
+  text: 20 이상
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 5
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+88:
+- para_id: 0
+  text: '-'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+89:
+- para_id: 0
+  text: '2'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+90:
+- para_id: 0
+  text: 정격전압
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 4
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+91:
+- para_id: 0
+  text: kVdc
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 4
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+92:
+- para_id: 0
+  text: 10 이상
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 5
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+93:
+- para_id: 0
+  text: '-'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+94:
+- para_id: 0
+  text: '3'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+95:
+- para_id: 0
+  text: 정격절연전압
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 6
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+96:
+- para_id: 0
+  text: kV
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 2
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+97:
+- para_id: 0
+  text: 12 이상~35*이하
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 11
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+98:
+- para_id: 0
+  text: '-'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+99:
+- para_id: 0
+  text: '4'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+100:
+- para_id: 0
+  text: 연속정격전류
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 6
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+101:
+- para_id: 0
+  text: kA
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 2
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+102:
+- para_id: 0
+  text: 2 이상
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 4
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+103:
+- para_id: 0
+  text: '-'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+104:
+- para_id: 0
+  text: '5'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+105:
+- para_id: 0
+  text: 과전류 및 단락전류
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 10
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 95
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 1
+  text: (Over current and short circuit protection, Instant trip ≤ [A])
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 32
+  end_char_id: 63
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 95
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 9.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+106:
+- para_id: 0
+  text: kA
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 2
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 95
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+107:
+- para_id: 0
+  text: 정격전류의 1~5배
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 10
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 95
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+108:
+- para_id: 0
+  text: '-'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+109:
+- para_id: 0
+  text: '6'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+110:
+- para_id: 0
+  text: 고장검출
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 4
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+111:
+- para_id: 0
+  text: us
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 2
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+112:
+- para_id: 0
+  text: 10 이하
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 5
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+113:
+- para_id: 0
+  text: '-'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+114:
+- para_id: 0
+  text: '7'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+115:
+- para_id: 0
+  text: 차단시간
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 4
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+116:
+- para_id: 0
+  text: us
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 2
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+117:
+- para_id: 0
+  text: 100 이하
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 6
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+118:
+- para_id: 0
+  text: '-'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+119:
+- para_id: 0
+  text: '8'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+120:
+- para_id: 0
+  text: 차단기효율(@정격기준)
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 12
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+121:
+- para_id: 0
+  text: '%'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+122:
+- para_id: 0
+  text: 98 이상
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 5
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+123:
+- para_id: 0
+  text: '-'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+124:
+- para_id: 0
+  text: '9'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+125:
+- para_id: 0
+  text: 냉각방식
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 4
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+126:
+- para_id: 0
+  text: '-'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+127:
+- para_id: 0
+  text: 수냉식
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 3
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+128:
+- para_id: 0
+  text: '-'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+129:
+- para_id: 0
+  text: '10'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 2
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+130:
+- para_id: 0
+  text: 성능 검증 결과보고서
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 11
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 120
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 1
+  text: (공인시험기관 시험성적서 포함)
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 17
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 120
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 9.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+131:
+- para_id: 0
+  text: 건
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 120
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+132:
+- para_id: 0
+  text: '1'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 120
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+133:
+- para_id: 0
+  text: '{caption:tbl_2|}-'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 17
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+134:
+- para_id: 0
+  text: 연번
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 2
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+135:
+- para_id: 0
+  text: 핵심 기술요소
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 7
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+136:
+- para_id: 0
+  text: 최종단계
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 4
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+137:
+- para_id: 0
+  text: 생산수준 또는 결과물
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 11
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+138:
+- para_id: 0
+  text: 시험평가 환경
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 7
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+139:
+- para_id: 0
+  text: '1'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+140:
+- para_id: 0
+  text: MVDC SSCB
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 9
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+141:
+- para_id: 0
+  text: '6'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+142:
+- para_id: 0
+  text: 시제품 성능
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 6
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 120
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 10.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+143:
+- para_id: 0
+  text: '-'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+144:
+- para_id: 0
+  text: 3. 국내외 기술동향
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 11
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+145:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 한양중고딕
+    font_size: 10.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+146:
+- para_id: 0
+  text: □ 국내 기술 동향
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 10
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 14.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 1
+  text: ㅇ “친환경 선박 전주기 혁신기술개발사업”내 ‘하이브리드 추진선박 10MW급 직류배전 기술개발(’23~‘27)’ 국책과제가 진행 중이며,
+    해당 과제에서 저압(1 kV급) 직류 시스템용 반도체 차단기 개발을 목표로 연구가 수행되고 있음
+  line_count: 4
+  start_char_id: 0
+  next_line_char_id: 38
+  end_char_id: 131
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 2
+  text: ㅇ “친환경 선박 전주기 혁신기술개발사업”내 ‘20MW급 10kV 중대형 선박용 고전압 직류시스템 개발(’25~‘28)’ 국책과제가
+    진행 중이며, 해당 과제 범위에는 반도체 차단기 개발이 포함되어 있지 않음
+  line_count: 3
+  start_char_id: 0
+  next_line_char_id: 43
+  end_char_id: 116
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 3
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 4
+  text: □ 국외 기술 동향
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 10
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 14.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 5
+  text: ㅇ 미국 ARPA-E(Advanced Research Projects Agency-Energy) 프로젝트 중 ‘Breakers’ 프로그램을
+    통해 Drexel 대학과 Ohio 주립대학에서 MVDC 차단기를 개발하고 있으나, 대학 수준의 연구에 그치고 있음
+  line_count: 4
+  start_char_id: 0
+  next_line_char_id: 57
+  end_char_id: 142
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 6
+  text: ㅇ GE사는 자사 선박용 고전압 드라이브를 활용하여 중대형 선박용 고전압 대용량 직류시스템 개발 목표를 밝혔으며, 대용량 드라이브를
+    부스 타이에 적용하여 반도체 차단기를 대체할 계획을 보유함
+  line_count: 3
+  start_char_id: 0
+  next_line_char_id: 40
+  end_char_id: 107
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+147:
+- para_id: 0
+  text: 4. 지원필요성
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 8
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+148:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+149:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 5.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 1
+  text: □ 지원필요성
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 7
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 14.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 2
+  text: ㅇ 고전압 대용량 직류시스템은 중대형 선박의 에너지 효율과 친환경성 확보를 위한 핵심 기술로, 다양한 무탄소 에너지원과의 연계가 가능하여
+    차세대 선박에서 경쟁력 확보를 위한 핵심 기술임. 그러나 직류 시스템의 안정성과 보호를 위해서는 고속 차단이 가능한 반도체 차단기 기술이 필수적임.
+  line_count: 5
+  start_char_id: 0
+  next_line_char_id: 40
+  end_char_id: 160
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 3
+  text: ㅇ 기존 기계식 차단기는 직류 특성상 차단 속도와 내구성에 한계가 있으며, 고압/대용량 환경에서는 시스템 보호에 적합하지 않음. 반도체
+    차단기는 이러한 한계를 극복할 수 있는 기술로, 고전압 대용량 직류 시스템의 실증과 상용화를 위해 반드시 선행 개발되어야 함
+  line_count: 4
+  start_char_id: 0
+  next_line_char_id: 40
+  end_char_id: 146
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 4
+  text: ㅇ 국내 조선업계가 글로벌 시장에서 기술 자립과 경쟁력을 확보하기 위해서는 반도체 차단기와 같은 핵심 보호 기기와 관련 기술의 국산화가
+    필요하며, 이를 위한 정부 및 정책적 지원이 요구됨
+  line_count: 3
+  start_char_id: 0
+  next_line_char_id: 40
+  end_char_id: 105
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+150:
+- para_id: 0
+  text: 5. 활용방안 및 기대효과
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 10
+  end_char_id: 14
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+151:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+152:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 5.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 1
+  text: □ 활용방안
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 6
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 14.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 2
+  text: ㅇ 고압 연료전지, 배전 시스템, 추진 드라이브 등과 연계되어 고전압 반도체 차단기는 시스템의 안정성과 신뢰성을 확보하는 핵심 요소로
+    작용함
+  line_count: 3
+  start_char_id: 0
+  next_line_char_id: 41
+  end_char_id: 79
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 3
+  text: ㅇ 고전압 직류 기반 전기추진 시스템의 안전성과 운용 효율을 높여, 차세대 친환경 선박 시장 진출에 기여함
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 41
+  end_char_id: 60
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 4
+  text: ㅇ 대형 선박 및 군용 함정의 전기추진체계에 필수적인 보호기기로 활용 가능
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 40
+  end_char_id: 42
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 5
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 6
+  text: □ 기술적 기대효과
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 10
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 14.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 7
+  text: ㅇ 고전압 직류배전 시스템의 핵심 보호기술인 반도체 차단기의 국산화를 통해 선박 전력시스템의 기술 자립도 향상 및 설계 기술 내재화
+    기반을 마련할 수 있음
+  line_count: 3
+  start_char_id: 0
+  next_line_char_id: 40
+  end_char_id: 87
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 8
+  text: ㅇ 고속 차단 성능과 안전성을 갖춘 반도체 차단기 실증을 통해 전기추진 선박의 신뢰성과 운용 안전성을 확보하고, 관련 시험/인증 기술
+    확보로 상업화 기반 강화
+  line_count: 3
+  start_char_id: 0
+  next_line_char_id: 41
+  end_char_id: 89
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 9
+  text: ㅇ 직류 기반 전력변환 기술의 핵심 요소로서, 타 산업 분야로의 기술 확장 및 신시장 개척에 기여 가능
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 43
+  end_char_id: 58
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 10
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 1
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 11
+  text: □ 경제적 기대효과
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 10
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 14.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 12
+  text: ㅇ 반도체 차단기 국산화를 통해 해외 의존도를 낮추고, 국내 조선업계의 수출 경쟁력 및 기술력 강화에 기여
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 42
+  end_char_id: 60
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 13
+  text: ㅇ 전기추진 선박 시장의 성장과 함께 고압 직류 보호기술 수요가 증가함에 따라, 관련 기자재 산업의 사업 다각화 및 수출 확대가 가능함
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 40
+  end_char_id: 76
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 14
+  text: ㅇ 고부가가치 기자재 개발을 통해 조선/해운/항만 산업뿐만 아니라 전기/전자/기계 등 후방산업에도 긍정적 파급효과를 기대할 수 있음
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 42
+  end_char_id: 74
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 15
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 16
+  text: □ 기타 사회·환경적 기대효과
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 16
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 14.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 17
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 2.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 18
+  text: ㅇ 반도체 차단기는 무탄소 에너지원 기반 선박의 안전 운용을 지원하며, 온실가스 및 대기오염 저감에 필수적인 장치임.
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 42
+  end_char_id: 66
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 19
+  text: ㅇ 친환경 선박 기술개발과 관련 산업의 성장으로 새로운 일자리 창출 및 지속 가능한 산업 생태계 조성이 가능함
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 41
+  end_char_id: 62
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+153:
+- para_id: 0
+  text: 6. 지원기간/예산/추진체계
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 3
+  end_char_id: 15
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 12.0
+    bold: true
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+154:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 135
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 맑은 고딕
+    font_size: 11.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+155:
+- para_id: 0
+  text: ''
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 0
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 5.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 1
+  text: 'ㅇ 연구개발기간 : 45개월 이내(1차년도 개발기간 : 9개월, 2~4차년도 : 각 12개월)'
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 51
+  end_char_id: 53
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 2
+  text: 'ㅇ 정부지원연구개발비 : ’26년 22억원 이내(총 정부지원연구개발비 100억원 이내)'
+  line_count: 2
+  start_char_id: 0
+  next_line_char_id: 47
+  end_char_id: 49
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 3
+  text: 'ㅇ 주관연구개발기관 : 기업(혁신제품형)'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 23
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 4
+  text: 'ㅇ 정부납부기술료 납부대상 여부 : 대상'
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 23
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+- para_id: 5
+  text: 'ㅇ 기타사항 : 동 과제는 친환경선박전주기혁신기술개발사업(`22~`31)으로 지원하는 과제로 사업목적에 맞는 성과 창출을 위해 사업단
+    의사결정을 포함한 협력 필수'
+  line_count: 3
+  start_char_id: 0
+  next_line_char_id: 42
+  end_char_id: 91
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 160
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 휴먼명조
+    font_size: 12.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
+156:
+- para_id: 0
+  text: 표  캡션입니다.
+  line_count: 1
+  start_char_id: 0
+  next_line_char_id: null
+  end_char_id: 17
+  style_name: null
+  align: None
+  indent: null
+  margin_left: 0
+  margin_right: 0
+  line_spacing: 150
+  line_spacing_type: 퍼센트
+  space_before: null
+  space_after: null
+  char_style:
+    font_name: 함초롬바탕
+    font_size: 10.0
+    bold: false
+    italic: false
+    underline: false
+    strikeout: false
+    text_color: '#000000'
+    highlight_color: null
