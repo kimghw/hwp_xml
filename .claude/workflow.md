@@ -21,3 +21,24 @@
 2. list_id 순차 조회 (0~1000) - `SetPos(list_id, para_id, 0)`
 3. 문단 정보 추출 (text, line_count, char_id, 스타일) - `get_para_style.py`
 4. YAML 저장 - `get_para_style.py` → `파일_para.yaml`
+
+---
+
+# Workflow 3: HWPX → Excel 변환 (문단 분할)
+
+1. HWPX 파싱 - `get_cell_detail.py`
+2. 테이블별 셀/문단 정보 추출 - `get_cell_detail.py`
+3. Excel 변환 (문단별 행 분할) - `hwpx_to_excel.py`
+4. 메타데이터 시트 생성 - `cell_info_sheet.py` → `파일.xlsx`
+
+---
+
+# Workflow 4: 통합 Excel 생성 (예정)
+
+workflow1 + workflow2 + workflow3 조합하여 완전한 메타데이터가 포함된 Excel 생성
+
+1. HWP 열기
+2. workflow1 실행 → `_meta.yaml`
+3. workflow2 실행 → `_para.yaml`
+4. workflow3 실행 (YAML 연동) → `파일.xlsx`
+5. 정리 (임시 파일 삭제)
