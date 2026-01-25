@@ -233,7 +233,8 @@ class HwpxToExcel:
         hwpx_path: Union[str, Path],
         output_path: Optional[Union[str, Path]] = None,
         include_cell_info: bool = False,
-        hide_para_rows: bool = True
+        hide_para_rows: bool = True,
+        split_by_para: bool = False
     ) -> Path:
         """
         HWPX 파일의 모든 테이블을 Excel 시트로 변환
@@ -245,6 +246,7 @@ class HwpxToExcel:
             output_path: 출력 Excel 경로 (없으면 자동 생성)
             include_cell_info: 셀 상세 정보 시트 포함 여부
             hide_para_rows: para_id 행 숨김 여부
+            split_by_para: 셀 내 문단별로 행 분할 (True면 문단 수만큼 행 생성)
 
         Returns:
             생성된 Excel 파일 경로
@@ -279,6 +281,9 @@ class HwpxToExcel:
         default_sheet = wb.active
 
         # 1. 모든 테이블 시트 생성 (최상위 + 중첩 모두)
+        # 각 테이블의 row_offset_map 저장 (split_by_para용)
+        table_row_offset_maps = {}
+
         for idx, table in enumerate(tables):
             ws = wb.create_sheet(title=f"tbl_{idx}")
 
@@ -286,42 +291,75 @@ class HwpxToExcel:
                 self._apply_page_settings(ws, page)
 
             self._apply_column_widths(ws, table)
-            self._apply_row_heights(ws, table)
-            self._apply_cell_merges(ws, table)
 
-            # 셀 스타일 적용
-            if idx < len(table_cell_details):
-                self._apply_cell_styles(ws, table_cell_details[idx], idx)
+            # split_by_para 옵션에 따라 처리
+            if split_by_para and idx < len(table_cell_details):
+                # 문단별 행 분할 (row_offset_map 반환)
+                row_offset_map = self._apply_table_with_para_split(ws, table, table_cell_details[idx])
+                table_row_offset_maps[idx] = row_offset_map
+            else:
+                # 기존 방식
+                self._apply_row_heights(ws, table)
+                self._apply_cell_merges(ws, table)
+
+                # 셀 스타일 적용
+                if idx < len(table_cell_details):
+                    self._apply_cell_styles(ws, table_cell_details[idx], idx)
 
         # 2. 부모 테이블 셀에 중첩 테이블 하이퍼링크/메모 추가
+        # 같은 셀에 여러 nested 테이블이 있을 수 있으므로 그룹화
+        nested_by_cell = {}  # (parent_idx, row, col) -> [nested1, nested2, ...]
         for nested in nested_tables:
             parent_idx = nested.parent_tbl_idx
             if parent_idx < 0 or parent_idx >= len(tables):
                 continue
 
+            orig_row = nested.parent_row
+            col = nested.parent_col + 1  # 1-based
+
+            # split_by_para일 때 row_offset_map 사용
+            if parent_idx in table_row_offset_maps:
+                row_offset_map = table_row_offset_maps[parent_idx]
+                row = row_offset_map.get(orig_row, orig_row) + 1  # 1-based
+            else:
+                row = orig_row + 1  # 1-based
+
+            key = (parent_idx, row, col)
+            if key not in nested_by_cell:
+                nested_by_cell[key] = []
+            nested_by_cell[key].append(nested)
+
+        # 그룹화된 nested 테이블 처리
+        for (parent_idx, row, col), nested_list in nested_by_cell.items():
             parent_sheet_name = f"tbl_{parent_idx}"
             if parent_sheet_name not in wb.sheetnames:
                 continue
 
             parent_ws = wb[parent_sheet_name]
 
-            # 부모 셀 위치 (1-based)
-            row = nested.parent_row + 1
-            col = nested.parent_col + 1
-
             if row > 0 and col > 0:
                 cell = parent_ws.cell(row=row, column=col)
 
-                # 하이퍼링크 설정
-                cell.hyperlink = f"#tbl_{nested.tbl_idx}!A1"
-                cell.value = f"→tbl_{nested.tbl_idx}"
-                cell.style = "Hyperlink"
+                # 여러 nested 테이블이 있을 경우 표시
+                if len(nested_list) == 1:
+                    nested = nested_list[0]
+                    cell.hyperlink = f"#tbl_{nested.tbl_idx}!A1"
+                    cell.value = f"→tbl_{nested.tbl_idx}"
+                    comment_text = (
+                        f"중첩 테이블: tbl_{nested.tbl_idx}\n"
+                        f"크기: {nested.row_count}행 x {nested.col_count}열"
+                    )
+                else:
+                    # 여러 개: 첫 번째 테이블로 링크, 나머지는 메모에 표시
+                    tbl_names = [f"tbl_{n.tbl_idx}" for n in nested_list]
+                    cell.hyperlink = f"#tbl_{nested_list[0].tbl_idx}!A1"
+                    cell.value = f"→{','.join(tbl_names)}"
+                    comment_lines = []
+                    for n in nested_list:
+                        comment_lines.append(f"tbl_{n.tbl_idx}: {n.row_count}행 x {n.col_count}열")
+                    comment_text = "중첩 테이블:\n" + "\n".join(comment_lines)
 
-                # 메모 추가
-                comment_text = (
-                    f"중첩 테이블: tbl_{nested.tbl_idx}\n"
-                    f"크기: {nested.row_count}행 x {nested.col_count}열"
-                )
+                cell.style = "Hyperlink"
                 cell.comment = Comment(comment_text, "System")
 
         # 3. tbl_sub 시트 생성 (중첩 테이블이 있는 경우)
@@ -547,6 +585,188 @@ class HwpxToExcel:
                     except ValueError:
                         # 이미 병합된 셀이면 무시
                         pass
+
+    def _apply_table_with_para_split(
+        self, ws: Worksheet, table: TableProperty, cell_details: List[CellDetail]
+    ) -> dict:
+        """
+        문단별 행 분할하여 테이블 생성
+
+        원본 테이블의 각 행을 문단 수에 따라 여러 행으로 분할합니다.
+        - 셀에 문단이 3개 있으면 해당 행이 3행으로 분할
+        - 같은 행의 다른 셀(문단 1개)은 분할된 행에 맞춰 세로 병합
+        - 원본 셀 높이를 분할된 행에 균등 분배 (높이 유지)
+
+        Returns:
+            row_offset_map: 원본 행 인덱스 → 새 행 오프셋 매핑
+        """
+        # 셀 디테일을 (row, col) → CellDetail 매핑으로 변환
+        cell_map = {}
+        for cd in cell_details:
+            cell_map[(cd.row, cd.col)] = cd
+
+        # 1. 각 행별 최대 문단 수 및 문단별 높이 계산
+        row_max_paras = {}
+        row_para_heights = {}  # row_idx -> [높이1, 높이2, ...] (각 문단별 최대 높이)
+
+        for row_idx in range(table.row_count):
+            max_paras = 1
+            para_heights = []
+
+            for col_idx in range(table.col_count):
+                if (row_idx, col_idx) in cell_map:
+                    cd = cell_map[(row_idx, col_idx)]
+                    para_count = len(cd.paragraphs) if cd.paragraphs else 1
+                    max_paras = max(max_paras, para_count)
+
+                    # 각 문단별 높이 수집
+                    for p_idx, para in enumerate(cd.paragraphs or []):
+                        while len(para_heights) <= p_idx:
+                            para_heights.append(0)
+                        if para.height > para_heights[p_idx]:
+                            para_heights[p_idx] = para.height
+
+            row_max_paras[row_idx] = max_paras
+            row_para_heights[row_idx] = para_heights if para_heights else [0]
+
+        # 2. 원본 행 → 새 행 오프셋 매핑 계산
+        row_offset_map = {}
+        cumulative = 0
+        for row_idx in range(table.row_count):
+            row_offset_map[row_idx] = cumulative
+            cumulative += row_max_paras.get(row_idx, 1)
+
+        # 3. 분할된 행 높이 설정 (각 문단의 실제 높이 사용)
+        for row_idx in range(table.row_count):
+            para_count = row_max_paras.get(row_idx, 1)
+            para_heights = row_para_heights.get(row_idx, [])
+            new_start_row = row_offset_map[row_idx] + 1  # 1-based
+
+            for p_idx in range(para_count):
+                # 해당 문단의 높이 사용 (없으면 0)
+                height = para_heights[p_idx] if p_idx < len(para_heights) else 0
+                if height > 0:
+                    height_pt = height / self.HWPUNIT_TO_PT
+                    ws.row_dimensions[new_start_row + p_idx].height = height_pt
+
+        # 4. 셀 배치
+        for cd in cell_details:
+            orig_row = cd.row
+            orig_col = cd.col
+            new_start_row = row_offset_map[orig_row] + 1  # 1-based
+            new_col = orig_col + 1  # 1-based
+
+            para_count = len(cd.paragraphs) if cd.paragraphs else 1
+
+            # 이 셀이 차지하는 새 행 수 계산 (row_span 고려)
+            new_row_span = 0
+            for r in range(cd.row_span):
+                new_row_span += row_max_paras.get(orig_row + r, 1)
+
+            # 문단별로 값 설정
+            for para_idx in range(para_count):
+                new_row = new_start_row + para_idx
+
+                try:
+                    excel_cell = ws.cell(row=new_row, column=new_col)
+
+                    if cd.paragraphs and para_idx < len(cd.paragraphs):
+                        para = cd.paragraphs[para_idx]
+                        excel_cell.value = para.text
+                    elif para_idx == 0:
+                        excel_cell.value = cd.text
+
+                    # 스타일 적용
+                    self._apply_cell_style_single(excel_cell, cd, para_idx, para_count)
+
+                except Exception:
+                    pass
+
+            # 병합 처리
+            merge_end_row = new_start_row + new_row_span - 1
+            merge_start_col = new_col
+            merge_end_col = new_col + cd.col_span - 1
+
+            needs_row_merge = new_row_span > para_count  # 세로 병합 필요
+            needs_col_merge = cd.col_span > 1  # 가로 병합 필요
+
+            if needs_row_merge or needs_col_merge:
+                if para_count <= 1:
+                    # 문단이 0-1개: 전체 범위 병합
+                    if new_row_span > 1 or cd.col_span > 1:
+                        try:
+                            ws.merge_cells(
+                                start_row=new_start_row,
+                                start_column=merge_start_col,
+                                end_row=merge_end_row,
+                                end_column=merge_end_col
+                            )
+                        except ValueError:
+                            pass
+                else:
+                    # 문단이 2개 이상: 각 문단 행에서 가로 병합
+                    if needs_col_merge:
+                        for p_idx in range(para_count):
+                            try:
+                                ws.merge_cells(
+                                    start_row=new_start_row + p_idx,
+                                    start_column=merge_start_col,
+                                    end_row=new_start_row + p_idx,
+                                    end_column=merge_end_col
+                                )
+                            except ValueError:
+                                pass
+                    # 문단 수 < 새 행 수: 마지막 문단 이후 병합
+                    if needs_row_merge and para_count < new_row_span:
+                        try:
+                            ws.merge_cells(
+                                start_row=new_start_row + para_count - 1,
+                                start_column=merge_start_col,
+                                end_row=merge_end_row,
+                                end_column=merge_end_col
+                            )
+                        except ValueError:
+                            pass
+
+        return row_offset_map
+
+    def _apply_cell_style_single(self, excel_cell, cd: CellDetail, para_idx: int, total_paras: int):
+        """단일 셀에 스타일 적용"""
+        # 테두리
+        border = Border(
+            left=self._get_border_side(cd.border.left),
+            right=self._get_border_side(cd.border.right),
+            top=self._get_border_side(cd.border.top) if para_idx == 0 else Side(),
+            bottom=self._get_border_side(cd.border.bottom) if para_idx == total_paras - 1 else Side(),
+        )
+        excel_cell.border = border
+
+        # 배경색
+        bg_color = self._hwp_color_to_rgb(cd.border.bg_color)
+        if bg_color and bg_color != 'FFFFFF':
+            excel_cell.fill = PatternFill(start_color=bg_color, end_color=bg_color, fill_type='solid')
+
+        # 폰트
+        font_color = self._hwp_color_to_rgb(cd.font.color)
+        excel_cell.font = Font(
+            name=cd.font.name if cd.font.name else None,
+            size=cd.font.size_pt() if cd.font.size > 0 else None,
+            bold=cd.font.bold,
+            italic=cd.font.italic,
+            underline='single' if cd.font.underline else None,
+            strike=cd.font.strikeout,
+            color=font_color if font_color else None,
+        )
+
+        # 정렬
+        h_align_map = {'LEFT': 'left', 'CENTER': 'center', 'RIGHT': 'right', 'JUSTIFY': 'justify'}
+        v_align_map = {'TOP': 'top', 'CENTER': 'center', 'BOTTOM': 'bottom', 'BASELINE': 'center'}
+        h_align = 'left'
+        v_align = 'center'
+        if cd.paragraphs:
+            h_align = h_align_map.get(cd.paragraphs[0].align_h, 'left')
+            v_align = v_align_map.get(cd.paragraphs[0].align_v, 'center')
+        excel_cell.alignment = Alignment(horizontal=h_align, vertical=v_align, wrap_text=True)
 
     def _get_column_widths(self, table: TableProperty) -> List[int]:
         """각 열의 너비 추출 (셀 너비를 span으로 나눠서 분배)"""

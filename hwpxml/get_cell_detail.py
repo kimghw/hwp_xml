@@ -36,6 +36,16 @@ class ParaInfo:
     align_v: str = "BASELINE"
     line_spacing: int = 160  # percent
 
+    # 텍스트
+    text: str = ""
+
+    # 줄 정보 (linesegarray에서 추출)
+    line_count: int = 1
+    height: int = 0  # HWPUNIT (문단 전체 높이)
+
+    # 중첩 테이블 포함 여부
+    has_nested_table: bool = False
+
 
 @dataclass
 class BorderInfo:
@@ -420,8 +430,8 @@ class GetCellDetail:
         return cells
 
     def _parse_paragraphs(self, sublist_elem, cell: CellDetail):
-        """subList 내의 문단들 파싱"""
-        texts = []
+        """subList 내의 문단들 파싱 (텍스트, 줄수, 높이 포함)"""
+        all_texts = []
 
         for p_elem in sublist_elem:
             if not p_elem.tag.endswith('}p'):
@@ -438,38 +448,63 @@ class GetCellDetail:
                 para_info.align_v = pp['align_v']
                 para_info.line_spacing = pp['line_spacing']
 
-            cell.paragraphs.append(para_info)
+            # 문단별 텍스트
+            para_texts = []
 
             # run 요소에서 텍스트와 문자 속성 추출
-            for run_elem in p_elem:
-                if not run_elem.tag.endswith('}run'):
-                    continue
+            for child in p_elem:
+                tag = child.tag.split('}')[-1]
 
-                char_pr_id = run_elem.get('charPrIDRef', '')
-                if char_pr_id and not cell.char_pr_id:
-                    cell.char_pr_id = char_pr_id
-                    # 첫 번째 문자 속성을 셀의 기본 폰트로 사용
-                    if char_pr_id in self._char_props:
-                        cp = self._char_props[char_pr_id]
-                        cell.font = FontInfo(
-                            size=cp.get('height', 1000),
-                            bold=cp.get('bold', False),
-                            italic=cp.get('italic', False),
-                            underline=cp.get('underline', False),
-                            strikeout=cp.get('strikeout', False),
-                            color=cp.get('textColor', '#000000'),
-                        )
-                        # 폰트 이름
-                        font_ref = cp.get('font_ref', '0')
-                        if font_ref in self._fonts:
-                            cell.font.name = self._fonts[font_ref]
+                if tag == 'run':
+                    char_pr_id = child.get('charPrIDRef', '')
+                    if char_pr_id and not cell.char_pr_id:
+                        cell.char_pr_id = char_pr_id
+                        # 첫 번째 문자 속성을 셀의 기본 폰트로 사용
+                        if char_pr_id in self._char_props:
+                            cp = self._char_props[char_pr_id]
+                            cell.font = FontInfo(
+                                size=cp.get('height', 1000),
+                                bold=cp.get('bold', False),
+                                italic=cp.get('italic', False),
+                                underline=cp.get('underline', False),
+                                strikeout=cp.get('strikeout', False),
+                                color=cp.get('textColor', '#000000'),
+                            )
+                            # 폰트 이름
+                            font_ref = cp.get('font_ref', '0')
+                            if font_ref in self._fonts:
+                                cell.font.name = self._fonts[font_ref]
 
-                # 텍스트 추출
-                for t_elem in run_elem:
-                    if t_elem.tag.endswith('}t') and t_elem.text:
-                        texts.append(t_elem.text)
+                    # 텍스트 추출
+                    for t_elem in child:
+                        if t_elem.tag.endswith('}t') and t_elem.text:
+                            para_texts.append(t_elem.text)
 
-        cell.text = ''.join(texts)
+                elif tag == 'linesegarray':
+                    # lineseg에서 줄 수와 높이 추출
+                    linesegs = [ls for ls in child if ls.tag.endswith('}lineseg')]
+                    para_info.line_count = len(linesegs) if linesegs else 1
+
+                    if linesegs:
+                        # 문단 높이 = 각 줄의 vertsize 합계
+                        total_height = 0
+                        for ls in linesegs:
+                            vertsize = int(ls.get('vertsize', 0))
+                            total_height += vertsize
+                        para_info.height = total_height
+
+                elif tag == 'ctrl':
+                    # ctrl 내에 테이블이 있는지 확인
+                    for ctrl_child in child:
+                        if ctrl_child.tag.endswith('}tbl'):
+                            para_info.has_nested_table = True
+                            break
+
+            para_info.text = ''.join(para_texts)
+            all_texts.extend(para_texts)
+            cell.paragraphs.append(para_info)
+
+        cell.text = ''.join(all_texts)
 
 
 # 편의 함수
