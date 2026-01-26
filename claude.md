@@ -90,7 +90,18 @@ hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
 | 모듈명 | 설명 |
 |--------|------|
 | `FilePathCheckerModule` | 파일 경로 접근만 허용 |
-| `SecurityModule` | 모든 보안 경고 자동 허용 (스크립트, 매크로 등) |
+| `SecurityModule` | 모든 보안 경고 자동 허용 (스크립트, 매크로, 개인정보 등) |
+
+### SecurityModule 허용 항목
+- 스크립트 실행 경고
+- 매크로 실행 경고
+- 개인정보 포함 경고
+- 외부 파일 접근 경고
+
+### 테스트 방법
+```bash
+cmd.exe /c "cd /d C:\hwp_xml\win32 && python security_module_test.py" 2>&1
+```
 
 ## caption_list_id 규칙
 
