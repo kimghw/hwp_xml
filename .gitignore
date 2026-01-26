@@ -31,3 +31,8 @@ Thumbs.db
 # Test HWP files
 extract_table_field_xml.hwp
 extract_table_field_xml.hwpx
+*.hwp
+*.hwpx
+
+# Output YAML files
+*.yaml

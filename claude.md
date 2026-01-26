@@ -73,11 +73,24 @@ Windows 한글 COM API 연동 (WSL에서 cmd.exe로 실행)
 from hwp_utils import get_hwp_instance, create_hwp_instance, get_active_filepath, open_file_dialog, save_hwp
 
 hwp = get_hwp_instance()  # 열린 한글 연결 (없으면 None)
-hwp = create_hwp_instance()  # 새 한글 생성 (RegisterModule 포함)
+hwp = create_hwp_instance()  # 새 한글 생성 (SecurityModule 포함)
 filepath = get_active_filepath(hwp)  # 열린 문서 경로
 filepath = open_file_dialog()  # 파일 선택 대화상자
 save_hwp(hwp, filepath, "HWP")  # 편집 가능하게 저장
 ```
+
+## 보안 모듈 (RegisterModule)
+
+`create_hwp_instance()`에서 `SecurityModule` 등록으로 모든 보안 경고 자동 허용:
+
+```python
+hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
+```
+
+| 모듈명 | 설명 |
+|--------|------|
+| `FilePathCheckerModule` | 파일 경로 접근만 허용 |
+| `SecurityModule` | 모든 보안 경고 자동 허용 (스크립트, 매크로 등) |
 
 ## caption_list_id 규칙
 

@@ -34,7 +34,7 @@ def create_hwp_instance(visible: bool = True):
     """
     import win32com.client as win32
     hwp = win32.gencache.EnsureDispatch("HWPFrame.HwpObject")
-    hwp.RegisterModule("FilePathCheckDLL", "FilePathCheckerModule")
+    hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
     if visible:
         hwp.XHwpWindows.Item(0).Visible = True
     return hwp
