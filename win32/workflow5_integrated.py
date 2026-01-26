@@ -105,34 +105,21 @@ class Workflow5:
         print(f"파일 열림: {self.filepath}")
         return self.filepath
 
-    def _get_bookmarks(self) -> list:
-        """HWP에서 북마크 목록 가져오기"""
-        print("\n북마크 확인 중...")
-        self.bookmarks = []
+    def _get_bookmarks(self) -> int:
+        """HWP에서 북마크 개수 확인 (HeadCtrl 순회 방식)"""
+        bookmark_count = 0
 
-        # 문서 시작으로 이동
-        self.hwp.MovePos(2)
+        # HeadCtrl 순회로 북마크 개수 확인
+        ctrl = self.hwp.HeadCtrl
+        while ctrl:
+            if ctrl.CtrlID == 'bokm':
+                bookmark_count += 1
+            ctrl = ctrl.Next
 
-        # 모든 컨트롤을 순회하며 북마크 찾기
-        while True:
-            ctrl = self.hwp.FindCtrl()
-            if not ctrl:
-                break
+        print(f"  발견된 북마크: {bookmark_count}개")
+        self.bookmark_count = bookmark_count
 
-            try:
-                if ctrl.CtrlID == 'bokm':
-                    props = ctrl.Properties
-                    name = props.Item('Name')
-                    if name:
-                        self.bookmarks.append(name)
-            except:
-                pass
-
-        print(f"  발견된 북마크: {len(self.bookmarks)}개")
-        for bm in self.bookmarks:
-            print(f"    - {bm}")
-
-        return self.bookmarks
+        return bookmark_count
 
     def _insert_bookmark_markers(self):
         """북마크 위치에 마커 텍스트 삽입"""
@@ -379,38 +366,34 @@ class Workflow5:
 
             base_path = os.path.splitext(self.filepath)[0]
 
-            # 3. 북마크 확인
-            self._get_bookmarks()
-            results['has_bookmarks'] = len(self.bookmarks) > 0
+            # 3. HWP에서 북마크 개수 확인 (HeadCtrl 순회)
+            bookmark_count = self._get_bookmarks()
+            results['has_bookmarks'] = bookmark_count > 0
 
-            if not self.bookmarks:
+            if bookmark_count == 0:
                 print("\n북마크가 없습니다. 일반 변환으로 진행합니다.")
-                # workflow4로 대체 가능
                 return results
 
-            # 4. 북마크 마커 삽입 (HWPX 변환용)
-            self._insert_bookmark_markers()
-
-            # 5. HWPX 변환
+            # 4. HWPX 변환
             self._save_as_hwpx()
 
-            # 6. 원본 HWP 복원 (마커 없는 상태로)
+            # 5. 원본 HWP 복원
             self.hwp.Open(self.filepath)
 
-            # 7. Workflow 1: 메타데이터 추출
+            # 8. Workflow 1: 메타데이터 추출
             results['meta_yaml'] = self._run_workflow1(base_path)
 
-            # 8. Workflow 2: 문단 스타일 추출
+            # 9. Workflow 2: 문단 스타일 추출
             self.hwp.Open(self.temp_hwpx)
             results['para_yaml'] = self._run_workflow2(base_path)
 
-            # 9. 북마크별 Excel 변환
+            # 10. 북마크별 Excel 변환
             results['excel'] = self._run_bookmark_excel(base_path, split_by_para)
 
-            # 10. 정리
+            # 11. 정리
             self._cleanup()
 
-            # 11. 완료
+            # 12. 완료
             print("\n" + "=" * 60)
             print("완료!")
             print("=" * 60)
