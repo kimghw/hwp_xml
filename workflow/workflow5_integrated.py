@@ -390,7 +390,8 @@ class Workflow5:
             # 10. 북마크별 Excel 변환
             results['excel'] = self._run_bookmark_excel(base_path, split_by_para)
 
-            # 11. 정리
+            # 11. 문서 닫고 정리
+            self.hwp.Clear(1)  # temp HWPX 파일 잠금 해제
             self._cleanup()
 
             # 12. 완료
