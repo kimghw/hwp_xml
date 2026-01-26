@@ -67,7 +67,6 @@ class Workflow5:
         # 메타데이터 저장용
         self.cell_positions = None
         self.field_names = None
-        self.para_styles = None
         self.existing_fields = []  # 기존 필드 목록
 
     def _get_hwp(self):
@@ -303,24 +302,6 @@ class Workflow5:
         finally:
             shutil.rmtree(extract_dir, ignore_errors=True)
 
-    def _run_workflow2(self, base_path: str) -> str:
-        """Workflow 2: 문단 스타일 추출"""
-        print("\n" + "=" * 60)
-        print("Workflow 2: 문단 스타일 추출")
-        print("=" * 60)
-
-        from win32.get_para_style import GetParaStyle
-
-        getter = GetParaStyle(self.hwp)
-        self.para_styles = getter.get_all_para_styles()
-
-        para_yaml = base_path + "_para.yaml"
-        with open(para_yaml, 'w', encoding='utf-8') as f:
-            f.write(getter.to_yaml(self.para_styles))
-
-        print(f"문단 스타일 저장: {para_yaml}")
-        return para_yaml
-
     def _run_bookmark_excel(self, base_path: str, split_by_para: bool = True) -> str:
         """북마크별 시트 분리 Excel 생성"""
         print("\n" + "=" * 60)
@@ -378,7 +359,6 @@ class Workflow5:
         results = {
             'field_yaml': None,
             'meta_yaml': None,
-            'para_yaml': None,
             'excel': None,
             'has_bookmarks': False,
         }
@@ -412,11 +392,7 @@ class Workflow5:
             # 7. Workflow 1: 메타데이터 추출
             results['meta_yaml'] = self._run_workflow1(base_path)
 
-            # 9. Workflow 2: 문단 스타일 추출
-            self.hwp.Open(self.temp_hwpx)
-            results['para_yaml'] = self._run_workflow2(base_path)
-
-            # 10. 북마크별 Excel 변환
+            # 8. 북마크별 Excel 변환
             results['excel'] = self._run_bookmark_excel(base_path, split_by_para)
 
             # 11. 문서 닫고 정리
@@ -431,7 +407,6 @@ class Workflow5:
             if results['field_yaml']:
                 print(f"  기존필드:   {results['field_yaml']}")
             print(f"  메타데이터: {results['meta_yaml']}")
-            print(f"  문단스타일: {results['para_yaml']}")
             print(f"  Excel:     {results['excel']}")
 
             if self._should_close():
