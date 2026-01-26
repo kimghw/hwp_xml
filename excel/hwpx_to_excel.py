@@ -1186,8 +1186,12 @@ class HwpxToExcel:
             merge_end_row = new_start_row + new_row_span - 1
             merge_end_col = excel_col + unified_col_span - 1
 
-            if new_row_span > para_count or unified_col_span > 1:
+            needs_row_merge = new_row_span > para_count  # 세로 병합 필요
+            needs_col_merge = unified_col_span > 1  # 가로 병합 필요
+
+            if needs_row_merge or needs_col_merge:
                 if para_count <= 1:
+                    # 문단 0-1개: 전체 범위 병합
                     if new_row_span > 1 or unified_col_span > 1:
                         try:
                             ws.merge_cells(
@@ -1199,18 +1203,43 @@ class HwpxToExcel:
                         except ValueError:
                             pass
                 else:
-                    # 각 문단별로 가로 병합
-                    if unified_col_span > 1:
-                        for p_idx in range(para_count):
-                            try:
-                                ws.merge_cells(
-                                    start_row=new_start_row + p_idx,
-                                    start_column=excel_col,
-                                    end_row=new_start_row + p_idx,
-                                    end_column=merge_end_col
-                                )
-                            except ValueError:
-                                pass
+                    # 문단 2개 이상
+                    if needs_row_merge:
+                        # 세로 병합 필요: 각 문단 행은 가로만 병합, 마지막 문단부터 끝까지 세로+가로 병합
+                        if needs_col_merge:
+                            for p_idx in range(para_count - 1):  # 마지막 문단 제외
+                                try:
+                                    ws.merge_cells(
+                                        start_row=new_start_row + p_idx,
+                                        start_column=excel_col,
+                                        end_row=new_start_row + p_idx,
+                                        end_column=merge_end_col
+                                    )
+                                except ValueError:
+                                    pass
+                        # 마지막 문단 행부터 끝까지 세로+가로 병합
+                        try:
+                            ws.merge_cells(
+                                start_row=new_start_row + para_count - 1,
+                                start_column=excel_col,
+                                end_row=merge_end_row,
+                                end_column=merge_end_col
+                            )
+                        except ValueError:
+                            pass
+                    else:
+                        # 세로 병합 불필요: 각 문단 행 가로만 병합
+                        if needs_col_merge:
+                            for p_idx in range(para_count):
+                                try:
+                                    ws.merge_cells(
+                                        start_row=new_start_row + p_idx,
+                                        start_column=excel_col,
+                                        end_row=new_start_row + p_idx,
+                                        end_column=merge_end_col
+                                    )
+                                except ValueError:
+                                    pass
 
                 # 병합 영역의 내부 테두리 제거
                 self._apply_merged_cell_borders(
