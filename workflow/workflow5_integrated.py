@@ -62,12 +62,36 @@ class Workflow5:
         self.hwp_created = False
         self.filepath = None
         self.temp_hwpx = None
+        self.output_dir = None  # 결과 저장 폴더
         self.bookmarks = []  # 북마크 목록
         self.markers_inserted = False  # 마커 삽입 여부
         # 메타데이터 저장용
         self.cell_positions = None
         self.field_names = None
         self.existing_fields = []  # 기존 필드 목록
+
+    def _create_output_dir(self) -> str:
+        """결과 저장 폴더 생성 (파일명 기반, 중복 시 (1), (2) 등 추가)"""
+        if not self.filepath:
+            raise ValueError("파일 경로가 설정되지 않았습니다.")
+
+        # 실행 파일(HWP) 폴더에 파일명으로 폴더 생성
+        file_dir = os.path.dirname(self.filepath)
+        file_name = os.path.splitext(os.path.basename(self.filepath))[0]
+
+        output_dir = os.path.join(file_dir, file_name)
+
+        # 중복 시 (1), (2) 등 추가
+        if os.path.exists(output_dir):
+            counter = 1
+            while os.path.exists(f"{output_dir}({counter})"):
+                counter += 1
+            output_dir = f"{output_dir}({counter})"
+
+        os.makedirs(output_dir, exist_ok=True)
+        self.output_dir = output_dir
+        print(f"결과 폴더: {output_dir}")
+        return output_dir
 
     def _get_hwp(self):
         """한글 인스턴스 가져오기"""
@@ -358,6 +382,7 @@ class Workflow5:
         print("=" * 60)
 
         results = {
+            'output_dir': None,
             'field_yaml': None,
             'meta_yaml': None,
             'excel': None,
@@ -371,29 +396,33 @@ class Workflow5:
             # 2. 파일 열기
             self._open_file(filepath)
 
-            base_path = os.path.splitext(self.filepath)[0]
+            # 3. 결과 저장 폴더 생성
+            self._create_output_dir()
+            file_name = os.path.splitext(os.path.basename(self.filepath))[0]
+            base_path = os.path.join(self.output_dir, file_name)
 
-            # 3. HWP에서 북마크 개수 확인 (HeadCtrl 순회)
+            # 4. HWP에서 북마크 개수 확인 (HeadCtrl 순회)
             bookmark_count = self._get_bookmarks()
             results['has_bookmarks'] = bookmark_count > 0
+            results['output_dir'] = self.output_dir
 
             if bookmark_count == 0:
                 print("\n북마크가 없습니다. 일반 변환으로 진행합니다.")
                 return results
 
-            # 4. 기존 필드 추출 및 삭제
+            # 5. 기존 필드 추출 및 삭제
             results['field_yaml'] = self._extract_existing_fields(base_path)
 
-            # 5. HWPX 변환
+            # 6. HWPX 변환
             self._save_as_hwpx()
 
-            # 6. 원본 HWP 복원
+            # 7. 원본 HWP 복원
             self.hwp.Open(self.filepath)
 
-            # 7. Workflow 1: 메타데이터 추출
+            # 8. Workflow 1: 메타데이터 추출
             results['meta_yaml'] = self._run_workflow1(base_path)
 
-            # 8. 북마크별 Excel 변환
+            # 9. 북마크별 Excel 변환
             results['excel'] = self._run_bookmark_excel(base_path, split_by_para)
 
             # 11. 문서 닫고 정리
@@ -404,11 +433,12 @@ class Workflow5:
             print("\n" + "=" * 60)
             print("완료!")
             print("=" * 60)
+            print(f"  결과 폴더: {self.output_dir}")
             print(f"  북마크 수: {len(self.bookmarks)}개")
             if results['field_yaml']:
-                print(f"  기존필드:   {results['field_yaml']}")
-            print(f"  메타데이터: {results['meta_yaml']}")
-            print(f"  Excel:     {results['excel']}")
+                print(f"  기존필드:   {os.path.basename(results['field_yaml'])}")
+            print(f"  메타데이터: {os.path.basename(results['meta_yaml']) if results['meta_yaml'] else 'None'}")
+            print(f"  Excel:     {os.path.basename(results['excel']) if results['excel'] else 'None'}")
 
             if self._should_close():
                 try:
