@@ -172,7 +172,7 @@ class GetParaStyle:
         if self.hwp is None:
             import win32com.client as win32
             self.hwp = win32.gencache.EnsureDispatch("HWPFrame.HwpObject")
-            self.hwp.RegisterModule("FilePathCheckDLL", "FilePathCheckerModule")
+            self.hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
             self.hwp.XHwpWindows.Item(0).Visible = True
 
         return self.hwp.Open(file_path, "HWP", "")

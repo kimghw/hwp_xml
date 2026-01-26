@@ -28,7 +28,7 @@ def get_hwp_instance():
     except:
         # 새 인스턴스 생성
         hwp = win32.gencache.EnsureDispatch("hwpframe.hwpobject")
-        hwp.RegisterModule("FilePathCheckDLL", "FilePathCheckerModule")
+        hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
         return hwp, True
 
 

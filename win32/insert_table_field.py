@@ -54,13 +54,13 @@ def get_or_create_hwp():
     if hwp:
         # 기존 인스턴스도 보안 모듈 등록 확인
         try:
-            hwp.RegisterModule("FilePathCheckDLL", "FilePathCheckerModule")
+            hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
         except:
             pass
         return hwp
     # 한글 새로 실행
     hwp = win32.gencache.EnsureDispatch("hwpframe.hwpobject")
-    hwp.RegisterModule("FilePathCheckDLL", "FilePathCheckerModule")
+    hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
     return hwp
 
 

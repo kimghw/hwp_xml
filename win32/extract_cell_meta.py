@@ -38,12 +38,12 @@ def get_or_create_hwp():
     hwp = get_hwp_instance()
     if hwp:
         try:
-            hwp.RegisterModule("FilePathCheckDLL", "FilePathCheckerModule")
+            hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
         except:
             pass
         return hwp
     hwp = win32.gencache.EnsureDispatch("hwpframe.hwpobject")
-    hwp.RegisterModule("FilePathCheckDLL", "FilePathCheckerModule")
+    hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
     return hwp
 
 

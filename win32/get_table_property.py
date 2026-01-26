@@ -199,7 +199,7 @@ class GetTableProperty:
                     self.hwp = win32.gencache.EnsureDispatch("HWPFrame.HwpObject")
 
             # 보안 모듈 등록
-            self.hwp.RegisterModule("FilePathCheckDLL", "FilePathCheckerModule")
+            self.hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
 
             # 창 표시 설정
             self.hwp.XHwpWindows.Item(0).Visible = self._visible

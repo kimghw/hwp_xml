@@ -65,7 +65,7 @@ class Workflow4:
             print("기존 한글 인스턴스 연결")
             self.hwp_created = False
             try:
-                self.hwp.RegisterModule("FilePathCheckDLL", "FilePathCheckerModule")
+                self.hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
             except:
                 pass
         else:
@@ -102,10 +102,20 @@ class Workflow4:
         temp_dir = tempfile.gettempdir()
         self.temp_hwpx = os.path.join(temp_dir, "workflow4_temp.hwpx")
 
+        # 기존 임시 파일 삭제
+        if os.path.exists(self.temp_hwpx):
+            try:
+                os.remove(self.temp_hwpx)
+            except:
+                pass
+
         self.hwp.HAction.GetDefault("FileSaveAs_S", self.hwp.HParameterSet.HFileOpenSave.HSet)
         self.hwp.HParameterSet.HFileOpenSave.filename = self.temp_hwpx
         self.hwp.HParameterSet.HFileOpenSave.Format = "HWPX"
         self.hwp.HAction.Execute("FileSaveAs_S", self.hwp.HParameterSet.HFileOpenSave.HSet)
+
+        # 문서 닫고 파일 잠금 해제
+        self.hwp.Clear(1)
 
         print(f"임시 HWPX 저장: {self.temp_hwpx}")
         return self.temp_hwpx
