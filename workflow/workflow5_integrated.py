@@ -68,6 +68,7 @@ class Workflow5:
         self.cell_positions = None
         self.field_names = None
         self.para_styles = None
+        self.existing_fields = []  # 기존 필드 목록
 
     def _get_hwp(self):
         """한글 인스턴스 가져오기"""
@@ -185,6 +186,30 @@ class Workflow5:
 
         print(f"임시 HWPX 저장: {self.temp_hwpx}")
         return self.temp_hwpx
+
+    def _extract_existing_fields(self, base_path: str) -> str:
+        """기존 필드 추출 및 삭제"""
+        print("\n" + "-" * 60)
+        print("기존 필드 추출 중...")
+
+        from win32.extract_field import ExtractField
+
+        extractor = ExtractField(self.hwp)
+        self.existing_fields = extractor.extract_fields()
+
+        if not self.existing_fields:
+            print("  기존 필드 없음")
+            return None
+
+        # YAML 저장
+        field_yaml = base_path + "_field.yaml"
+        extractor.save_yaml(field_yaml)
+
+        # 필드 삭제
+        print("기존 필드 삭제 중...")
+        extractor.delete_all_fields()
+
+        return field_yaml
 
     def _run_workflow1(self, base_path: str) -> str:
         """Workflow 1: 테이블 메타데이터 추출"""
@@ -351,6 +376,7 @@ class Workflow5:
         print("=" * 60)
 
         results = {
+            'field_yaml': None,
             'meta_yaml': None,
             'para_yaml': None,
             'excel': None,
@@ -374,13 +400,16 @@ class Workflow5:
                 print("\n북마크가 없습니다. 일반 변환으로 진행합니다.")
                 return results
 
-            # 4. HWPX 변환
+            # 4. 기존 필드 추출 및 삭제
+            results['field_yaml'] = self._extract_existing_fields(base_path)
+
+            # 5. HWPX 변환
             self._save_as_hwpx()
 
-            # 5. 원본 HWP 복원
+            # 6. 원본 HWP 복원
             self.hwp.Open(self.filepath)
 
-            # 8. Workflow 1: 메타데이터 추출
+            # 7. Workflow 1: 메타데이터 추출
             results['meta_yaml'] = self._run_workflow1(base_path)
 
             # 9. Workflow 2: 문단 스타일 추출
@@ -399,6 +428,8 @@ class Workflow5:
             print("완료!")
             print("=" * 60)
             print(f"  북마크 수: {len(self.bookmarks)}개")
+            if results['field_yaml']:
+                print(f"  기존필드:   {results['field_yaml']}")
             print(f"  메타데이터: {results['meta_yaml']}")
             print(f"  문단스타일: {results['para_yaml']}")
             print(f"  Excel:     {results['excel']}")
