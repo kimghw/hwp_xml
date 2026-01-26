@@ -75,7 +75,7 @@ from hwp_utils import get_hwp_instance, create_hwp_instance, get_active_filepath
 hwp = get_hwp_instance()  # 열린 한글 연결 (없으면 None)
 hwp = create_hwp_instance()  # 새 한글 생성 (SecurityModule 포함)
 filepath = get_active_filepath(hwp)  # 열린 문서 경로
-filepath = open_file_dialog()  # 파일 선택 대화상자
+filepath = open_file_dialog()  # 파일 선택 대화상자 (Windows 탐색기 열림)
 save_hwp(hwp, filepath, "HWP")  # 편집 가능하게 저장
 ```
 
@@ -96,3 +96,7 @@ hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
 
 - **parent 테이블**: 항상 caption_list_id 존재 (첫 셀 list_id - 1)
 - **nested 테이블**: caption이 있으면 caption_list_id, 없으면 null
+
+## 북마크 조회 (HeadCtrl 순회)
+
+HeadCtrl 순회 방식으로 북마크를 찾으면 Name이 None으로 나옴 (한글 COM API 제한)

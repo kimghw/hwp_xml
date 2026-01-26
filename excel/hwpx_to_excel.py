@@ -164,7 +164,9 @@ class HwpxToExcel:
         hwpx_path: Union[str, Path],
         bookmark_name: str,
         output_path: Optional[Union[str, Path]] = None,
-        split_by_para: bool = False
+        split_by_para: bool = False,
+        include_cell_info: bool = False,
+        hide_para_rows: bool = True
     ) -> Path:
         """
         특정 북마크 섹션의 테이블만 하나의 시트로 변환
@@ -174,6 +176,8 @@ class HwpxToExcel:
             bookmark_name: 북마크 이름 (부분 일치 지원)
             output_path: 출력 Excel 경로
             split_by_para: 문단별 행 분할 여부
+            include_cell_info: 셀 상세 정보 시트 포함 여부
+            hide_para_rows: para_id 행 숨김 여부 (include_cell_info=True일 때)
 
         Returns:
             생성된 Excel 파일 경로
@@ -262,8 +266,445 @@ class HwpxToExcel:
         ws.page_setup.fitToHeight = 0  # 높이는 제한 없음
         ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
 
+        # 셀 정보 시트 추가 (옵션)
+        if include_cell_info:
+            try:
+                from .cell_info_sheet import add_cell_info_sheet
+            except ImportError:
+                from cell_info_sheet import add_cell_info_sheet
+            page_id = page.section_id if page and page.section_id else "section_0"
+            add_cell_info_sheet(wb, hwpx_path, f"{matched_bookmark[:20]}_메타", hide_para_rows, page_id, "")
+
         wb.save(output_path)
         print(f"  북마크 '{matched_bookmark}': {len(tables)}개 테이블 → {output_path}")
+        return output_path
+
+    def get_body_elements(self, hwpx_path: Union[str, Path]) -> List[dict]:
+        """
+        HWPX 파일에서 본문 요소(문단, 테이블) 순서대로 추출
+
+        Returns:
+            [{"type": "para"|"table", "text": str, "table_idx": int, ...}, ...]
+        """
+        hwpx_path = Path(hwpx_path)
+        elements = []
+        table_idx = 0
+
+        with zipfile.ZipFile(hwpx_path, 'r') as zf:
+            section_files = sorted([
+                f for f in zf.namelist()
+                if f.startswith('Contents/section') and f.endswith('.xml')
+            ])
+
+            for section_file in section_files:
+                xml_content = zf.read(section_file)
+                root = ET.fromstring(xml_content)
+
+                # root의 직접 자식만 순회 (p 태그)
+                for child in root:
+                    tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+
+                    if tag == 'p':
+                        # 문단에서 텍스트 추출
+                        texts = []
+                        has_table = False
+
+                        for elem in child.iter():
+                            elem_tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+                            if elem_tag == 't' and elem.text:
+                                texts.append(elem.text)
+                            elif elem_tag == 'tbl':
+                                has_table = True
+
+                        text = ''.join(texts).strip()
+
+                        # caption 태그 제거 (테이블 캡션)
+                        if text.startswith('{caption:'):
+                            # {caption:tbl_0|} 형식에서 실제 텍스트만 추출
+                            if '|}' in text:
+                                text = text.split('|}', 1)[1].strip()
+                            elif '|' in text:
+                                text = text.split('|', 1)[1].strip()
+
+                        if has_table:
+                            # 테이블 포함 문단
+                            elements.append({
+                                "type": "table",
+                                "table_idx": table_idx,
+                                "caption": text
+                            })
+                            table_idx += 1
+                        elif text:
+                            # 일반 본문 문단
+                            elements.append({
+                                "type": "para",
+                                "text": text
+                            })
+
+        return elements
+
+    def get_bookmark_body_mapping(self, hwpx_path: Union[str, Path]) -> Dict[str, List[dict]]:
+        """
+        북마크별로 본문 요소(문단, 테이블) 매핑
+
+        Returns:
+            {"북마크명": [{"type": "para"|"table", ...}, ...], ...}
+        """
+        hwpx_path = Path(hwpx_path)
+        result = {}
+        current_bookmark = None
+        table_idx = 0
+
+        with zipfile.ZipFile(hwpx_path, 'r') as zf:
+            section_files = sorted([
+                f for f in zf.namelist()
+                if f.startswith('Contents/section') and f.endswith('.xml')
+            ])
+
+            for section_file in section_files:
+                xml_content = zf.read(section_file)
+                root = ET.fromstring(xml_content)
+
+                for child in root:
+                    tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+
+                    if tag == 'p':
+                        # 북마크 확인
+                        for elem in child.iter():
+                            elem_tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+                            if elem_tag == 'bookmark':
+                                name = elem.get('name', '')
+                                if name:
+                                    current_bookmark = name
+                                    if current_bookmark not in result:
+                                        result[current_bookmark] = []
+
+                        # 텍스트 및 테이블 추출
+                        texts = []
+                        has_table = False
+
+                        for elem in child.iter():
+                            elem_tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
+                            if elem_tag == 't' and elem.text:
+                                texts.append(elem.text)
+                            elif elem_tag == 'tbl':
+                                has_table = True
+
+                        text = ''.join(texts).strip()
+
+                        # caption 제거
+                        if text.startswith('{caption:'):
+                            if '|}' in text:
+                                text = text.split('|}', 1)[1].strip()
+                            elif '|' in text:
+                                text = text.split('|', 1)[1].strip()
+
+                        if current_bookmark:
+                            if has_table:
+                                result[current_bookmark].append({
+                                    "type": "table",
+                                    "table_idx": table_idx,
+                                    "caption": text
+                                })
+                                table_idx += 1
+                            elif text:
+                                result[current_bookmark].append({
+                                    "type": "para",
+                                    "text": text
+                                })
+
+        return result
+
+    def convert_by_bookmark_with_body(
+        self,
+        hwpx_path: Union[str, Path],
+        bookmark_name: str,
+        output_path: Optional[Union[str, Path]] = None,
+        split_by_para: bool = False,
+        include_cell_info: bool = False,
+        hide_para_rows: bool = True
+    ) -> Path:
+        """
+        특정 북마크 섹션의 본문(문단+테이블)을 하나의 시트로 변환
+
+        본문 문단은 첫 열에 배치하고, 테이블은 통합 열 그리드에 맞춰 배치합니다.
+
+        Args:
+            hwpx_path: HWPX 파일 경로
+            bookmark_name: 북마크 이름 (부분 일치 지원)
+            output_path: 출력 Excel 경로
+            split_by_para: 문단별 행 분할 여부
+            include_cell_info: 셀 상세 정보 시트 포함 여부
+            hide_para_rows: para_id 행 숨김 여부 (include_cell_info=True일 때)
+
+        Returns:
+            생성된 Excel 파일 경로
+        """
+        hwpx_path = Path(hwpx_path)
+
+        # 북마크-본문 매핑 가져오기
+        bookmark_body_mapping = self.get_bookmark_body_mapping(hwpx_path)
+
+        # 북마크 이름 찾기 (부분 일치)
+        matched_bookmark = None
+        for bm_name in bookmark_body_mapping.keys():
+            if bookmark_name in bm_name:
+                matched_bookmark = bm_name
+                break
+
+        if not matched_bookmark:
+            raise ValueError(f"북마크를 찾을 수 없습니다: {bookmark_name}")
+
+        body_elements = bookmark_body_mapping[matched_bookmark]
+        if not body_elements:
+            raise ValueError(f"북마크 '{matched_bookmark}'에 내용이 없습니다")
+
+        # 출력 경로 설정
+        if output_path is None:
+            safe_name = bookmark_name.replace(" ", "_").replace("/", "_")[:20]
+            output_path = hwpx_path.with_name(f"{hwpx_path.stem}_{safe_name}_body.xlsx")
+        else:
+            output_path = Path(output_path)
+
+        # 테이블 인덱스 추출
+        table_indices = [e["table_idx"] for e in body_elements if e["type"] == "table"]
+
+        # 모든 테이블 데이터 로드
+        all_tables = self.table_parser.from_hwpx(hwpx_path)
+        pages = self.page_parser.from_hwpx(hwpx_path)
+        all_cell_details = self.cell_detail_parser.from_hwpx_by_table(hwpx_path)
+
+        # 해당 북마크의 테이블만 필터링
+        tables = [all_tables[i] for i in table_indices if i < len(all_tables)]
+        cell_details_map = {i: all_cell_details[i] for i in table_indices if i < len(all_cell_details)}
+
+        page = pages[0] if pages else None
+
+        # 통합 열 그리드 생성 (테이블이 있을 경우)
+        if tables:
+            unified_col_boundaries = self._build_unified_column_grid(tables)
+            unified_col_widths = []
+            for i in range(len(unified_col_boundaries) - 1):
+                unified_col_widths.append(unified_col_boundaries[i + 1] - unified_col_boundaries[i])
+        else:
+            # 테이블이 없으면 기본 열 1개
+            unified_col_boundaries = [0, 48000]  # A4 폭 정도
+            unified_col_widths = [48000]
+
+        # Excel 워크북 생성
+        wb = Workbook()
+        ws = wb.active
+        ws.title = matched_bookmark[:31] if len(matched_bookmark) <= 31 else matched_bookmark[:28] + "..."
+
+        if page:
+            self._apply_page_settings(ws, page)
+
+        # 통합 열 너비 적용
+        for col_idx, width in enumerate(unified_col_widths, start=1):
+            col_letter = get_column_letter(col_idx)
+            excel_width = width / self.HWPUNIT_TO_EXCEL_WIDTH
+            excel_width = max(excel_width, 1)
+            ws.column_dimensions[col_letter].width = excel_width
+
+        # 본문 요소 순서대로 배치
+        current_row = 1
+        for elem in body_elements:
+            if elem["type"] == "para":
+                # 본문 문단: 첫 열에 텍스트 배치, 전체 열 병합
+                cell = ws.cell(row=current_row, column=1, value=elem["text"])
+                cell.alignment = Alignment(wrap_text=True, vertical='top')
+
+                # 전체 열 병합
+                if len(unified_col_widths) > 1:
+                    try:
+                        ws.merge_cells(
+                            start_row=current_row,
+                            start_column=1,
+                            end_row=current_row,
+                            end_column=len(unified_col_widths)
+                        )
+                    except ValueError:
+                        pass
+
+                current_row += 1
+
+            elif elem["type"] == "table":
+                tbl_idx = elem["table_idx"]
+                if tbl_idx >= len(all_tables):
+                    continue
+
+                table = all_tables[tbl_idx]
+                table_col_boundaries = self._get_table_column_boundaries(table)
+                col_mapping = self._map_columns_to_unified(table_col_boundaries, unified_col_boundaries)
+                cell_details = cell_details_map.get(tbl_idx, [])
+
+                if split_by_para and cell_details:
+                    rows_used = self._place_table_with_para_split_unified(
+                        ws, table, cell_details, col_mapping, unified_col_widths, current_row
+                    )
+                else:
+                    rows_used = self._place_table_unified(
+                        ws, table, cell_details, col_mapping, unified_col_widths, current_row
+                    )
+
+                current_row += rows_used + 1  # 테이블 후 빈 행
+
+        # 모든 열을 1페이지 폭에 맞추기
+        ws.page_setup.fitToWidth = 1
+        ws.page_setup.fitToHeight = 0
+        ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+
+        # 셀 정보 시트 추가 (옵션)
+        if include_cell_info:
+            try:
+                from .cell_info_sheet import add_cell_info_sheet
+            except ImportError:
+                from cell_info_sheet import add_cell_info_sheet
+            page_id = page.section_id if page and page.section_id else "section_0"
+            add_cell_info_sheet(wb, hwpx_path, f"{matched_bookmark[:20]}_메타", hide_para_rows, page_id, "")
+
+        wb.save(output_path)
+        para_count = sum(1 for e in body_elements if e["type"] == "para")
+        table_count = sum(1 for e in body_elements if e["type"] == "table")
+        print(f"  북마크 '{matched_bookmark}': 본문 {para_count}개 + 테이블 {table_count}개 → {output_path}")
+        return output_path
+
+    def convert_all_by_bookmark(
+        self,
+        hwpx_path: Union[str, Path],
+        output_path: Optional[Union[str, Path]] = None,
+        include_body: bool = True,
+        split_by_para: bool = False,
+        include_cell_info: bool = False,
+        hide_para_rows: bool = True
+    ) -> Path:
+        """
+        전체 문서를 북마크별로 시트 분리하여 변환
+
+        각 북마크 섹션이 별도의 시트로 생성됩니다.
+
+        Args:
+            hwpx_path: HWPX 파일 경로
+            output_path: 출력 Excel 경로
+            include_body: 본문 문단 포함 여부 (False면 테이블만)
+            split_by_para: 문단별 행 분할 여부
+            include_cell_info: 셀 상세 정보 시트 포함 여부
+            hide_para_rows: para_id 행 숨김 여부 (include_cell_info=True일 때)
+
+        Returns:
+            생성된 Excel 파일 경로
+        """
+        hwpx_path = Path(hwpx_path)
+
+        if output_path is None:
+            suffix = "_by_bookmark_body" if include_body else "_by_bookmark"
+            output_path = hwpx_path.with_name(f"{hwpx_path.stem}{suffix}.xlsx")
+        else:
+            output_path = Path(output_path)
+
+        # 데이터 로드
+        bookmark_body_mapping = self.get_bookmark_body_mapping(hwpx_path)
+        all_tables = self.table_parser.from_hwpx(hwpx_path)
+        pages = self.page_parser.from_hwpx(hwpx_path)
+        all_cell_details = self.cell_detail_parser.from_hwpx_by_table(hwpx_path)
+        page = pages[0] if pages else None
+
+        wb = Workbook()
+        default_sheet = wb.active
+
+        for bm_idx, (bm_name, body_elements) in enumerate(bookmark_body_mapping.items()):
+            if not body_elements:
+                continue
+
+            # 시트 이름 (31자 제한, 중복 방지)
+            sheet_name = bm_name[:31] if len(bm_name) <= 31 else bm_name[:28] + "..."
+            if sheet_name in wb.sheetnames:
+                sheet_name = f"{bm_idx}_{sheet_name}"[:31]
+
+            ws = wb.create_sheet(title=sheet_name)
+
+            # 테이블 인덱스 추출
+            table_indices = [e["table_idx"] for e in body_elements if e["type"] == "table"]
+            tables = [all_tables[i] for i in table_indices if i < len(all_tables)]
+            cell_details_map = {i: all_cell_details[i] for i in table_indices if i < len(all_cell_details)}
+
+            # 통합 열 그리드 생성
+            if tables:
+                unified_col_boundaries = self._build_unified_column_grid(tables)
+                unified_col_widths = [
+                    unified_col_boundaries[i + 1] - unified_col_boundaries[i]
+                    for i in range(len(unified_col_boundaries) - 1)
+                ]
+            else:
+                unified_col_boundaries = [0, 48000]
+                unified_col_widths = [48000]
+
+            if page:
+                self._apply_page_settings(ws, page)
+
+            # 열 너비 적용
+            for col_idx, width in enumerate(unified_col_widths, start=1):
+                col_letter = get_column_letter(col_idx)
+                excel_width = max(width / self.HWPUNIT_TO_EXCEL_WIDTH, 1)
+                ws.column_dimensions[col_letter].width = excel_width
+
+            # 본문 배치
+            current_row = 1
+            for elem in body_elements:
+                if elem["type"] == "para" and include_body:
+                    cell = ws.cell(row=current_row, column=1, value=elem["text"])
+                    cell.alignment = Alignment(wrap_text=True, vertical='top')
+                    if len(unified_col_widths) > 1:
+                        try:
+                            ws.merge_cells(
+                                start_row=current_row, start_column=1,
+                                end_row=current_row, end_column=len(unified_col_widths)
+                            )
+                        except ValueError:
+                            pass
+                    current_row += 1
+
+                elif elem["type"] == "table":
+                    tbl_idx = elem["table_idx"]
+                    if tbl_idx >= len(all_tables):
+                        continue
+
+                    table = all_tables[tbl_idx]
+                    table_col_boundaries = self._get_table_column_boundaries(table)
+                    col_mapping = self._map_columns_to_unified(table_col_boundaries, unified_col_boundaries)
+                    cell_details = cell_details_map.get(tbl_idx, [])
+
+                    if split_by_para and cell_details:
+                        rows_used = self._place_table_with_para_split_unified(
+                            ws, table, cell_details, col_mapping, unified_col_widths, current_row
+                        )
+                    else:
+                        rows_used = self._place_table_unified(
+                            ws, table, cell_details, col_mapping, unified_col_widths, current_row
+                        )
+
+                    current_row += rows_used + 1
+
+            # 페이지 설정
+            ws.page_setup.fitToWidth = 1
+            ws.page_setup.fitToHeight = 0
+            ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+
+        # 셀 정보 시트 추가 (옵션)
+        if include_cell_info:
+            try:
+                from .cell_info_sheet import add_cell_info_sheet
+            except ImportError:
+                from cell_info_sheet import add_cell_info_sheet
+            page_id = page.section_id if page and page.section_id else "section_0"
+            add_cell_info_sheet(wb, hwpx_path, "CellInfo", hide_para_rows, page_id, "")
+
+        # 기본 시트 삭제
+        if default_sheet in wb:
+            wb.remove(default_sheet)
+
+        wb.save(output_path)
+        print(f"  {len(wb.sheetnames)}개 시트 (북마크별) → {output_path}")
         return output_path
 
     def _parse_table_hierarchy(self, hwpx_path: Union[str, Path]) -> List[TableHierarchy]:
@@ -636,8 +1077,14 @@ class HwpxToExcel:
                 excel_cell = ws.cell(row=excel_row, column=excel_col)
                 excel_cell.value = cd.text
 
-                # 스타일 적용
-                self._apply_cell_style_single(excel_cell, cd, 0, 1)
+                # 병합 여부 확인
+                is_col_merged = unified_col_span > 1
+
+                # 스타일 적용 - 병합 셀이면 right 테두리 생략
+                self._apply_cell_style_single(
+                    excel_cell, cd, 0, 1,
+                    is_merged=is_col_merged, is_last_col=False
+                )
 
                 # 병합 처리
                 if cd.row_span > 1 or unified_col_span > 1:
@@ -712,6 +1159,9 @@ class HwpxToExcel:
             for r in range(cd.row_span):
                 new_row_span += row_max_paras.get(cd.row + r, 1)
 
+            # 병합 여부 미리 계산
+            is_col_merged = unified_col_span > 1
+
             # 문단별 값 설정
             for para_idx in range(para_count):
                 new_row = new_start_row + para_idx
@@ -724,12 +1174,18 @@ class HwpxToExcel:
                     elif para_idx == 0:
                         excel_cell.value = cd.text
 
-                    self._apply_cell_style_single(excel_cell, cd, para_idx, para_count)
+                    self._apply_cell_style_single(
+                        excel_cell, cd, para_idx, para_count,
+                        is_merged=is_col_merged, is_last_col=False
+                    )
 
                 except Exception:
                     pass
 
             # 병합 처리
+            merge_end_row = new_start_row + new_row_span - 1
+            merge_end_col = excel_col + unified_col_span - 1
+
             if new_row_span > para_count or unified_col_span > 1:
                 if para_count <= 1:
                     if new_row_span > 1 or unified_col_span > 1:
@@ -737,8 +1193,8 @@ class HwpxToExcel:
                             ws.merge_cells(
                                 start_row=new_start_row,
                                 start_column=excel_col,
-                                end_row=new_start_row + new_row_span - 1,
-                                end_column=excel_col + unified_col_span - 1
+                                end_row=merge_end_row,
+                                end_column=merge_end_col
                             )
                         except ValueError:
                             pass
@@ -751,10 +1207,15 @@ class HwpxToExcel:
                                     start_row=new_start_row + p_idx,
                                     start_column=excel_col,
                                     end_row=new_start_row + p_idx,
-                                    end_column=excel_col + unified_col_span - 1
+                                    end_column=merge_end_col
                                 )
                             except ValueError:
                                 pass
+
+                # 병합 영역의 내부 테두리 제거
+                self._apply_merged_cell_borders(
+                    ws, cd, new_start_row, excel_col, merge_end_row, merge_end_col
+                )
 
         return total_rows
 
@@ -929,6 +1390,15 @@ class HwpxToExcel:
 
         # 기본 시트 삭제
         wb.remove(default_sheet)
+
+        # 셀 정보 시트 추가 (옵션)
+        if include_cell_info:
+            try:
+                from .cell_info_sheet import add_cell_info_sheet
+            except ImportError:
+                from cell_info_sheet import add_cell_info_sheet
+            page_id = page.section_id if page and page.section_id else "section_0"
+            add_cell_info_sheet(wb, hwpx_path, "CellInfo", hide_para_rows, page_id, "")
 
         # 저장
         wb.save(output_path)
@@ -1193,6 +1663,9 @@ class HwpxToExcel:
             for r in range(cd.row_span):
                 new_row_span += row_max_paras.get(orig_row + r, 1)
 
+            # 병합 여부 미리 계산
+            is_col_merged = cd.col_span > 1
+
             # 문단별로 값 설정
             for para_idx in range(para_count):
                 new_row = new_start_row + para_idx
@@ -1206,8 +1679,11 @@ class HwpxToExcel:
                     elif para_idx == 0:
                         excel_cell.value = cd.text
 
-                    # 스타일 적용
-                    self._apply_cell_style_single(excel_cell, cd, para_idx, para_count)
+                    # 스타일 적용 - 병합 셀이면 right 테두리 생략
+                    self._apply_cell_style_single(
+                        excel_cell, cd, para_idx, para_count,
+                        is_merged=is_col_merged, is_last_col=False
+                    )
 
                 except Exception:
                     pass
@@ -1273,14 +1749,52 @@ class HwpxToExcel:
                                 except ValueError:
                                     pass
 
+                # 병합 영역의 내부 테두리 제거 (외곽만 유지)
+                self._apply_merged_cell_borders(
+                    ws, cd, new_start_row, merge_start_col, merge_end_row, merge_end_col
+                )
+
         return row_offset_map
 
-    def _apply_cell_style_single(self, excel_cell, cd: CellDetail, para_idx: int, total_paras: int):
-        """단일 셀에 스타일 적용"""
-        # 테두리
+    def _apply_merged_cell_borders(
+        self, ws, cd: 'CellDetail',
+        start_row: int, start_col: int, end_row: int, end_col: int
+    ):
+        """병합된 셀 영역의 테두리 적용 (외곽만 유지, 내부 제거)"""
+        # 병합 영역이 1x1이면 적용 불필요
+        if start_row == end_row and start_col == end_col:
+            return
+
+        for r in range(start_row, end_row + 1):
+            for c in range(start_col, end_col + 1):
+                try:
+                    cell = ws.cell(row=r, column=c)
+                    # 외곽 테두리만 설정
+                    border = Border(
+                        left=self._get_border_side(cd.border.left) if c == start_col else Side(),
+                        right=self._get_border_side(cd.border.right) if c == end_col else Side(),
+                        top=self._get_border_side(cd.border.top) if r == start_row else Side(),
+                        bottom=self._get_border_side(cd.border.bottom) if r == end_row else Side(),
+                    )
+                    cell.border = border
+                except:
+                    pass
+
+    def _apply_cell_style_single(
+        self, excel_cell, cd: CellDetail, para_idx: int, total_paras: int,
+        is_merged: bool = False, is_last_col: bool = True
+    ):
+        """
+        단일 셀에 스타일 적용
+
+        Args:
+            is_merged: 병합된 셀 여부 (True면 right 테두리 생략)
+            is_last_col: 병합 영역의 마지막 열인지 여부
+        """
+        # 테두리 - 병합 셀이면 right 테두리는 마지막 열에서만 설정
         border = Border(
             left=self._get_border_side(cd.border.left),
-            right=self._get_border_side(cd.border.right),
+            right=self._get_border_side(cd.border.right) if (not is_merged or is_last_col) else Side(),
             top=self._get_border_side(cd.border.top) if para_idx == 0 else Side(),
             bottom=self._get_border_side(cd.border.bottom) if para_idx == total_paras - 1 else Side(),
         )

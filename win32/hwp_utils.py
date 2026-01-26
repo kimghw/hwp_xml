@@ -33,7 +33,8 @@ def create_hwp_instance(visible: bool = True):
         hwp: 한글 COM 객체
     """
     import win32com.client as win32
-    hwp = win32.gencache.EnsureDispatch("HWPFrame.HwpObject")
+    # DispatchEx로 항상 새 프로세스 생성 (기존 인스턴스와 분리)
+    hwp = win32.DispatchEx("HWPFrame.HwpObject")
     hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
     if visible:
         hwp.XHwpWindows.Item(0).Visible = True
