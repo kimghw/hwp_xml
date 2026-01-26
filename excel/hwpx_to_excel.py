@@ -704,20 +704,22 @@ class HwpxToExcel:
                         except ValueError:
                             pass
                 else:
-                    # 문단이 2개 이상: 각 문단 행에서 가로 병합
-                    if needs_col_merge:
-                        for p_idx in range(para_count):
-                            try:
-                                ws.merge_cells(
-                                    start_row=new_start_row + p_idx,
-                                    start_column=merge_start_col,
-                                    end_row=new_start_row + p_idx,
-                                    end_column=merge_end_col
-                                )
-                            except ValueError:
-                                pass
-                    # 문단 수 < 새 행 수: 마지막 문단 이후 병합
-                    if needs_row_merge and para_count < new_row_span:
+                    # 문단이 2개 이상
+                    if needs_row_merge:
+                        # 세로 병합 필요: 마지막 문단 행부터 끝까지 병합 (가로도 포함)
+                        # 먼저 마지막 문단 이전 행들은 가로만 병합
+                        if needs_col_merge:
+                            for p_idx in range(para_count - 1):  # 마지막 제외
+                                try:
+                                    ws.merge_cells(
+                                        start_row=new_start_row + p_idx,
+                                        start_column=merge_start_col,
+                                        end_row=new_start_row + p_idx,
+                                        end_column=merge_end_col
+                                    )
+                                except ValueError:
+                                    pass
+                        # 마지막 문단 행부터 끝까지 세로+가로 병합
                         try:
                             ws.merge_cells(
                                 start_row=new_start_row + para_count - 1,
@@ -727,6 +729,19 @@ class HwpxToExcel:
                             )
                         except ValueError:
                             pass
+                    else:
+                        # 세로 병합 불필요: 각 문단 행 가로만 병합
+                        if needs_col_merge:
+                            for p_idx in range(para_count):
+                                try:
+                                    ws.merge_cells(
+                                        start_row=new_start_row + p_idx,
+                                        start_column=merge_start_col,
+                                        end_row=new_start_row + p_idx,
+                                        end_column=merge_end_col
+                                    )
+                                except ValueError:
+                                    pass
 
         return row_offset_map
 

@@ -517,6 +517,9 @@ def main():
     # 명령줄 인자 확인
     if len(sys.argv) > 1:
         filepath = sys.argv[1]
+        # 상대 경로면 절대 경로로 변환
+        if not os.path.isabs(filepath):
+            filepath = os.path.abspath(filepath)
     elif DEFAULT_HWP_PATH and os.path.exists(DEFAULT_HWP_PATH):
         # 기본 경로 사용
         filepath = DEFAULT_HWP_PATH
