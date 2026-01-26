@@ -659,25 +659,6 @@ def open_file_dialog_win32() -> Optional[str]:
     return open_file_dialog()
 
 
-def _legacy_open_file_dialog_win32() -> Optional[str]:
-    """Windows 파일 선택 대화상자 (레거시)"""
-    try:
-        import win32gui
-        import win32con
-
-        filter_str = "한글 파일 (*.hwp;*.hwpx)\0*.hwp;*.hwpx\0모든 파일 (*.*)\0*.*\0\0"
-
-        filename, _, _ = win32gui.GetOpenFileNameW(
-            Filter=filter_str,
-            Title="한글 파일 선택",
-            Flags=win32con.OFN_FILEMUSTEXIST
-        )
-        return filename
-    except Exception as e:
-        print(f"파일 대화상자 오류: {e}")
-        return None
-
-
 def main():
     """메인 함수"""
     import os

@@ -18,7 +18,6 @@ if platform.system() == "Windows":
         get_tables_from_file,
         get_table_data_as_list,
     )
-    from .insert_ctrl_id import InsertCtrlId, TableInfo
     from .get_table_info import get_all_table_info
 
     __all__ = [
@@ -28,8 +27,6 @@ if platform.system() == "Windows":
         'CtrlType',
         'get_tables_from_file',
         'get_table_data_as_list',
-        'InsertCtrlId',
-        'TableInfo',
         'get_all_table_info',
     ]
 else:

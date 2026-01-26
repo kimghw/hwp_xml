@@ -1408,93 +1408,6 @@ class HwpxToExcel:
         print(f"  {len(tables)}개 테이블 (최상위: {top_count}, 중첩: {nested_count})")
         return output_path
 
-    def _apply_cell_styles_with_offset(
-        self, ws: Worksheet, cell_details: List[CellDetail], row_offset: int
-    ):
-        """셀 스타일 적용 (행 오프셋 적용)"""
-        for cell_detail in cell_details:
-            row = cell_detail.row + row_offset
-            col = cell_detail.col + 1
-
-            try:
-                excel_cell = ws.cell(row=row, column=col)
-            except:
-                continue
-
-            # 병합된 셀의 마스터가 아닌 경우 스킵
-            if hasattr(excel_cell, 'is_merged') or type(excel_cell).__name__ == 'MergedCell':
-                cell_coord = f"{get_column_letter(col)}{row}"
-                is_master = True
-                for merged_range in ws.merged_cells.ranges:
-                    if cell_coord in merged_range and cell_coord != str(merged_range).split(':')[0]:
-                        is_master = False
-                        break
-                if not is_master:
-                    continue
-
-            # 텍스트 설정
-            try:
-                if not excel_cell.hyperlink and cell_detail.text:
-                    excel_cell.value = cell_detail.text
-            except AttributeError:
-                pass
-
-            # 테두리 설정
-            border = Border(
-                left=self._get_border_side(cell_detail.border.left),
-                right=self._get_border_side(cell_detail.border.right),
-                top=self._get_border_side(cell_detail.border.top),
-                bottom=self._get_border_side(cell_detail.border.bottom),
-            )
-            excel_cell.border = border
-
-            # 배경색 설정
-            bg_color = self._hwp_color_to_rgb(cell_detail.border.bg_color)
-            if bg_color and bg_color != 'FFFFFF':
-                excel_cell.fill = PatternFill(start_color=bg_color, end_color=bg_color, fill_type='solid')
-
-            # 폰트 설정
-            font_color = self._hwp_color_to_rgb(cell_detail.font.color)
-            excel_cell.font = Font(
-                name=cell_detail.font.name if cell_detail.font.name else None,
-                size=cell_detail.font.size_pt() if cell_detail.font.size > 0 else None,
-                bold=cell_detail.font.bold,
-                italic=cell_detail.font.italic,
-                underline='single' if cell_detail.font.underline else None,
-                strike=cell_detail.font.strikeout,
-                color=font_color if font_color else None,
-            )
-
-            # 정렬 설정
-            h_align_map = {'LEFT': 'left', 'CENTER': 'center', 'RIGHT': 'right', 'JUSTIFY': 'justify'}
-            v_align_map = {'TOP': 'top', 'CENTER': 'center', 'BOTTOM': 'bottom', 'BASELINE': 'center'}
-
-            h_align = 'left'
-            v_align = 'center'
-            if cell_detail.paragraphs:
-                h_align = h_align_map.get(cell_detail.paragraphs[0].align_h, 'left')
-                v_align = v_align_map.get(cell_detail.paragraphs[0].align_v, 'center')
-
-            excel_cell.alignment = Alignment(horizontal=h_align, vertical=v_align, wrap_text=True)
-
-            # 병합된 셀의 나머지 영역에도 테두리 적용
-            if cell_detail.row_span > 1 or cell_detail.col_span > 1:
-                for r in range(cell_detail.row_span):
-                    for c in range(cell_detail.col_span):
-                        if r == 0 and c == 0:
-                            continue
-                        try:
-                            merged_cell = ws.cell(row=row + r, column=col + c)
-                            merged_border = Border(
-                                left=self._get_border_side(cell_detail.border.left) if c == 0 else Side(),
-                                right=self._get_border_side(cell_detail.border.right) if c == cell_detail.col_span - 1 else Side(),
-                                top=self._get_border_side(cell_detail.border.top) if r == 0 else Side(),
-                                bottom=self._get_border_side(cell_detail.border.bottom) if r == cell_detail.row_span - 1 else Side(),
-                            )
-                            merged_cell.border = merged_border
-                        except:
-                            pass
-
     # 용지 크기 매핑 (mm → Excel paperSize 코드)
     PAPER_SIZES = {
         (210, 297): 9,    # A4
@@ -1890,25 +1803,6 @@ class HwpxToExcel:
                     row_heights[i] = default_height
 
         return row_heights
-
-    def _group_cells_by_table(self, tables: List[TableProperty], all_cells: List[CellDetail]) -> List[List[CellDetail]]:
-        """셀 디테일을 테이블별로 그룹화"""
-        # 각 테이블의 셀 개수 계산
-        result = []
-        cell_idx = 0
-
-        for table in tables:
-            table_cells = []
-            expected_cells = sum(len(row) for row in table.cells)
-
-            for _ in range(expected_cells):
-                if cell_idx < len(all_cells):
-                    table_cells.append(all_cells[cell_idx])
-                    cell_idx += 1
-
-            result.append(table_cells)
-
-        return result
 
     def _hwp_color_to_rgb(self, color_str: str) -> str:
         """HWP 색상 문자열을 RGB hex로 변환"""

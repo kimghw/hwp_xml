@@ -20,7 +20,7 @@ workflow1 + workflow2 + workflow3 조합하여 완전한 메타데이터가 포�
 # 설정
 # ============================================================
 # 기본 HWP 파일 경로 (명령줄 인자 없을 때 사용)
-DEFAULT_HWP_PATH = r"C:\hwp_xml\extract_table_field_xml.hwp"
+DEFAULT_HWP_PATH = None  # 스크립트와 동일한 이름의 .hwp 파일 (main에서 설정)
 # ============================================================
 
 import sys
@@ -42,7 +42,7 @@ except ImportError:
     if win32hwp_dir not in sys.path:
         sys.path.insert(0, win32hwp_dir)
 
-from hwp_utils import get_hwp_instance, create_hwp_instance, get_active_filepath, open_file_dialog, save_hwp
+from win32.hwp_utils import get_hwp_instance, create_hwp_instance, get_active_filepath, open_file_dialog, save_hwp
 
 
 class Workflow4:
@@ -129,7 +129,7 @@ class Workflow4:
         print("Workflow 1: 테이블 메타데이터 추출")
         print("=" * 60)
 
-        from insert_table_field import InsertTableField
+        from win32.insert_table_field import InsertTableField
 
         inserter = InsertTableField(self.hwp)
 
@@ -152,7 +152,7 @@ class Workflow4:
         print(f"  {caption_count}개 캡션 삽입")
 
         # 메타데이터 추출
-        from extract_cell_meta import ExtractCellMeta
+        from win32.extract_cell_meta import ExtractCellMeta
 
         meta_yaml = base_path + "_meta.yaml"
         extractor = ExtractCellMeta(self.hwp)
@@ -233,7 +233,7 @@ class Workflow4:
         print("Workflow 2: 문단 스타일 추출")
         print("=" * 60)
 
-        from get_para_style import GetParaStyle
+        from win32.get_para_style import GetParaStyle
 
         getter = GetParaStyle(self.hwp)
         self.para_styles = getter.get_all_para_styles()
@@ -520,9 +520,11 @@ def main():
         # 상대 경로면 절대 경로로 변환
         if not os.path.isabs(filepath):
             filepath = os.path.abspath(filepath)
-    elif DEFAULT_HWP_PATH and os.path.exists(DEFAULT_HWP_PATH):
-        # 기본 경로 사용
-        filepath = DEFAULT_HWP_PATH
+    else:
+        # 스크립트와 동일한 이름의 .hwp 파일을 기본 경로로
+        script_hwp = str(Path(__file__).with_suffix('.hwp'))
+        if os.path.exists(script_hwp):
+            filepath = script_hwp
 
     if filepath and not os.path.exists(filepath):
         print(f"파일을 찾을 수 없습니다: {filepath}")

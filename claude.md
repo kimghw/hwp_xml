@@ -82,6 +82,7 @@ save_hwp(hwp, filepath, "HWP")  # 편집 가능하게 저장
 ## 보안 모듈 (RegisterModule)
 
 `create_hwp_instance()`에서 `SecurityModule` 등록으로 모든 보안 경고 자동 허용:
+SecurityModule 만 사용할 것
 
 ```python
 hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
@@ -110,30 +111,17 @@ cmd.exe /c "cd /d C:\hwp_xml\win32 && python security_module_test.py" 2>&1
 
 ## 북마크 조회
 
-### HWP COM API (유무 확인만)
-```python
-# HeadCtrl 순회로 북마크 개수만 확인 (Name은 None 반환 - API 제한)
-count = 0
-ctrl = hwp.HeadCtrl
-while ctrl:
-    if ctrl.CtrlID == 'bokm':
-        count += 1
-    ctrl = ctrl.Next
-```
+### HWPX XML 태그
+HWPX는 ZIP 파일로 `Contents/section*.xml`에 북마크 저장
 
-### HWPX XML (이름 추출)
-```python
-# HWPX 변환 후 XML에서 북마크 이름 추출
-import zipfile
-from xml.etree import ElementTree as ET
+| 태그 | 설명 |
+|------|------|
+| `{namespace}bookmark` | 북마크 단일 태그 |
+| `{namespace}bookmarkStart` | 북마크 시작 태그 |
+| `{namespace}bookmarkEnd` | 북마크 끝 태그 |
 
-with zipfile.ZipFile(hwpx_path, 'r') as zf:
-    for name in zf.namelist():
-        if name.startswith('Contents/section') and name.endswith('.xml'):
-            root = ET.fromstring(zf.read(name).decode('utf-8'))
-            for elem in root.iter():
-                if 'bookmark' in elem.tag.lower():
-                    print(elem.get('name'))  # 북마크 이름
-```
+### COM API vs HWPX
+- COM API (HeadCtrl 순회): Name이 None으로 나옴 → 개수만 확인 가능
+- HWPX XML 파싱: 북마크 이름 정상 조회 가능
 
-- HWP → HWPX 변환 시 북마크 자동 유지됨
+**권장**: COM API로 개수 확인 → HWPX 변환 후 XML에서 이름 파싱
