@@ -3,7 +3,7 @@
 
 import sys
 from pathlib import Path
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Dict
 
 # 프로젝트 루트 경로 설정
 _project_root = Path(__file__).parent.parent
@@ -45,6 +45,10 @@ class HwpxToExcel:
     사용 예:
         converter = HwpxToExcel()
         converter.convert("input.hwpx", "output.xlsx")
+
+        # 북마크 기반 추출
+        bookmarks = converter.get_bookmarks("input.hwpx")
+        converter.convert_by_bookmark("input.hwpx", "7. 시장 사업화 계획")
     """
 
     # 엑셀 열 너비 변환 계수
@@ -81,6 +85,186 @@ class HwpxToExcel:
         self.page_parser = GetPageProperty()
         self.cell_detail_parser = GetCellDetail()
         self.table_hierarchy: List[TableHierarchy] = []
+
+    def get_bookmarks(self, hwpx_path: Union[str, Path]) -> List[dict]:
+        """
+        HWPX 파일에서 북마크 목록 추출
+
+        Returns:
+            [{"name": "북마크명", "section": 섹션인덱스, "position": XML내위치}, ...]
+        """
+        hwpx_path = Path(hwpx_path)
+        bookmarks = []
+
+        with zipfile.ZipFile(hwpx_path, 'r') as zf:
+            section_files = sorted([
+                f for f in zf.namelist()
+                if f.startswith('Contents/section') and f.endswith('.xml')
+            ])
+
+            for section_idx, section_file in enumerate(section_files):
+                xml_content = zf.read(section_file)
+                root = ET.fromstring(xml_content)
+
+                # 모든 bookmark 태그 찾기
+                for elem in root.iter():
+                    if elem.tag.endswith('}bookmark'):
+                        name = elem.get('name', '')
+                        if name:
+                            bookmarks.append({
+                                "name": name,
+                                "section": section_idx,
+                                "element": elem  # 위치 추적용
+                            })
+
+        return bookmarks
+
+    def get_bookmark_table_mapping(self, hwpx_path: Union[str, Path]) -> Dict[str, List[int]]:
+        """
+        북마크별로 소속 테이블 인덱스 매핑
+
+        Returns:
+            {"북마크명": [테이블인덱스1, 테이블인덱스2, ...], ...}
+        """
+        hwpx_path = Path(hwpx_path)
+        result = {}
+
+        with zipfile.ZipFile(hwpx_path, 'r') as zf:
+            section_files = sorted([
+                f for f in zf.namelist()
+                if f.startswith('Contents/section') and f.endswith('.xml')
+            ])
+
+            for section_file in section_files:
+                xml_content = zf.read(section_file)
+                root = ET.fromstring(xml_content)
+
+                # 문서 순서대로 북마크와 테이블 위치 추출
+                current_bookmark = None
+                table_idx = 0
+
+                for elem in root.iter():
+                    if elem.tag.endswith('}bookmark'):
+                        name = elem.get('name', '')
+                        if name:
+                            current_bookmark = name
+                            if current_bookmark not in result:
+                                result[current_bookmark] = []
+                    elif elem.tag.endswith('}tbl'):
+                        # 중첩 테이블이 아닌 최상위 테이블만 카운트
+                        # 부모가 tc가 아닌 경우
+                        if current_bookmark:
+                            result[current_bookmark].append(table_idx)
+                        table_idx += 1
+
+        return result
+
+    def convert_by_bookmark(
+        self,
+        hwpx_path: Union[str, Path],
+        bookmark_name: str,
+        output_path: Optional[Union[str, Path]] = None,
+        split_by_para: bool = False
+    ) -> Path:
+        """
+        특정 북마크 섹션의 테이블만 하나의 시트로 변환
+
+        Args:
+            hwpx_path: HWPX 파일 경로
+            bookmark_name: 북마크 이름 (부분 일치 지원)
+            output_path: 출력 Excel 경로
+            split_by_para: 문단별 행 분할 여부
+
+        Returns:
+            생성된 Excel 파일 경로
+        """
+        hwpx_path = Path(hwpx_path)
+
+        # 북마크-테이블 매핑 가져오기
+        bookmark_mapping = self.get_bookmark_table_mapping(hwpx_path)
+
+        # 북마크 이름 찾기 (부분 일치)
+        matched_bookmark = None
+        for bm_name in bookmark_mapping.keys():
+            if bookmark_name in bm_name:
+                matched_bookmark = bm_name
+                break
+
+        if not matched_bookmark:
+            raise ValueError(f"북마크를 찾을 수 없습니다: {bookmark_name}")
+
+        table_indices = bookmark_mapping[matched_bookmark]
+        if not table_indices:
+            raise ValueError(f"북마크 '{matched_bookmark}'에 테이블이 없습니다")
+
+        # 출력 경로 설정
+        if output_path is None:
+            safe_name = bookmark_name.replace(" ", "_").replace("/", "_")[:20]
+            output_path = hwpx_path.with_name(f"{hwpx_path.stem}_{safe_name}.xlsx")
+        else:
+            output_path = Path(output_path)
+
+        # 모든 테이블 데이터 로드
+        all_tables = self.table_parser.from_hwpx(hwpx_path)
+        pages = self.page_parser.from_hwpx(hwpx_path)
+        all_cell_details = self.cell_detail_parser.from_hwpx_by_table(hwpx_path)
+
+        # 해당 북마크의 테이블만 필터링
+        tables = [all_tables[i] for i in table_indices if i < len(all_tables)]
+        cell_details_list = [all_cell_details[i] for i in table_indices if i < len(all_cell_details)]
+
+        if not tables:
+            raise ValueError(f"테이블 인덱스가 범위를 벗어났습니다: {table_indices}")
+
+        page = pages[0] if pages else None
+
+        # 통합 열 그리드 생성
+        unified_col_boundaries = self._build_unified_column_grid(tables)
+        unified_col_widths = []
+        for i in range(len(unified_col_boundaries) - 1):
+            unified_col_widths.append(unified_col_boundaries[i + 1] - unified_col_boundaries[i])
+
+        # Excel 워크북 생성
+        wb = Workbook()
+        ws = wb.active
+        ws.title = matched_bookmark[:31] if len(matched_bookmark) <= 31 else matched_bookmark[:28] + "..."
+
+        if page:
+            self._apply_page_settings(ws, page)
+
+        # 통합 열 너비 적용
+        for col_idx, width in enumerate(unified_col_widths, start=1):
+            col_letter = get_column_letter(col_idx)
+            excel_width = width / self.HWPUNIT_TO_EXCEL_WIDTH
+            excel_width = max(excel_width, 1)
+            ws.column_dimensions[col_letter].width = excel_width
+
+        # 각 테이블 배치
+        current_row = 1
+        for tbl_idx, table in enumerate(tables):
+            table_col_boundaries = self._get_table_column_boundaries(table)
+            col_mapping = self._map_columns_to_unified(table_col_boundaries, unified_col_boundaries)
+            cell_details = cell_details_list[tbl_idx] if tbl_idx < len(cell_details_list) else []
+
+            if split_by_para and cell_details:
+                rows_used = self._place_table_with_para_split_unified(
+                    ws, table, cell_details, col_mapping, unified_col_widths, current_row
+                )
+            else:
+                rows_used = self._place_table_unified(
+                    ws, table, cell_details, col_mapping, unified_col_widths, current_row
+                )
+
+            current_row += rows_used + 1  # 테이블 사이 빈 행
+
+        # 모든 열을 1페이지 폭에 맞추기
+        ws.page_setup.fitToWidth = 1
+        ws.page_setup.fitToHeight = 0  # 높이는 제한 없음
+        ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+
+        wb.save(output_path)
+        print(f"  북마크 '{matched_bookmark}': {len(tables)}개 테이블 → {output_path}")
+        return output_path
 
     def _parse_table_hierarchy(self, hwpx_path: Union[str, Path]) -> List[TableHierarchy]:
         """HWPX에서 테이블 계층 구조 파악"""
@@ -227,6 +411,352 @@ class HwpxToExcel:
         # 저장
         wb.save(output_path)
         return output_path
+
+    def convert_all_to_single_sheet(
+        self,
+        hwpx_path: Union[str, Path],
+        output_path: Optional[Union[str, Path]] = None,
+        split_by_para: bool = False
+    ) -> Path:
+        """
+        HWPX 파일의 모든 테이블을 하나의 시트에 통합 변환
+
+        각 테이블의 열 너비가 다르므로, 모든 열 경계를 수집하여
+        통합 열 그리드를 생성하고 셀을 매핑합니다.
+        테이블의 원본 너비를 유지하며 스케일링하지 않습니다.
+
+        Args:
+            hwpx_path: HWPX 파일 경로
+            output_path: 출력 Excel 경로 (없으면 자동 생성)
+            split_by_para: 셀 내 문단별로 행 분할 여부
+
+        Returns:
+            생성된 Excel 파일 경로
+        """
+        hwpx_path = Path(hwpx_path)
+
+        if output_path is None:
+            output_path = hwpx_path.with_name(hwpx_path.stem + "_all.xlsx")
+        else:
+            output_path = Path(output_path)
+
+        # HWPX에서 데이터 추출
+        tables = self.table_parser.from_hwpx(hwpx_path)
+        pages = self.page_parser.from_hwpx(hwpx_path)
+        table_cell_details = self.cell_detail_parser.from_hwpx_by_table(hwpx_path)
+
+        if not tables:
+            raise ValueError(f"테이블을 찾을 수 없습니다: {hwpx_path}")
+
+        page = pages[0] if pages else None
+
+        # 1. 모든 테이블의 열 경계 수집 및 통합 그리드 생성 (원본 너비 유지)
+        unified_col_boundaries = self._build_unified_column_grid(tables)
+        # 통합 열 너비 계산
+        unified_col_widths = []
+        for i in range(len(unified_col_boundaries) - 1):
+            unified_col_widths.append(unified_col_boundaries[i + 1] - unified_col_boundaries[i])
+
+        # Excel 워크북 생성
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "통합"
+
+        # 페이지 설정
+        if page:
+            self._apply_page_settings(ws, page)
+
+        # 통합 열 너비 적용
+        for col_idx, width in enumerate(unified_col_widths, start=1):
+            col_letter = get_column_letter(col_idx)
+            excel_width = width / self.HWPUNIT_TO_EXCEL_WIDTH
+            excel_width = max(excel_width, 1)
+            ws.column_dimensions[col_letter].width = excel_width
+
+        # 2. 각 테이블을 순서대로 배치
+        current_row = 1
+        for tbl_idx, table in enumerate(tables):
+            # 이 테이블의 열 경계 계산 (원본 너비)
+            table_col_boundaries = self._get_table_column_boundaries(table)
+
+            # 테이블 원본 열 → 통합 열 매핑
+            col_mapping = self._map_columns_to_unified(table_col_boundaries, unified_col_boundaries)
+
+            # 셀 디테일
+            cell_details = table_cell_details[tbl_idx] if tbl_idx < len(table_cell_details) else []
+
+            # split_by_para에 따른 처리
+            if split_by_para and cell_details:
+                rows_used = self._place_table_with_para_split_unified(
+                    ws, table, cell_details, col_mapping, unified_col_widths, current_row
+                )
+            else:
+                rows_used = self._place_table_unified(
+                    ws, table, cell_details, col_mapping, unified_col_widths, current_row
+                )
+
+            current_row += rows_used + 1  # 테이블 사이 빈 행 추가
+
+        # 저장
+        wb.save(output_path)
+        print(f"  {len(tables)}개 테이블 → 1개 시트 (통합 열: {len(unified_col_widths)}개)")
+        return output_path
+
+    def _build_unified_column_grid(
+        self, tables: List[TableProperty], merge_threshold: int = 100
+    ) -> List[int]:
+        """
+        모든 테이블의 열 경계를 수집하여 통합 열 그리드 생성
+        원본 너비 유지, 근접한 경계는 병합
+
+        Args:
+            tables: 테이블 목록
+            merge_threshold: 이 값 이하로 근접한 경계는 병합 (HWPUNIT, ~0.35mm)
+
+        Returns:
+            정렬된 열 경계 리스트 (HWPUNIT 단위)
+        """
+        if not tables:
+            return [0]
+
+        boundaries = set([0])
+
+        for table in tables:
+            col_widths = self._get_column_widths(table)
+            x = 0
+            for width in col_widths:
+                x += width
+                boundaries.add(x)
+
+        # 정렬 후 근접 경계 병합
+        sorted_boundaries = sorted(boundaries)
+        if len(sorted_boundaries) <= 1:
+            return sorted_boundaries
+
+        merged = [sorted_boundaries[0]]
+        for b in sorted_boundaries[1:]:
+            if b - merged[-1] <= merge_threshold:
+                # 근접하면 큰 값으로 대체 (끝점 우선)
+                merged[-1] = b
+            else:
+                merged.append(b)
+
+        return merged
+
+    def _get_table_column_boundaries(self, table: TableProperty) -> List[int]:
+        """테이블의 열 경계 계산 (원본 너비)"""
+        col_widths = self._get_column_widths(table)
+
+        boundaries = [0]
+        x = 0
+        for width in col_widths:
+            x += width
+            boundaries.append(x)
+        return boundaries
+
+    def _map_columns_to_unified(
+        self, table_boundaries: List[int], unified_boundaries: List[int],
+        tolerance: int = 200
+    ) -> Dict[int, tuple]:
+        """
+        테이블 원본 열 인덱스 → 통합 그리드 (시작열, 끝열) 매핑
+        근접 매칭 지원
+
+        Args:
+            tolerance: 이 값 이하 차이는 같은 경계로 간주 (HWPUNIT, ~0.7mm)
+
+        Returns:
+            {원본_col_idx: (unified_start_col, unified_end_col)}
+        """
+        mapping = {}
+
+        def find_nearest(x: int) -> int:
+            """가장 가까운 통합 경계 인덱스 찾기"""
+            best_idx = 0
+            best_diff = abs(unified_boundaries[0] - x)
+            for i, b in enumerate(unified_boundaries):
+                diff = abs(b - x)
+                if diff < best_diff:
+                    best_diff = diff
+                    best_idx = i
+            return best_idx if best_diff <= tolerance else -1
+
+        for orig_col in range(len(table_boundaries) - 1):
+            start_x = table_boundaries[orig_col]
+            end_x = table_boundaries[orig_col + 1]
+
+            unified_start = find_nearest(start_x)
+            unified_end = find_nearest(end_x)
+
+            if unified_start >= 0 and unified_end >= 0:
+                mapping[orig_col] = (unified_start, unified_end)
+
+        return mapping
+
+    def _place_table_unified(
+        self, ws: Worksheet, table: TableProperty, cell_details: List[CellDetail],
+        col_mapping: Dict[int, tuple], unified_col_widths: List[int], start_row: int
+    ) -> int:
+        """
+        테이블을 통합 시트에 배치 (기본 모드)
+
+        Returns:
+            사용된 행 수
+        """
+        # 셀 디테일 맵
+        cell_map = {(cd.row, cd.col): cd for cd in cell_details}
+
+        # 행 높이 설정
+        row_heights = self._get_row_heights(table)
+        for row_idx, height in enumerate(row_heights):
+            excel_row = start_row + row_idx
+            height_pt = height / self.HWPUNIT_TO_PT
+            height_pt = max(height_pt, 10)
+            ws.row_dimensions[excel_row].height = height_pt
+
+        # 셀 배치
+        for cd in cell_details:
+            if cd.col not in col_mapping:
+                continue
+
+            unified_start_col, unified_end_col = col_mapping[cd.col]
+            excel_row = start_row + cd.row
+            excel_col = unified_start_col + 1  # 1-based
+
+            # col_span 고려: 원본 col_span만큼의 통합 열 범위 계산
+            orig_end_col = cd.col + cd.col_span - 1
+            if orig_end_col in col_mapping:
+                _, unified_span_end = col_mapping[orig_end_col]
+            else:
+                unified_span_end = unified_end_col
+
+            unified_col_span = unified_span_end - unified_start_col
+
+            try:
+                excel_cell = ws.cell(row=excel_row, column=excel_col)
+                excel_cell.value = cd.text
+
+                # 스타일 적용
+                self._apply_cell_style_single(excel_cell, cd, 0, 1)
+
+                # 병합 처리
+                if cd.row_span > 1 or unified_col_span > 1:
+                    try:
+                        ws.merge_cells(
+                            start_row=excel_row,
+                            start_column=excel_col,
+                            end_row=excel_row + cd.row_span - 1,
+                            end_column=excel_col + unified_col_span - 1
+                        )
+                    except ValueError:
+                        pass
+
+            except Exception:
+                pass
+
+        return table.row_count
+
+    def _place_table_with_para_split_unified(
+        self, ws: Worksheet, table: TableProperty, cell_details: List[CellDetail],
+        col_mapping: Dict[int, tuple], unified_col_widths: List[int], start_row: int
+    ) -> int:
+        """
+        테이블을 통합 시트에 배치 (문단별 분할 모드)
+
+        Returns:
+            사용된 행 수
+        """
+        cell_map = {(cd.row, cd.col): cd for cd in cell_details}
+
+        # 각 행별 최대 문단 수 계산
+        row_max_paras = {}
+        for row_idx in range(table.row_count):
+            max_paras = 1
+            for col_idx in range(table.col_count):
+                if (row_idx, col_idx) in cell_map:
+                    cd = cell_map[(row_idx, col_idx)]
+                    para_count = len(cd.paragraphs) if cd.paragraphs else 1
+                    max_paras = max(max_paras, para_count)
+            row_max_paras[row_idx] = max_paras
+
+        # 원본 행 → 새 행 오프셋
+        row_offset_map = {}
+        cumulative = 0
+        for row_idx in range(table.row_count):
+            row_offset_map[row_idx] = cumulative
+            cumulative += row_max_paras.get(row_idx, 1)
+
+        total_rows = cumulative
+
+        # 셀 배치
+        for cd in cell_details:
+            if cd.col not in col_mapping:
+                continue
+
+            unified_start_col, unified_end_col = col_mapping[cd.col]
+            new_start_row = start_row + row_offset_map[cd.row]
+            excel_col = unified_start_col + 1  # 1-based
+
+            para_count = len(cd.paragraphs) if cd.paragraphs else 1
+
+            # col_span 고려
+            orig_end_col = cd.col + cd.col_span - 1
+            if orig_end_col in col_mapping:
+                _, unified_span_end = col_mapping[orig_end_col]
+            else:
+                unified_span_end = unified_end_col
+            unified_col_span = unified_span_end - unified_start_col
+
+            # 새 row_span 계산
+            new_row_span = 0
+            for r in range(cd.row_span):
+                new_row_span += row_max_paras.get(cd.row + r, 1)
+
+            # 문단별 값 설정
+            for para_idx in range(para_count):
+                new_row = new_start_row + para_idx
+
+                try:
+                    excel_cell = ws.cell(row=new_row, column=excel_col)
+
+                    if cd.paragraphs and para_idx < len(cd.paragraphs):
+                        excel_cell.value = cd.paragraphs[para_idx].text
+                    elif para_idx == 0:
+                        excel_cell.value = cd.text
+
+                    self._apply_cell_style_single(excel_cell, cd, para_idx, para_count)
+
+                except Exception:
+                    pass
+
+            # 병합 처리
+            if new_row_span > para_count or unified_col_span > 1:
+                if para_count <= 1:
+                    if new_row_span > 1 or unified_col_span > 1:
+                        try:
+                            ws.merge_cells(
+                                start_row=new_start_row,
+                                start_column=excel_col,
+                                end_row=new_start_row + new_row_span - 1,
+                                end_column=excel_col + unified_col_span - 1
+                            )
+                        except ValueError:
+                            pass
+                else:
+                    # 각 문단별로 가로 병합
+                    if unified_col_span > 1:
+                        for p_idx in range(para_count):
+                            try:
+                                ws.merge_cells(
+                                    start_row=new_start_row + p_idx,
+                                    start_column=excel_col,
+                                    end_row=new_start_row + p_idx,
+                                    end_column=excel_col + unified_col_span - 1
+                                )
+                            except ValueError:
+                                pass
+
+        return total_rows
 
     def convert_all(
         self,
