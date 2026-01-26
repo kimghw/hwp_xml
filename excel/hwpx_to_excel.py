@@ -746,15 +746,21 @@ class HwpxToExcel:
         if bg_color and bg_color != 'FFFFFF':
             excel_cell.fill = PatternFill(start_color=bg_color, end_color=bg_color, fill_type='solid')
 
-        # 폰트
-        font_color = self._hwp_color_to_rgb(cd.font.color)
+        # 폰트 (문단별 폰트 사용, 없으면 셀 기본 폰트)
+        para_font = None
+        if para_idx < len(cd.paragraphs) and cd.paragraphs[para_idx].font:
+            para_font = cd.paragraphs[para_idx].font
+        else:
+            para_font = cd.font
+
+        font_color = self._hwp_color_to_rgb(para_font.color)
         excel_cell.font = Font(
-            name=cd.font.name if cd.font.name else None,
-            size=cd.font.size_pt() if cd.font.size > 0 else None,
-            bold=cd.font.bold,
-            italic=cd.font.italic,
-            underline='single' if cd.font.underline else None,
-            strike=cd.font.strikeout,
+            name=para_font.name if para_font.name else None,
+            size=para_font.size_pt() if para_font.size > 0 else None,
+            bold=para_font.bold,
+            italic=para_font.italic,
+            underline='single' if para_font.underline else None,
+            strike=para_font.strikeout,
             color=font_color if font_color else None,
         )
 

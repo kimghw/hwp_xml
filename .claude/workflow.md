@@ -33,12 +33,32 @@
 
 ---
 
-# Workflow 4: 통합 Excel 생성 (예정)
+# Workflow 4: 통합 Excel 생성
 
-workflow1 + workflow2 + workflow3 조합하여 완전한 메타데이터가 포함된 Excel 생성
+`workflow4_integrated.py` - workflow1 + workflow2 + workflow3 조합
 
-1. HWP 열기
-2. workflow1 실행 → `_meta.yaml`
-3. workflow2 실행 → `_para.yaml`
-4. workflow3 실행 (YAML 연동) → `파일.xlsx`
-5. 정리 (임시 파일 삭제)
+## 실행 방법
+
+```bash
+# Windows에서 직접 실행
+python workflow4_integrated.py [파일경로]
+
+# WSL에서 실행
+cmd.exe /c "cd /d C:\hwp_xml\win32 && python workflow4_integrated.py" 2>&1
+```
+
+## 프로세스
+
+1. HWP 열기 - 기존 인스턴스 연결 또는 새로 생성
+2. HWPX 임시 변환
+3. workflow1 실행 → `{파일}_meta.yaml`
+4. workflow2 실행 → `{파일}_para.yaml`
+5. workflow3 실행 → `{파일}.xlsx`
+6. 임시 파일 삭제
+7. 종료 확인 (새로 생성한 경우만)
+
+## 출력 파일
+
+- `{base}_meta.yaml` : 테이블/셀 메타데이터 (list_id, 병합정보 등)
+- `{base}_para.yaml` : 문단 스타일 정보 (폰트, 정렬, 줄간격 등)
+- `{base}.xlsx` : Excel 변환 결과 (모든 테이블)

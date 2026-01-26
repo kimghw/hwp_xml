@@ -324,13 +324,16 @@ class GetCellDetail:
         """header.xml에서 스타일 정의 파싱"""
         root = ET.parse(BytesIO(xml_content)).getroot()
 
-        # 폰트 정의 파싱
-        for elem in root.iter():
-            if elem.tag.endswith('}font'):
-                font_id = elem.get('id', '')
-                face = elem.get('face', '')
-                if font_id:
-                    self._fonts[font_id] = face
+        # 폰트 정의 파싱 (HANGUL fontface만)
+        for fontface in root.iter():
+            if fontface.tag.endswith('}fontface') and fontface.get('lang') == 'HANGUL':
+                for font in fontface:
+                    if font.tag.endswith('}font'):
+                        font_id = font.get('id', '')
+                        face = font.get('face', '')
+                        if font_id:
+                            self._fonts[font_id] = face
+                break  # HANGUL fontface만 처리
 
         # 문자 속성 파싱
         for elem in root.iter():

@@ -182,6 +182,7 @@ class ExtractCellMeta:
 
                     # 행별 순회
                     row = 0
+                    visited_cells = set()  # 무한루프 방지
                     while row < 100:  # 안전장치
                         # 행의 첫 열로 이동
                         self.hwp.HAction.Run("TableColBegin")
@@ -192,6 +193,11 @@ class ExtractCellMeta:
                         while col < 100:  # 안전장치
                             pos = self.hwp.GetPos()
                             list_id = pos[0]
+
+                            # 이미 방문한 셀이면 종료
+                            if list_id in visited_cells:
+                                break
+                            visited_cells.add(list_id)
 
                             # GetCurFieldName(0)으로 필드명 가져오기
                             field_name = ""
@@ -213,21 +219,23 @@ class ExtractCellMeta:
                                     pass
 
                             # 오른쪽 셀로 이동
+                            prev_list_id = list_id
                             self.hwp.HAction.Run("TableRightCell")
                             new_pos = self.hwp.GetPos()
 
-                            # 같은 행의 처음으로 돌아왔으면 열 순회 종료
-                            if new_pos[0] == row_first_list_id:
+                            # 같은 행의 처음으로 돌아왔거나 위치 변화 없으면 열 순회 종료
+                            if new_pos[0] == row_first_list_id or new_pos[0] == prev_list_id:
                                 break
 
                             col += 1
 
                         # 다음 행으로 이동
+                        prev_list_id = self.hwp.GetPos()[0]
                         self.hwp.HAction.Run("TableLowerCell")
                         new_pos = self.hwp.GetPos()
 
-                        # 첫 행으로 돌아왔으면 순회 종료
-                        if new_pos[0] == first_list_id:
+                        # 첫 행으로 돌아왔거나 위치 변화 없으면 순회 종료
+                        if new_pos[0] == first_list_id or new_pos[0] == prev_list_id:
                             break
 
                         row += 1
