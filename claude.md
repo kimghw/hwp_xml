@@ -108,6 +108,32 @@ cmd.exe /c "cd /d C:\hwp_xml\win32 && python security_module_test.py" 2>&1
 - **parent 테이블**: 항상 caption_list_id 존재 (첫 셀 list_id - 1)
 - **nested 테이블**: caption이 있으면 caption_list_id, 없으면 null
 
-## 북마크 조회 (HeadCtrl 순회)
+## 북마크 조회
 
-HeadCtrl 순회 방식으로 북마크를 찾으면 Name이 None으로 나옴 (한글 COM API 제한)
+### HWP COM API (유무 확인만)
+```python
+# HeadCtrl 순회로 북마크 개수만 확인 (Name은 None 반환 - API 제한)
+count = 0
+ctrl = hwp.HeadCtrl
+while ctrl:
+    if ctrl.CtrlID == 'bokm':
+        count += 1
+    ctrl = ctrl.Next
+```
+
+### HWPX XML (이름 추출)
+```python
+# HWPX 변환 후 XML에서 북마크 이름 추출
+import zipfile
+from xml.etree import ElementTree as ET
+
+with zipfile.ZipFile(hwpx_path, 'r') as zf:
+    for name in zf.namelist():
+        if name.startswith('Contents/section') and name.endswith('.xml'):
+            root = ET.fromstring(zf.read(name).decode('utf-8'))
+            for elem in root.iter():
+                if 'bookmark' in elem.tag.lower():
+                    print(elem.get('name'))  # 북마크 이름
+```
+
+- HWP → HWPX 변환 시 북마크 자동 유지됨
