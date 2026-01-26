@@ -187,17 +187,18 @@ class Workflow5:
         return self.temp_hwpx
 
     def _extract_existing_fields(self, base_path: str) -> str:
-        """기존 필드 추출 및 삭제"""
+        """기존 셀 필드 이름 추출 및 삭제"""
         print("\n" + "-" * 60)
-        print("기존 필드 추출 중...")
+        print("기존 셀 필드 이름 추출 중...")
 
         from win32.extract_field import ExtractField
 
         extractor = ExtractField(self.hwp)
-        self.existing_fields = extractor.extract_fields()
+        # 테이블 셀에 설정된 필드 이름 추출
+        self.existing_fields = extractor.extract_cell_field_names()
 
         if not self.existing_fields:
-            print("  기존 필드 없음")
+            print("  기존 셀 필드 없음")
             return None
 
         # YAML 저장

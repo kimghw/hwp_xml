@@ -116,6 +116,72 @@ class ExtractField:
         print(f"  총 {len(self.fields)}개 필드 추출")
         return self.fields
 
+    def extract_cell_field_names(self) -> List[FieldInfo]:
+        """
+        테이블 셀에 설정된 필드 이름 추출 (GetCurFieldName API 사용)
+
+        각 테이블의 각 셀을 순회하며 셀에 부여된 필드 이름을 추출합니다.
+
+        Returns:
+            필드 정보 리스트
+        """
+        self.fields = []
+
+        # HeadCtrl로 모든 테이블 순회
+        ctrl = self.hwp.HeadCtrl
+        tbl_idx = 0
+
+        while ctrl:
+            if ctrl.CtrlID == "tbl":
+                try:
+                    # 테이블로 이동
+                    anchor = ctrl.GetAnchorPos(0)
+                    self.hwp.SetPosBySet(anchor)
+                    self.hwp.HAction.Run("SelectCtrlFront")
+                    self.hwp.HAction.Run("ShapeObjTableSelCell")
+
+                    # 첫 셀에서 시작하여 모든 셀 순회
+                    visited = set()
+                    while True:
+                        pos = self.hwp.GetPos()
+                        list_id = pos[0]
+
+                        if list_id in visited:
+                            break
+                        visited.add(list_id)
+
+                        # 현재 셀의 필드 이름 가져오기 (option=1: 셀 필드)
+                        field_name = self.hwp.GetCurFieldName(FIELD_CELL)
+
+                        if field_name:
+                            field_info = FieldInfo(
+                                name=field_name,
+                                list_id=list_id,
+                                para_id=pos[1] if len(pos) > 1 else 0,
+                                char_pos=pos[2] if len(pos) > 2 else 0,
+                                text=""
+                            )
+                            self.fields.append(field_info)
+
+                        # 다음 셀로 이동 (오른쪽 → 다음 행)
+                        self.hwp.HAction.Run("TableRightCell")
+
+                    self.hwp.HAction.Run("Cancel")
+                    self.hwp.HAction.Run("MoveParentList")
+                    tbl_idx += 1
+
+                except Exception as e:
+                    print(f"  테이블 {tbl_idx} 처리 오류: {e}")
+                    try:
+                        self.hwp.HAction.Run("Cancel")
+                    except:
+                        pass
+
+            ctrl = ctrl.Next
+
+        print(f"  총 {len(self.fields)}개 셀 필드 이름 추출 ({tbl_idx}개 테이블)")
+        return self.fields
+
     def delete_all_fields(self) -> int:
         """
         문서의 모든 필드 삭제 (필드 속성만 제거, 텍스트 유지)
