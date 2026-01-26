@@ -35,7 +35,8 @@ def create_hwp_instance(visible: bool = True):
     import win32com.client as win32
     # DispatchEx로 항상 새 프로세스 생성 (기존 인스턴스와 분리)
     hwp = win32.DispatchEx("HWPFrame.HwpObject")
-    hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
+    hwp.RegisterModule("FilePathCheckDLL", "FilePathCheckerModuleExample")
+    hwp.SetMessageBoxMode(0x00010000)  # 보안 팝업 자동 허용
     if visible:
         hwp.XHwpWindows.Item(0).Visible = True
     return hwp
