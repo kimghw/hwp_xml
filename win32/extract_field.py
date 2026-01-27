@@ -252,6 +252,80 @@ class ExtractField:
             print(f"  YAML 저장 실패: {e}")
             return False
 
+    def restore_cell_field_names_to_hwpx(self, hwpx_path: str) -> int:
+        """
+        추출된 필드 이름을 HWPX XML의 tc.name 속성에 복원
+
+        Args:
+            hwpx_path: HWPX 파일 경로
+
+        Returns:
+            복원된 셀 수
+        """
+        import zipfile
+        import shutil
+        import tempfile
+        import xml.etree.ElementTree as ET
+
+        if not self.fields:
+            print("  복원할 필드 없음")
+            return 0
+
+        # list_id -> field_name 매핑
+        field_map = {f.list_id: f.name for f in self.fields}
+
+        extract_dir = tempfile.mkdtemp()
+        restored = 0
+
+        try:
+            with zipfile.ZipFile(hwpx_path, 'r') as zf:
+                zf.extractall(extract_dir)
+
+            contents_dir = os.path.join(extract_dir, 'Contents')
+            section_files = sorted([
+                f for f in os.listdir(contents_dir)
+                if f.startswith('section') and f.endswith('.xml')
+            ])
+
+            for section_file in section_files:
+                section_path = os.path.join(contents_dir, section_file)
+                tree = ET.parse(section_path)
+                root = tree.getroot()
+
+                # 모든 tc 태그 순회
+                for tc in root.iter():
+                    if tc.tag.endswith('}tc'):
+                        # tc의 list_id 찾기 (subList의 id 속성)
+                        for sub in tc:
+                            if sub.tag.endswith('}subList'):
+                                list_id_str = sub.get('id', '')
+                                if list_id_str:
+                                    try:
+                                        list_id = int(list_id_str)
+                                        if list_id in field_map:
+                                            tc.set('name', field_map[list_id])
+                                            restored += 1
+                                    except ValueError:
+                                        pass
+                                break
+
+                tree.write(section_path, encoding='utf-8', xml_declaration=True)
+
+            # 수정된 HWPX 다시 압축
+            with zipfile.ZipFile(hwpx_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for root_dir, dirs, files in os.walk(extract_dir):
+                    for file in files:
+                        file_path = os.path.join(root_dir, file)
+                        arcname = os.path.relpath(file_path, extract_dir)
+                        zf.write(file_path, arcname)
+
+            print(f"  필드 이름 복원: {restored}개 셀")
+
+        finally:
+            shutil.rmtree(extract_dir, ignore_errors=True)
+
+        return restored
+
 
 def extract_and_delete_fields(hwp=None, filepath: str = None, delete: bool = True) -> str:
     """

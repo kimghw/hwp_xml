@@ -69,6 +69,7 @@ class Workflow5:
         self.cell_positions = None
         self.field_names = None
         self.existing_fields = []  # 기존 필드 목록
+        self.field_extractor = None  # 필드 추출/복원용
 
     def _create_output_dir(self) -> str:
         """결과 저장 폴더 생성 (파일명 기반, 중복 시 (1), (2) 등 추가)"""
@@ -211,15 +212,15 @@ class Workflow5:
         return self.temp_hwpx
 
     def _extract_existing_fields(self, base_path: str) -> str:
-        """기존 셀 필드 이름 추출 및 삭제"""
+        """기존 셀 필드 이름 추출 (삭제는 하지 않음, 나중에 복원용으로 저장)"""
         print("\n" + "-" * 60)
         print("기존 셀 필드 이름 추출 중...")
 
         from win32.extract_field import ExtractField
 
-        extractor = ExtractField(self.hwp)
+        self.field_extractor = ExtractField(self.hwp)
         # 테이블 셀에 설정된 필드 이름 추출
-        self.existing_fields = extractor.extract_cell_field_names()
+        self.existing_fields = self.field_extractor.extract_cell_field_names()
 
         if not self.existing_fields:
             print("  기존 셀 필드 없음")
@@ -227,11 +228,7 @@ class Workflow5:
 
         # YAML 저장
         field_yaml = base_path + "_field.yaml"
-        extractor.save_yaml(field_yaml)
-
-        # 필드 삭제
-        print("기존 필드 삭제 중...")
-        extractor.delete_all_fields()
+        self.field_extractor.save_yaml(field_yaml)
 
         return field_yaml
 
@@ -279,9 +276,20 @@ class Workflow5:
 
         print(f"메타데이터 저장: {meta_yaml}")
 
-        self._clear_field_names_in_hwpx(self.temp_hwpx)
+        # JSON 필드 삭제 후 기존 필드 이름 복원
+        self._restore_original_field_names(self.temp_hwpx)
 
         return meta_yaml
+
+    def _restore_original_field_names(self, hwpx_path: str):
+        """HWPX에서 JSON 필드 삭제 후 기존 필드 이름 복원"""
+        # 먼저 모든 tc.name 삭제 (JSON 포함)
+        self._clear_field_names_in_hwpx(hwpx_path)
+
+        # 기존 필드가 있으면 복원
+        if self.field_extractor and self.existing_fields:
+            print("기존 필드 이름 복원 중...")
+            self.field_extractor.restore_cell_field_names_to_hwpx(hwpx_path)
 
     def _clear_field_names_in_hwpx(self, hwpx_path: str):
         """HWPX에서 tc.name 속성만 삭제"""
