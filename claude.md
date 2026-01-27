@@ -66,6 +66,7 @@ Windows 한글 COM API 연동 (WSL에서 cmd.exe로 실행)
 - `get_para_style.py`: 문단 스타일 추출 → `파일_para.yaml`
 - `get_table_property.py`: COM API로 테이블 속성 추출
 - `get_table_info.py`: 테이블 위치/구조 조회
+- `set_red_field.py`: 빨간색 배경 빈 셀에 필드명 자동 설정 (`[왼쪽][위쪽]` 형식)
 
 ## 한글 COM API 공통 유틸리티 (hwp_utils.py)
 
