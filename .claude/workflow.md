@@ -25,6 +25,29 @@
 
 # Workflow 1-Legacy: 테이블 메타데이터 추출
 
+## 필드 → list_id 연결 원리
+
+HWPX의 tc.name 속성을 임시 저장소로 활용하여 셀 위치(row/col)와 list_id를 매핑:
+
+1. **필드 삽입** (`insert_table_field.py`): 각 셀에 JSON 필드명 설정
+   ```python
+   # tc.name에 저장되는 JSON
+   {"tblIdx": 0, "rowAddr": 0, "colAddr": 0, "type": "parent"}
+   ```
+
+2. **list_id 추출** (`extract_cell_meta.py`): COM API로 셀 순회하며 매핑
+   ```python
+   field_name = hwp.GetCurFieldName(0)  # JSON 필드명 읽기
+   fd = json.loads(field_name)
+   row, col = fd['rowAddr'], fd['colAddr']
+   list_id = hwp.GetPos()[0]  # 현재 위치의 list_id
+   cells[(row, col)] = (list_id, para_id)
+   ```
+
+3. **필드 삭제**: 작업 완료 후 tc.name 속성 제거하여 원본 복원
+
+## 전체 프로세스
+
 1. HWP 열기 - `insert_table_field.py`
 2. HWPX 변환 - `convert_hwp.py` → `temp.hwpx`
 3. 필드명 삽입 (tc.name에 JSON) - `insert_table_field.py`
@@ -128,3 +151,28 @@ cmd.exe /c "cd /d C:\hwp_xml\win32 && python workflow5_integrated.py" 2>&1
 | 본문 포함 | X | O (include_body=True) |
 | 문단 분할 | O | O |
 | 출력 파일 | `{base}.xlsx` | `{base}_by_bookmark.xlsx` |
+
+---
+
+# Workflow 6: 빨간색 셀 필드 자동 설정
+
+`set_red_field.py` - 빨간색 배경 빈 셀에 필드명 자동 설정
+
+## 실행 방법
+
+```bash
+python set_red_field.py <입력.hwp> <출력.hwp>
+```
+
+## 프로세스
+
+1. HWP → HWPX 임시 변환
+2. 빨간색 배경(`#FF0000`, `#CF2741`) 빈 셀 찾기
+3. 왼쪽/위쪽 셀 텍스트로 필드명 생성: `[왼쪽텍스트][위쪽텍스트]`
+4. HWPX XML의 `tc.name` 속성에 필드명 설정
+5. HWP로 저장
+
+## 특징
+
+- 병합 셀 지원: 왼쪽/위쪽 검색 시 병합된 부모 셀 텍스트 참조
+- 빈 셀만 처리: 텍스트가 있는 셀은 스킵
