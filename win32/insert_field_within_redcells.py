@@ -70,15 +70,20 @@ def set_red_field(hwp_path: str, output_path: str = None):
     # 한글 실행 (숨김)
     hwp = create_hwp_instance(visible=False)
 
-    # 파일 열기
-    hwp.Open(str(hwp_path), "HWP", "forceopen:true")
+    # 파일 열기 (HAction 방식 - 보안 팝업 방지)
+    hwp.HAction.GetDefault("FileOpen", hwp.HParameterSet.HFileOpenSave.HSet)
+    hwp.HParameterSet.HFileOpenSave.filename = str(hwp_path)
+    hwp.HParameterSet.HFileOpenSave.Format = "HWP"
+    hwp.HAction.Execute("FileOpen", hwp.HParameterSet.HFileOpenSave.HSet)
 
     # 임시 HWPX로 저장
     temp_dir = tempfile.gettempdir()
     hwpx_path = os.path.join(temp_dir, "set_red_field_temp.hwpx")
 
-    hwp.SaveAs(hwpx_path, "HWPX")
-
+    hwp.HAction.GetDefault("FileSaveAs_S", hwp.HParameterSet.HFileOpenSave.HSet)
+    hwp.HParameterSet.HFileOpenSave.filename = hwpx_path
+    hwp.HParameterSet.HFileOpenSave.Format = "HWPX"
+    hwp.HAction.Execute("FileSaveAs_S", hwp.HParameterSet.HFileOpenSave.HSet)
     print(f"HWPX 변환 완료")
 
     # 테이블 파싱
@@ -182,30 +187,34 @@ def set_red_field(hwp_path: str, output_path: str = None):
                             if cell_text:
                                 continue
 
-                            # 왼쪽으로 이동해서 첫 번째 텍스트 찾기 (병합 셀 고려)
-                            left_text = ""
+                            # 왼쪽으로 이동해서 최대 3개 텍스트 찾기 (병합 셀 고려)
+                            left_texts = []
                             for c in range(col - 1, -1, -1):
                                 info = find_cell_at(cell_map, row, c)
                                 t = info.get('text', '').strip()
                                 if t:
-                                    left_text = t
-                                    break
+                                    left_texts.append(t)
+                                    if len(left_texts) >= 3:
+                                        break
 
-                            # 위쪽으로 이동해서 첫 번째 텍스트 찾기 (병합 셀 고려)
-                            top_text = ""
+                            # 위쪽으로 이동해서 최대 3개 텍스트 찾기 (병합 셀 고려)
+                            top_texts = []
                             for r in range(row - 1, -1, -1):
                                 info = find_cell_at(cell_map, r, col)
                                 t = info.get('text', '').strip()
                                 if t:
-                                    top_text = t
-                                    break
+                                    top_texts.append(t)
+                                    if len(top_texts) >= 3:
+                                        break
 
-                            # 필드명 생성: [좌][위]
+                            # 필드명 생성: [좌1][좌2][좌3][위1][위2][위3]
                             parts = []
-                            if left_text:
-                                parts.append('[' + left_text + ']')
-                            if top_text:
-                                parts.append('[' + top_text + ']')
+                            # 왼쪽: 가까운 순서대로 (역순 불필요)
+                            for t in left_texts:
+                                parts.append('[' + t + ']')
+                            # 위쪽: 가까운 순서대로
+                            for t in top_texts:
+                                parts.append('[' + t + ']')
 
                             field_name = ''.join(parts)
 
@@ -232,9 +241,15 @@ def set_red_field(hwp_path: str, output_path: str = None):
         print()
         print(f"설정된 필드: {set_count}개")
 
-        # HWP로 변환하여 저장
-        hwp.Open(hwpx_path, "HWPX", "forceopen:true")
-        hwp.SaveAs(str(output_path), "HWP")
+        # HWP로 변환하여 저장 (HAction 방식)
+        hwp.HAction.GetDefault("FileOpen", hwp.HParameterSet.HFileOpenSave.HSet)
+        hwp.HParameterSet.HFileOpenSave.filename = hwpx_path
+        hwp.HParameterSet.HFileOpenSave.Format = "HWPX"
+        hwp.HAction.Execute("FileOpen", hwp.HParameterSet.HFileOpenSave.HSet)
+        hwp.HAction.GetDefault("FileSaveAs_S", hwp.HParameterSet.HFileOpenSave.HSet)
+        hwp.HParameterSet.HFileOpenSave.filename = str(output_path)
+        hwp.HParameterSet.HFileOpenSave.Format = "HWP"
+        hwp.HAction.Execute("FileSaveAs_S", hwp.HParameterSet.HFileOpenSave.HSet)
         print(f"저장 완료: {output_path}")
 
     finally:

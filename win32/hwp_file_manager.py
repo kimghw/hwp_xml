@@ -18,6 +18,11 @@ def get_hwp_instance():
     try:
         import win32com.client as win32
         hwp = win32.GetActiveObject("HWPFrame.HwpObject")
+        # 메시지박스 모드 먼저 설정 (모든 경고 자동 허용)
+        # 0x00100000: 파일 손상/유출 위험 경고 자동 허용
+        hwp.SetMessageBoxMode(0x7FFFFFFF)
+        # 보안 모듈 등록 (두 가지 모두 필요)
+        hwp.RegisterModule("FilePathCheckerModuleExample", "FilePathCheckerModule")
         hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
         return hwp
     except:
@@ -35,11 +40,17 @@ def create_hwp_instance(visible: bool = True):
         hwp: 한글 COM 객체
     """
     import win32com.client as win32
-    # DispatchEx로 항상 새 프로세스 생성 (기존 인스턴스와 분리)
-    hwp = win32.DispatchEx("HWPFrame.HwpObject")
+    hwp = win32.Dispatch("HWPFrame.HwpObject")
+    # 메시지박스 모드 먼저 설정 (모든 경고 자동 허용)
+    # 0x00100000: 파일 손상/유출 위험 경고 자동 허용
+    hwp.SetMessageBoxMode(0x7FFFFFFF)
+    # 보안 모듈 등록 (두 가지 모두 필요)
+    hwp.RegisterModule("FilePathCheckerModuleExample", "FilePathCheckerModule")
     hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
     if visible:
         hwp.XHwpWindows.Item(0).Visible = True
+    else:
+        hwp.XHwpWindows.Item(0).Visible = False
     return hwp
 
 
@@ -103,6 +114,28 @@ def open_file_dialog(
     except Exception as e:
         # 취소 또는 오류
         return None
+
+
+def open_hwp(hwp, filepath: str, format: str = "HWP") -> bool:
+    """
+    한글 문서 열기 (팝업 없이)
+
+    Args:
+        hwp: 한글 COM 객체
+        filepath: 파일 경로
+        format: 파일 형식 ("HWP" 또는 "HWPX")
+
+    Returns:
+        성공 여부
+    """
+    try:
+        hwp.HAction.GetDefault("FileOpen", hwp.HParameterSet.HFileOpenSave.HSet)
+        hwp.HParameterSet.HFileOpenSave.filename = filepath
+        hwp.HParameterSet.HFileOpenSave.Format = format
+        hwp.HAction.Execute("FileOpen", hwp.HParameterSet.HFileOpenSave.HSet)
+        return True
+    except:
+        return False
 
 
 def save_hwp(hwp, filepath: str, format: str = "HWP") -> bool:
