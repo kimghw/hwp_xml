@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
-"""빨간색 배경 셀에 필드 이름 설정 (위쪽 텍스트 기준)"""
+"""색상 기반 셀 필드 자동 설정
+- 빨간색 빈 셀: 좌/상 텍스트로 필드명 생성
+- 노란색 셀: 셀 텍스트를 필드명으로 사용
+"""
 
 import sys
 import os
 import tempfile
 import zipfile
 import shutil
+import yaml
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -121,8 +125,15 @@ def set_red_field(hwp_path: str, output_path: str = None):
 
     # 테이블별 셀 맵 생성 (병합 정보 포함)
     table_cells = {}
+    table_info = {}  # 테이블 정보 (list_id, table_id)
     for tbl_idx, cells in enumerate(all_tables):
         table_cells[tbl_idx] = {}
+        # 첫 번째 셀에서 테이블 정보 가져오기
+        if cells:
+            table_info[tbl_idx] = {
+                'list_id': cells[0].list_id,
+                'table_id': cells[0].table_id
+            }
         for cell in cells:
             text = ' '.join([p.text for p in cell.paragraphs]).strip()
             bg_color = cell.border.bg_color if cell.border else ''
@@ -130,7 +141,9 @@ def set_red_field(hwp_path: str, output_path: str = None):
                 'text': text,
                 'bg_color': bg_color,
                 'row_span': cell.row_span,
-                'col_span': cell.col_span
+                'col_span': cell.col_span,
+                'list_id': cell.list_id,
+                'table_id': cell.table_id
             }
 
     def find_cell_at(cell_map, row, col):
@@ -152,6 +165,7 @@ def set_red_field(hwp_path: str, output_path: str = None):
     # HWPX 압축 해제
     extract_dir = tempfile.mkdtemp()
     set_count = 0
+    field_results = []  # 필드 설정 결과 저장
 
     try:
         with zipfile.ZipFile(hwpx_path, 'r') as zf:
@@ -215,6 +229,17 @@ def set_red_field(hwp_path: str, output_path: str = None):
                                     set_count += 1
                                     modified = True
                                     print(f"  테이블{current_tbl_idx} ({row},{col}) -> [{field_name}]")
+                                    # 결과 저장
+                                    tbl_info = table_info.get(current_tbl_idx, {})
+                                    field_results.append({
+                                        'table_idx': current_tbl_idx,
+                                        'list_id': tbl_info.get('list_id', ''),
+                                        'table_id': tbl_info.get('table_id', ''),
+                                        'row': row,
+                                        'col': col,
+                                        'field_name': field_name,
+                                        'type': 'yellow'
+                                    })
                                 continue
 
                             # 빨간색 배경이 아니면 스킵
@@ -269,6 +294,17 @@ def set_red_field(hwp_path: str, output_path: str = None):
                                 set_count += 1
                                 modified = True
                                 print(f"  테이블{current_tbl_idx} ({row},{col}) -> [{field_name}]")
+                                # 결과 저장
+                                tbl_info = table_info.get(current_tbl_idx, {})
+                                field_results.append({
+                                    'table_idx': current_tbl_idx,
+                                    'list_id': tbl_info.get('list_id', ''),
+                                    'table_id': tbl_info.get('table_id', ''),
+                                    'row': row,
+                                    'col': col,
+                                    'field_name': field_name,
+                                    'type': 'red'
+                                })
 
                     current_tbl_idx += 1
 
@@ -298,6 +334,18 @@ def set_red_field(hwp_path: str, output_path: str = None):
         hwp.HAction.Execute("FileSaveAs_S", hwp.HParameterSet.HFileOpenSave.HSet)
         print(f"저장 완료: {output_path}")
 
+        # YAML 파일 출력 (data/파일명/ 폴더에 저장)
+        if field_results:
+            # data 폴더 생성
+            hwp_stem = Path(hwp_path).stem
+            data_dir = Path(hwp_path).parent / 'data' / hwp_stem
+            data_dir.mkdir(parents=True, exist_ok=True)
+
+            yaml_path = data_dir / f"{hwp_stem}_field.yaml"
+            with open(yaml_path, 'w', encoding='utf-8') as f:
+                yaml.dump(field_results, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+            print(f"YAML 저장: {yaml_path}")
+
     finally:
         shutil.rmtree(extract_dir, ignore_errors=True)
         hwp.Quit()
@@ -314,11 +362,7 @@ if __name__ == "__main__":
             print("파일을 선택하지 않았습니다.")
             sys.exit(1)
 
-    if len(sys.argv) > 2:
-        output_path = sys.argv[2]
-    else:
-        # 입력 파일명에 _field 붙여서 출력 파일명 생성
-        p = Path(hwp_path)
-        output_path = str(p.parent / f"{p.stem}_field{p.suffix}")
+    # 원본 파일에 덮어쓰기
+    output_path = hwp_path
 
     set_red_field(hwp_path, output_path)

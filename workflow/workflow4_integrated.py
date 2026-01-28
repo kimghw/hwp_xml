@@ -438,6 +438,20 @@ class Workflow4:
         """종료 여부 판단 (새로 생성한 경우만 닫음)"""
         return self.hwp_created
 
+    def _create_data_dir(self) -> str:
+        """data/파일명/ 폴더 생성"""
+        if not self.filepath:
+            raise ValueError("파일 경로가 설정되지 않았습니다.")
+
+        file_dir = os.path.dirname(self.filepath)
+        file_name = os.path.splitext(os.path.basename(self.filepath))[0]
+
+        data_dir = os.path.join(file_dir, 'data', file_name)
+        os.makedirs(data_dir, exist_ok=True)
+
+        print(f"결과 폴더: {data_dir}")
+        return data_dir
+
     def run(self, filepath: str = None, split_by_para: bool = True) -> dict:
         """
         통합 워크플로우 실행
@@ -466,8 +480,10 @@ class Workflow4:
             # 2. 파일 열기
             self._open_file(filepath)
 
-            # 기본 경로 (확장자 제외)
-            base_path = os.path.splitext(self.filepath)[0]
+            # 기본 경로: data/파일명/파일명
+            data_dir = self._create_data_dir()
+            file_name = os.path.splitext(os.path.basename(self.filepath))[0]
+            base_path = os.path.join(data_dir, file_name)
 
             # 3. HWPX로 변환
             self._save_as_hwpx()

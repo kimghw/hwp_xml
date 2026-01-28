@@ -72,24 +72,17 @@ class Workflow5:
         self.field_extractor = None  # 필드 추출/복원용
 
     def _create_output_dir(self) -> str:
-        """결과 저장 폴더 생성 (파일명 기반, 중복 시 (1), (2) 등 추가)"""
+        """결과 저장 폴더 생성 (data/파일명/ 구조)"""
         if not self.filepath:
             raise ValueError("파일 경로가 설정되지 않았습니다.")
 
-        # 실행 파일(HWP) 폴더에 파일명으로 폴더 생성
+        # data/파일명/ 폴더 생성
         file_dir = os.path.dirname(self.filepath)
         file_name = os.path.splitext(os.path.basename(self.filepath))[0]
 
-        output_dir = os.path.join(file_dir, file_name)
-
-        # 중복 시 (1), (2) 등 추가
-        if os.path.exists(output_dir):
-            counter = 1
-            while os.path.exists(f"{output_dir}({counter})"):
-                counter += 1
-            output_dir = f"{output_dir}({counter})"
-
+        output_dir = os.path.join(file_dir, 'data', file_name)
         os.makedirs(output_dir, exist_ok=True)
+
         self.output_dir = output_dir
         print(f"결과 폴더: {output_dir}")
         return output_dir
