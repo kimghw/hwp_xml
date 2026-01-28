@@ -29,6 +29,11 @@ except ImportError:
     if win32hwp_dir not in sys.path:
         sys.path.insert(0, win32hwp_dir)
 
+# win32 폴더 경로 추가 (외부에서 import 시 필요)
+_win32_dir = Path(__file__).parent
+if str(_win32_dir) not in sys.path:
+    sys.path.insert(0, str(_win32_dir))
+
 from cursor import get_hwp_instance
 from hwp_file_manager import open_hwp
 import win32com.client as win32
