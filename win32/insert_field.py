@@ -91,6 +91,119 @@ def is_yellow_color(color: str) -> bool:
     return False
 
 
+def clear_tc_names_in_hwpx(hwpx_path: str) -> int:
+    """HWPX에서 모든 tc.name 속성 삭제
+
+    Returns:
+        삭제된 필드 수
+    """
+    hwpx_path = Path(hwpx_path)
+    extract_dir = tempfile.mkdtemp()
+    total_cleared = 0
+
+    try:
+        with zipfile.ZipFile(str(hwpx_path), 'r') as zf:
+            zf.extractall(extract_dir)
+
+        contents_dir = os.path.join(extract_dir, 'Contents')
+        section_files = sorted([
+            f for f in os.listdir(contents_dir)
+            if f.startswith('section') and f.endswith('.xml')
+        ])
+
+        for section_file in section_files:
+            section_path = os.path.join(contents_dir, section_file)
+            tree = ET.parse(section_path)
+            root = tree.getroot()
+
+            for tc in root.iter():
+                if tc.tag.endswith('}tc'):
+                    if 'name' in tc.attrib:
+                        del tc.attrib['name']
+                        total_cleared += 1
+
+            tree.write(section_path, encoding='utf-8', xml_declaration=True)
+
+        # 수정된 HWPX 다시 압축
+        with zipfile.ZipFile(str(hwpx_path), 'w', zipfile.ZIP_DEFLATED) as zf:
+            for root_dir, dirs, files in os.walk(extract_dir):
+                for file in files:
+                    file_path = os.path.join(root_dir, file)
+                    arcname = os.path.relpath(file_path, extract_dir)
+                    zf.write(file_path, arcname)
+
+    finally:
+        shutil.rmtree(extract_dir, ignore_errors=True)
+
+    return total_cleared
+
+
+def field_clear(file_path: str):
+    """파일의 모든 tc.name(필드) 삭제
+
+    - HWP: HWPX 변환 → tc.name 삭제 → HWP 덮어쓰기 → HWPX 삭제
+    - HWPX: tc.name만 삭제
+    """
+    file_path = Path(file_path)
+    ext = file_path.suffix.lower()
+
+    print(f"입력: {file_path}")
+
+    if ext == '.hwp':
+        # HWP → HWPX 변환
+        hwp = create_hwp_instance(visible=False)
+
+        hwp.HAction.GetDefault("FileOpen", hwp.HParameterSet.HFileOpenSave.HSet)
+        hwp.HParameterSet.HFileOpenSave.filename = str(file_path)
+        hwp.HParameterSet.HFileOpenSave.Format = "HWP"
+        hwp.HAction.Execute("FileOpen", hwp.HParameterSet.HFileOpenSave.HSet)
+
+        # 임시 HWPX
+        temp_hwpx = file_path.parent / f"{file_path.stem}_temp_clear.hwpx"
+
+        hwp.HAction.GetDefault("FileSaveAs_S", hwp.HParameterSet.HFileOpenSave.HSet)
+        hwp.HParameterSet.HFileOpenSave.filename = str(temp_hwpx)
+        hwp.HParameterSet.HFileOpenSave.Format = "HWPX"
+        hwp.HAction.Execute("FileSaveAs_S", hwp.HParameterSet.HFileOpenSave.HSet)
+
+        hwp.Clear(1)  # 문서 닫기
+        print(f"HWPX 변환: {temp_hwpx}")
+
+        # tc.name 삭제
+        cleared = clear_tc_names_in_hwpx(str(temp_hwpx))
+        print(f"삭제된 필드: {cleared}개")
+
+        # HWPX → HWP 덮어쓰기
+        hwp.HAction.GetDefault("FileOpen", hwp.HParameterSet.HFileOpenSave.HSet)
+        hwp.HParameterSet.HFileOpenSave.filename = str(temp_hwpx)
+        hwp.HParameterSet.HFileOpenSave.Format = "HWPX"
+        hwp.HAction.Execute("FileOpen", hwp.HParameterSet.HFileOpenSave.HSet)
+
+        hwp.HAction.GetDefault("FileSaveAs_S", hwp.HParameterSet.HFileOpenSave.HSet)
+        hwp.HParameterSet.HFileOpenSave.filename = str(file_path)
+        hwp.HParameterSet.HFileOpenSave.Format = "HWP"
+        hwp.HAction.Execute("FileSaveAs_S", hwp.HParameterSet.HFileOpenSave.HSet)
+
+        hwp.Quit()
+        print(f"HWP 저장: {file_path}")
+
+        # 임시 HWPX 삭제
+        temp_hwpx.unlink()
+        print(f"임시 파일 삭제: {temp_hwpx}")
+
+    elif ext == '.hwpx':
+        # HWPX: tc.name만 삭제
+        cleared = clear_tc_names_in_hwpx(str(file_path))
+        print(f"삭제된 필드: {cleared}개")
+        print(f"HWPX 저장: {file_path}")
+
+    else:
+        print(f"지원하지 않는 파일 형식: {ext}")
+        return
+
+    print("완료!")
+
+
 def convert_hwp_to_hwpx(hwp_path: str) -> str:
     """HWP 파일을 _insert_field.hwpx로 변환 후 열기, 문서 닫힘 대기"""
     hwp_path = Path(hwp_path)
