@@ -351,6 +351,82 @@ class Workflow5:
         print(f"Excel 저장: {excel_path}")
         return excel_path
 
+    def _add_meta_sheet_to_excel(self, excel_path: str, meta_yaml: str, field_yaml: str):
+        """Excel에 meta 시트 추가 (_meta.yaml + _field.yaml 데이터)"""
+        import yaml
+        from openpyxl import load_workbook
+
+        wb = load_workbook(excel_path)
+
+        # meta 시트 생성
+        if 'meta' in wb.sheetnames:
+            del wb['meta']
+        ws = wb.create_sheet(title='meta')
+
+        row_num = 1
+
+        # _meta.yaml 데이터 추가
+        if meta_yaml and os.path.exists(meta_yaml):
+            with open(meta_yaml, 'r', encoding='utf-8') as f:
+                meta_data = yaml.safe_load(f)
+
+            if meta_data:
+                ws.cell(row=row_num, column=1, value='=== META DATA ===')
+                row_num += 1
+
+                # 헤더
+                meta_headers = ['table_idx', 'table_id', 'type', 'row', 'col', 'row_span', 'col_span', 'list_id', 'para_id']
+                for col_idx, header in enumerate(meta_headers, 1):
+                    ws.cell(row=row_num, column=col_idx, value=header)
+                row_num += 1
+
+                # 데이터
+                for tbl in meta_data:
+                    tbl_idx = tbl.get('table_idx', '')
+                    table_id = tbl.get('table_id', '')
+                    tbl_type = tbl.get('type', '')
+                    for cell in tbl.get('cells', []):
+                        ws.cell(row=row_num, column=1, value=tbl_idx)
+                        ws.cell(row=row_num, column=2, value=table_id)
+                        ws.cell(row=row_num, column=3, value=tbl_type)
+                        ws.cell(row=row_num, column=4, value=cell.get('row', ''))
+                        ws.cell(row=row_num, column=5, value=cell.get('col', ''))
+                        ws.cell(row=row_num, column=6, value=cell.get('row_span', ''))
+                        ws.cell(row=row_num, column=7, value=cell.get('col_span', ''))
+                        ws.cell(row=row_num, column=8, value=cell.get('list_id', ''))
+                        ws.cell(row=row_num, column=9, value=cell.get('para_id', ''))
+                        row_num += 1
+
+                row_num += 1  # 빈 줄
+
+        # _field.yaml 데이터 추가
+        if field_yaml and os.path.exists(field_yaml):
+            with open(field_yaml, 'r', encoding='utf-8') as f:
+                field_data = yaml.safe_load(f)
+
+            if field_data:
+                ws.cell(row=row_num, column=1, value='=== FIELD DATA ===')
+                row_num += 1
+
+                # 헤더
+                field_headers = ['table_idx', 'table_id', 'row', 'col', 'field_name', 'type']
+                for col_idx, header in enumerate(field_headers, 1):
+                    ws.cell(row=row_num, column=col_idx, value=header)
+                row_num += 1
+
+                # 데이터
+                for field in field_data:
+                    ws.cell(row=row_num, column=1, value=field.get('table_idx', ''))
+                    ws.cell(row=row_num, column=2, value=field.get('table_id', ''))
+                    ws.cell(row=row_num, column=3, value=field.get('row', ''))
+                    ws.cell(row=row_num, column=4, value=field.get('col', ''))
+                    ws.cell(row=row_num, column=5, value=field.get('field_name', ''))
+                    ws.cell(row=row_num, column=6, value=field.get('type', ''))
+                    row_num += 1
+
+        wb.save(excel_path)
+        print(f"  meta 시트 추가 완료")
+
     def _cleanup(self):
         """임시 파일 삭제"""
         print("\n" + "-" * 60)
@@ -425,6 +501,13 @@ class Workflow5:
 
             # 9. 북마크별 Excel 변환
             results['excel'] = self._run_bookmark_excel(base_path, split_by_para)
+
+            # 10. Excel에 meta 시트 추가 (_meta.yaml + _field.yaml)
+            self._add_meta_sheet_to_excel(
+                results['excel'],
+                results['meta_yaml'],
+                results['field_yaml']
+            )
 
             # 11. 문서 닫고 정리
             self.hwp.Clear(1)  # temp HWPX 파일 잠금 해제
