@@ -200,6 +200,7 @@ class GetTableProperty:
 
             # 보안 모듈 등록
             self.hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
+            self.hwp.SetMessageBoxMode(0x00010000)
 
             # 창 표시 설정
             self.hwp.XHwpWindows.Item(0).Visible = self._visible
