@@ -152,15 +152,22 @@ python insert_field.py <입력_insert_field.hwpx>
 
 # 공통: 출력 폴더 구조
 
-모든 workflow (4, 5, 6)는 `data/파일명/` 폴더에 출력 파일을 저장합니다.
-
 \`\`\`
 입력파일.hwp
+입력파일_insert_field.hwpx    ← Workflow 6
 data/
   └── 입력파일/
-      ├── 입력파일_meta.yaml
-      ├── 입력파일_para.yaml
-      ├── 입력파일.xlsx
-      ├── 입력파일_by_bookmark.xlsx
-      └── 입력파일_field.yaml
+      ├── 입력파일_meta.yaml         ← Workflow 4, 5
+      ├── 입력파일_para.yaml         ← Workflow 4
+      ├── 입력파일_field.yaml        ← Workflow 5, 6
+      ├── 입력파일.xlsx              ← Workflow 4
+      └── 입력파일_by_bookmark.xlsx  ← Workflow 5
 \`\`\`
+
+## Workflow별 산출물 요약
+
+| Workflow | 산출 파일 |
+|----------|-----------|
+| **4** | `_meta.yaml`, `_para.yaml`, `.xlsx` |
+| **5** | `_meta.yaml`, `_field.yaml`, `_by_bookmark.xlsx` |
+| **6** | `_insert_field.hwpx`, `_field.yaml` |
