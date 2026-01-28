@@ -110,18 +110,20 @@ def set_red_field(hwp_path: str, output_path: str = None):
             }
 
     def find_cell_at(cell_map, row, col):
-        """해당 위치의 셀 찾기 (병합된 셀 포함)"""
+        """해당 위치의 셀 찾기 (병합된 셀 포함)
+        Returns: (info, start_row, start_col) - 셀 정보와 시작 위치
+        """
         # 정확히 해당 위치에 셀이 있으면 반환
         if (row, col) in cell_map:
-            return cell_map[(row, col)]
+            return cell_map[(row, col)], row, col
 
         # 병합된 셀 찾기: 이전 행/열에서 span이 이 위치를 포함하는 셀 찾기
         for (r, c), info in cell_map.items():
             row_span = info.get('row_span', 1)
             col_span = info.get('col_span', 1)
             if r <= row < r + row_span and c <= col < c + col_span:
-                return info
-        return {}
+                return info, r, c
+        return {}, -1, -1
 
     # HWPX 압축 해제
     extract_dir = tempfile.mkdtemp()
@@ -175,7 +177,9 @@ def set_red_field(hwp_path: str, output_path: str = None):
                                 continue
 
                             # 셀 정보 가져오기
-                            cell_info = cell_map.get((row, col), {})
+                            cell_info, _, _ = find_cell_at(cell_map, row, col)
+                            if not cell_info:
+                                cell_info = {}
                             bg_color = cell_info.get('bg_color', '')
 
                             # 빨간색 배경이 아니면 스킵
@@ -187,34 +191,42 @@ def set_red_field(hwp_path: str, output_path: str = None):
                             if cell_text:
                                 continue
 
-                            # 왼쪽으로 이동해서 최대 3개 텍스트 찾기 (병합 셀 고려)
+                            # 왼쪽으로 이동해서 최대 3개 텍스트 찾기 (빨간색 범위 내에서만)
                             left_texts = []
-                            for c in range(col - 1, -1, -1):
-                                info = find_cell_at(cell_map, row, c)
+                            c = col - 1
+                            while c >= 0 and len(left_texts) < 3:
+                                info, start_r, start_c = find_cell_at(cell_map, row, c)
+                                # 빨간색 셀이 아니면 탐색 중단
+                                if not is_red_color(info.get('bg_color', '')):
+                                    break
                                 t = info.get('text', '').strip()
                                 if t:
                                     left_texts.append(t)
-                                    if len(left_texts) >= 3:
-                                        break
+                                # 병합 셀의 시작 열로 점프 (다음 반복에서 그 왼쪽으로)
+                                c = start_c - 1 if start_c >= 0 else c - 1
 
-                            # 위쪽으로 이동해서 최대 3개 텍스트 찾기 (병합 셀 고려)
+                            # 위쪽으로 이동해서 최대 3개 텍스트 찾기 (빨간색 범위 내에서만)
                             top_texts = []
-                            for r in range(row - 1, -1, -1):
-                                info = find_cell_at(cell_map, r, col)
+                            r = row - 1
+                            while r >= 0 and len(top_texts) < 3:
+                                info, start_r, start_c = find_cell_at(cell_map, r, col)
+                                # 빨간색 셀이 아니면 탐색 중단
+                                if not is_red_color(info.get('bg_color', '')):
+                                    break
                                 t = info.get('text', '').strip()
                                 if t:
                                     top_texts.append(t)
-                                    if len(top_texts) >= 3:
-                                        break
+                                # 병합 셀의 시작 행으로 점프 (다음 반복에서 그 위쪽으로)
+                                r = start_r - 1 if start_r >= 0 else r - 1
 
-                            # 필드명 생성: [좌1][좌2][좌3][위1][위2][위3]
+                            # 필드명 생성: [L:좌1][L:좌2][T:위1][T:위2]
                             parts = []
-                            # 왼쪽: 가까운 순서대로 (역순 불필요)
+                            # 왼쪽: L: 접두사
                             for t in left_texts:
-                                parts.append('[' + t + ']')
-                            # 위쪽: 가까운 순서대로
+                                parts.append('[L:' + t + ']')
+                            # 위쪽: T: 접두사
                             for t in top_texts:
-                                parts.append('[' + t + ']')
+                                parts.append('[T:' + t + ']')
 
                             field_name = ''.join(parts)
 
@@ -258,12 +270,21 @@ def set_red_field(hwp_path: str, output_path: str = None):
 
 
 if __name__ == "__main__":
-    hwp_path = r"C:\hwp_xml\test.hwp"
-    output_path = r"C:\hwp_xml\test_field.hwp"
+    from hwp_file_manager import open_file_dialog
 
     if len(sys.argv) > 1:
         hwp_path = sys.argv[1]
+    else:
+        hwp_path = open_file_dialog("HWP 파일 선택")
+        if not hwp_path:
+            print("파일을 선택하지 않았습니다.")
+            sys.exit(1)
+
     if len(sys.argv) > 2:
         output_path = sys.argv[2]
+    else:
+        # 입력 파일명에 _field 붙여서 출력 파일명 생성
+        p = Path(hwp_path)
+        output_path = str(p.parent / f"{p.stem}_field{p.suffix}")
 
     set_red_field(hwp_path, output_path)
