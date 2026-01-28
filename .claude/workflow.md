@@ -101,21 +101,27 @@ cmd.exe /c "cd /d C:\hwp_xml\win32 && python insert_field.py" 2>&1
 
 # 직접 경로 지정
 python insert_field.py <입력.hwp>
+python insert_field.py <입력_insert_field.hwpx>
 \`\`\`
 
 ## 프로세스
 
-1. HWP 파일 선택 (대화상자 또는 명령줄)
-2. HWP → HWPX 임시 변환
-3. 색상별 필드 설정
-4. HWPX XML의 `tc.name` 속성에 필드명 설정
-5. 원본 HWP에 덮어쓰기
-6. YAML 파일 출력
+### HWP 파일 선택 시 (자동 진행)
+1. HWP → `_insert_field.hwpx` 변환
+2. 한글에서 파일 열림
+3. 사용자가 색상 블럭 작업 후 저장
+4. **문서 닫으면 자동 감지** (`XHwpDocuments.Count` 폴링)
+5. tc.name에 필드명 설정
+6. YAML 출력
+
+### HWPX 파일 선택 시
+1. tc.name에 필드명 설정
+2. YAML 출력
 
 ## 출력 파일
 
-`data/파일명/` 폴더에 저장:
-- `{파일명}_field.yaml` : 필드 설정 정보
+- `{원본}_insert_field.hwpx` : 필드 설정된 HWPX (원본 폴더)
+- `data/{원본}/{원본}_field.yaml` : 필드 설정 정보
 
 ## 색상별 처리 규칙
 
