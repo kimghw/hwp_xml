@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 """색상 기반 셀 필드 자동 설정
-- 빨간색 빈 셀: 좌/상 텍스트로 필드명 생성
-- 노란색 셀: 셀 텍스트를 필드명으로 사용
+
+사용법:
+1. HWP 파일 선택 시:
+   - 원본.hwp → 원본_insert_field.hwpx 변환 후 종료
+   - 사용자가 HWPX에서 색상 블럭 작업
+
+2. _insert_field.hwpx 파일 선택 시:
+   - tc.name에 필드명 설정
+   - YAML 출력 (data/원본/)
+   - 원본.hwp, 원본_insert_field.hwpx 유지
 """
 
 import sys
@@ -81,46 +89,58 @@ def is_yellow_color(color: str) -> bool:
     return False
 
 
-def set_red_field(hwp_path: str, output_path: str = None):
-    """빨간색 배경 셀에 필드 이름 설정"""
+def convert_hwp_to_hwpx(hwp_path: str) -> str:
+    """HWP 파일을 _insert_field.hwpx로 변환"""
     hwp_path = Path(hwp_path)
-    if not hwp_path.exists():
-        print(f"파일이 없습니다: {hwp_path}")
-        return
-
-    if output_path is None:
-        output_path = hwp_path
+    hwpx_path = hwp_path.parent / f"{hwp_path.stem}_insert_field.hwpx"
 
     print(f"입력: {hwp_path}")
-    print(f"출력: {output_path}")
-    print()
+    print(f"출력: {hwpx_path}")
 
-    # 한글 실행 (숨김)
     hwp = create_hwp_instance(visible=False)
 
-    # 파일 열기 (HAction 방식 - 보안 팝업 방지)
+    # 파일 열기
     hwp.HAction.GetDefault("FileOpen", hwp.HParameterSet.HFileOpenSave.HSet)
     hwp.HParameterSet.HFileOpenSave.filename = str(hwp_path)
     hwp.HParameterSet.HFileOpenSave.Format = "HWP"
     hwp.HAction.Execute("FileOpen", hwp.HParameterSet.HFileOpenSave.HSet)
 
-    # 임시 HWPX로 저장
-    temp_dir = tempfile.gettempdir()
-    hwpx_path = os.path.join(temp_dir, "set_red_field_temp.hwpx")
-
+    # HWPX로 저장
     hwp.HAction.GetDefault("FileSaveAs_S", hwp.HParameterSet.HFileOpenSave.HSet)
-    hwp.HParameterSet.HFileOpenSave.filename = hwpx_path
+    hwp.HParameterSet.HFileOpenSave.filename = str(hwpx_path)
     hwp.HParameterSet.HFileOpenSave.Format = "HWPX"
     hwp.HAction.Execute("FileSaveAs_S", hwp.HParameterSet.HFileOpenSave.HSet)
-    print(f"HWPX 변환 완료")
+
+    hwp.Quit()
+    print(f"HWPX 변환 완료: {hwpx_path}")
+    print()
+    print("이제 HWPX 파일에서 색상 블럭 작업 후 다시 실행하세요.")
+    return str(hwpx_path)
+
+
+def process_hwpx_field(hwpx_path: str):
+    """HWPX 파일에서 색상 기반 필드 설정"""
+    hwpx_path = Path(hwpx_path)
+    if not hwpx_path.exists():
+        print(f"파일이 없습니다: {hwpx_path}")
+        return
+
+    # 원본 파일명 추출 (_insert_field 제거)
+    stem = hwpx_path.stem
+    if stem.endswith('_insert_field'):
+        original_stem = stem[:-len('_insert_field')]
+    else:
+        original_stem = stem
+
+    print(f"입력: {hwpx_path}")
+    print()
 
     # 테이블 파싱
     parser = GetCellDetail()
-    all_tables = parser.from_hwpx_by_table(hwpx_path)
+    all_tables = parser.from_hwpx_by_table(str(hwpx_path))
 
     if not all_tables:
         print("테이블이 없습니다")
-        hwp.Quit()
         return
 
     # 테이블별 셀 맵 생성 (병합 정보 포함)
@@ -168,7 +188,7 @@ def set_red_field(hwp_path: str, output_path: str = None):
     field_results = []  # 필드 설정 결과 저장
 
     try:
-        with zipfile.ZipFile(hwpx_path, 'r') as zf:
+        with zipfile.ZipFile(str(hwpx_path), 'r') as zf:
             zf.extractall(extract_dir)
 
         contents_dir = os.path.join(extract_dir, 'Contents')
@@ -313,7 +333,7 @@ def set_red_field(hwp_path: str, output_path: str = None):
                 tree.write(section_path, encoding='utf-8', xml_declaration=True)
 
         # 수정된 HWPX 다시 압축
-        with zipfile.ZipFile(hwpx_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(str(hwpx_path), 'w', zipfile.ZIP_DEFLATED) as zf:
             for root_dir, dirs, files in os.walk(extract_dir):
                 for file in files:
                     file_path = os.path.join(root_dir, file)
@@ -322,47 +342,43 @@ def set_red_field(hwp_path: str, output_path: str = None):
 
         print()
         print(f"설정된 필드: {set_count}개")
+        print(f"HWPX 저장 완료: {hwpx_path}")
 
-        # HWP로 변환하여 저장 (HAction 방식)
-        hwp.HAction.GetDefault("FileOpen", hwp.HParameterSet.HFileOpenSave.HSet)
-        hwp.HParameterSet.HFileOpenSave.filename = hwpx_path
-        hwp.HParameterSet.HFileOpenSave.Format = "HWPX"
-        hwp.HAction.Execute("FileOpen", hwp.HParameterSet.HFileOpenSave.HSet)
-        hwp.HAction.GetDefault("FileSaveAs_S", hwp.HParameterSet.HFileOpenSave.HSet)
-        hwp.HParameterSet.HFileOpenSave.filename = str(output_path)
-        hwp.HParameterSet.HFileOpenSave.Format = "HWP"
-        hwp.HAction.Execute("FileSaveAs_S", hwp.HParameterSet.HFileOpenSave.HSet)
-        print(f"저장 완료: {output_path}")
-
-        # YAML 파일 출력 (data/파일명/ 폴더에 저장)
+        # YAML 파일 출력 (data/원본파일명/ 폴더에 저장)
         if field_results:
-            # data 폴더 생성
-            hwp_stem = Path(hwp_path).stem
-            data_dir = Path(hwp_path).parent / 'data' / hwp_stem
+            # data 폴더 생성 (원본 파일명 기준)
+            data_dir = hwpx_path.parent / 'data' / original_stem
             data_dir.mkdir(parents=True, exist_ok=True)
 
-            yaml_path = data_dir / f"{hwp_stem}_field.yaml"
+            yaml_path = data_dir / f"{original_stem}_field.yaml"
             with open(yaml_path, 'w', encoding='utf-8') as f:
                 yaml.dump(field_results, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
             print(f"YAML 저장: {yaml_path}")
 
     finally:
         shutil.rmtree(extract_dir, ignore_errors=True)
-        hwp.Quit()
 
 
 if __name__ == "__main__":
     from hwp_file_manager import open_file_dialog
 
     if len(sys.argv) > 1:
-        hwp_path = sys.argv[1]
+        file_path = sys.argv[1]
     else:
-        hwp_path = open_file_dialog("HWP 파일 선택")
-        if not hwp_path:
+        file_path = open_file_dialog("HWP/HWPX 파일 선택")
+        if not file_path:
             print("파일을 선택하지 않았습니다.")
             sys.exit(1)
 
-    # 원본 파일에 덮어쓰기
-    output_path = hwp_path
+    file_path = Path(file_path)
+    ext = file_path.suffix.lower()
 
-    set_red_field(hwp_path, output_path)
+    if ext == '.hwp':
+        # HWP 파일: HWPX로 변환 후 종료
+        convert_hwp_to_hwpx(str(file_path))
+    elif ext == '.hwpx':
+        # HWPX 파일: 필드 설정 처리
+        process_hwpx_field(str(file_path))
+    else:
+        print(f"지원하지 않는 파일 형식: {ext}")
+        sys.exit(1)
