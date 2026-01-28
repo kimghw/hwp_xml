@@ -3,8 +3,9 @@
 
 사용법:
 1. HWP 파일 선택 시:
-   - 원본.hwp → 원본_insert_field.hwpx 변환 후 종료
-   - 사용자가 HWPX에서 색상 블럭 작업
+   - 원본.hwp → 원본_insert_field.hwpx 변환
+   - 한글에서 파일 열림 → 색상 블럭 작업
+   - 문서 닫으면 자동으로 필드 설정 진행
 
 2. _insert_field.hwpx 파일 선택 시:
    - tc.name에 필드명 설정
@@ -14,6 +15,7 @@
 
 import sys
 import os
+import time
 import tempfile
 import zipfile
 import shutil
@@ -90,7 +92,7 @@ def is_yellow_color(color: str) -> bool:
 
 
 def convert_hwp_to_hwpx(hwp_path: str) -> str:
-    """HWP 파일을 _insert_field.hwpx로 변환 후 열기"""
+    """HWP 파일을 _insert_field.hwpx로 변환 후 열기, 문서 닫힘 대기"""
     hwp_path = Path(hwp_path)
     hwpx_path = hwp_path.parent / f"{hwp_path.stem}_insert_field.hwpx"
 
@@ -113,8 +115,22 @@ def convert_hwp_to_hwpx(hwp_path: str) -> str:
 
     print(f"HWPX 변환 완료: {hwpx_path}")
     print()
-    print("색상 블럭 작업 후 저장하고, 다시 실행하세요.")
-    # hwp.Quit() 하지 않음 - 파일 열린 상태 유지
+    print("색상 블럭 작업 후 저장하고 문서를 닫으세요...")
+    print("(문서가 닫히면 자동으로 필드 설정이 진행됩니다)")
+
+    # 문서 닫힘 대기 (폴링 방식)
+    while True:
+        try:
+            doc_count = hwp.XHwpDocuments.Count
+            if doc_count == 0:
+                break
+            time.sleep(1)
+        except:
+            # hwp 객체 접근 실패 = 한글 종료됨
+            break
+
+    print()
+    print("문서 닫힘 감지, 필드 설정 진행...")
     return str(hwpx_path)
 
 
@@ -374,8 +390,9 @@ if __name__ == "__main__":
     ext = file_path.suffix.lower()
 
     if ext == '.hwp':
-        # HWP 파일: HWPX로 변환 후 종료
-        convert_hwp_to_hwpx(str(file_path))
+        # HWP 파일: HWPX로 변환 → 문서 닫힘 대기 → 필드 설정
+        hwpx_path = convert_hwp_to_hwpx(str(file_path))
+        process_hwpx_field(hwpx_path)
     elif ext == '.hwpx':
         # HWPX 파일: 필드 설정 처리
         process_hwpx_field(str(file_path))
