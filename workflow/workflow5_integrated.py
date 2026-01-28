@@ -205,9 +205,16 @@ class Workflow5:
         return self.temp_hwpx
 
     def _extract_existing_fields(self, base_path: str) -> str:
-        """기존 셀 필드 이름 추출 (삭제는 하지 않음, 나중에 복원용으로 저장)"""
+        """기존 셀 필드 이름 추출 또는 기존 _field.yaml 사용"""
         print("\n" + "-" * 60)
         print("기존 셀 필드 이름 추출 중...")
+
+        field_yaml = base_path + "_field.yaml"
+
+        # 기존 _field.yaml 파일이 있으면 그것을 사용
+        if os.path.exists(field_yaml):
+            print(f"  기존 파일 사용: {field_yaml}")
+            return field_yaml
 
         from win32.extract_field import ExtractField
 
@@ -220,7 +227,6 @@ class Workflow5:
             return None
 
         # YAML 저장
-        field_yaml = base_path + "_field.yaml"
         self.field_extractor.save_yaml(field_yaml)
 
         return field_yaml
@@ -352,12 +358,14 @@ class Workflow5:
         return excel_path
 
     def _add_meta_to_sheets(self, excel_path: str, meta_yaml: str, field_yaml: str):
-        """하나의 meta 시트에 모든 메타데이터 작성
+        """meta 시트에 셀별 문단 정보 포함하여 작성
 
-        table_id + row + col 로 매칭하여 field_name 추가
+        각 셀의 문단별로 행 생성 (para_idx, para_text 포함)
+        VB Workflow7에서 같은 셀의 문단들을 합쳐서 HWP에 반영
         """
         import yaml
         from openpyxl import load_workbook
+        from hwpxml.get_cell_detail import GetCellDetail
 
         wb = load_workbook(excel_path)
 
@@ -378,48 +386,68 @@ class Workflow5:
                     'field_type': field.get('type', '')
                 }
 
-        row_num = 1
-
-        # _meta.yaml 데이터 추가 (field_name 매칭 포함)
+        # _meta.yaml 로드 → (tbl_idx) → table_id 매핑
+        table_id_map = {}
         if meta_yaml and os.path.exists(meta_yaml):
             with open(meta_yaml, 'r', encoding='utf-8') as f:
                 meta_data = yaml.safe_load(f)
+            for tbl in meta_data.get('tables', []):
+                table_id_map[tbl.get('tbl_idx')] = str(tbl.get('table_id', ''))
 
-            if meta_data:
-                # 헤더
-                meta_headers = ['tbl_idx', 'table_id', 'type', 'size', 'row', 'col', 'row_span', 'col_span', 'list_id', 'field_name', 'field_type']
-                for col_idx, header in enumerate(meta_headers, 1):
-                    ws.cell(row=row_num, column=col_idx, value=header)
-                row_num += 1
+        # HWPX에서 셀 상세 정보 읽기 (문단 포함)
+        cell_detail_parser = GetCellDetail()
+        all_cell_details = cell_detail_parser.from_hwpx_by_table(self.temp_hwpx)
 
-                # 데이터
-                tables = meta_data.get('tables', [])
-                for tbl in tables:
-                    tbl_idx = tbl.get('tbl_idx', '')
-                    table_id = str(tbl.get('table_id', ''))
-                    tbl_type = tbl.get('type', '')
-                    tbl_size = tbl.get('size', '')
+        row_num = 1
 
-                    for cell in tbl.get('cells', []):
-                        cell_row = cell[1] if len(cell) > 1 else ''
-                        cell_col = cell[2] if len(cell) > 2 else ''
-                        field_info = field_map.get((table_id, cell_row, cell_col), {})
+        # 헤더
+        meta_headers = ['tbl_idx', 'table_id', 'row', 'col', 'row_span', 'col_span',
+                        'list_id', 'para_idx', 'para_text', 'field_name', 'field_type']
+        for col_idx, header in enumerate(meta_headers, 1):
+            ws.cell(row=row_num, column=col_idx, value=header)
+        row_num += 1
 
+        # 데이터: 각 테이블의 각 셀의 각 문단별로 행 생성
+        for tbl_idx, cell_details in enumerate(all_cell_details):
+            table_id = table_id_map.get(tbl_idx, '')
+
+            for cd in cell_details:
+                field_info = field_map.get((table_id, cd.row, cd.col), {})
+                field_name = field_info.get('field_name', '')
+                field_type = field_info.get('field_type', '')
+
+                # 문단이 있으면 문단별로, 없으면 셀 텍스트로
+                if cd.paragraphs:
+                    for para_idx, para in enumerate(cd.paragraphs):
                         ws.cell(row=row_num, column=1, value=tbl_idx)
                         ws.cell(row=row_num, column=2, value=table_id)
-                        ws.cell(row=row_num, column=3, value=tbl_type)
-                        ws.cell(row=row_num, column=4, value=tbl_size)
-                        ws.cell(row=row_num, column=5, value=cell_row)
-                        ws.cell(row=row_num, column=6, value=cell_col)
-                        ws.cell(row=row_num, column=7, value=cell[3] if len(cell) > 3 else '')
-                        ws.cell(row=row_num, column=8, value=cell[4] if len(cell) > 4 else '')
-                        ws.cell(row=row_num, column=9, value=cell[5] if len(cell) > 5 else '')
-                        ws.cell(row=row_num, column=10, value=field_info.get('field_name', ''))
-                        ws.cell(row=row_num, column=11, value=field_info.get('field_type', ''))
+                        ws.cell(row=row_num, column=3, value=cd.row)
+                        ws.cell(row=row_num, column=4, value=cd.col)
+                        ws.cell(row=row_num, column=5, value=cd.row_span)
+                        ws.cell(row=row_num, column=6, value=cd.col_span)
+                        ws.cell(row=row_num, column=7, value=cd.list_id)
+                        ws.cell(row=row_num, column=8, value=para_idx)
+                        ws.cell(row=row_num, column=9, value=para.text)
+                        ws.cell(row=row_num, column=10, value=field_name)
+                        ws.cell(row=row_num, column=11, value=field_type)
                         row_num += 1
+                else:
+                    # 문단 정보 없으면 셀 텍스트 사용
+                    ws.cell(row=row_num, column=1, value=tbl_idx)
+                    ws.cell(row=row_num, column=2, value=table_id)
+                    ws.cell(row=row_num, column=3, value=cd.row)
+                    ws.cell(row=row_num, column=4, value=cd.col)
+                    ws.cell(row=row_num, column=5, value=cd.row_span)
+                    ws.cell(row=row_num, column=6, value=cd.col_span)
+                    ws.cell(row=row_num, column=7, value=cd.list_id)
+                    ws.cell(row=row_num, column=8, value=0)
+                    ws.cell(row=row_num, column=9, value=cd.text)
+                    ws.cell(row=row_num, column=10, value=field_name)
+                    ws.cell(row=row_num, column=11, value=field_type)
+                    row_num += 1
 
         wb.save(excel_path)
-        print(f"  meta 시트 추가 완료")
+        print(f"  meta 시트 추가 완료 ({row_num - 1}행)")
 
     def _cleanup(self):
         """임시 파일 삭제"""
