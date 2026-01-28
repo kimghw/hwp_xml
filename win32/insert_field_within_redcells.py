@@ -53,6 +53,30 @@ def is_red_color(color: str) -> bool:
     return False
 
 
+def is_yellow_color(color: str) -> bool:
+    """노란색 계열인지 확인"""
+    if not color:
+        return False
+
+    color_lower = color.lower().strip().lstrip('#')
+
+    yellow_colors = ['ffff00', 'ffff00ff', 'fff000', 'fff000ff']
+    if color_lower in yellow_colors:
+        return True
+
+    if len(color_lower) >= 6:
+        try:
+            r = int(color_lower[0:2], 16)
+            g = int(color_lower[2:4], 16)
+            b = int(color_lower[4:6], 16)
+            # 노란색: R과 G가 높고, B가 낮음
+            if r > 200 and g > 200 and b < 100:
+                return True
+        except:
+            pass
+    return False
+
+
 def set_red_field(hwp_path: str, output_path: str = None):
     """빨간색 배경 셀에 필드 이름 설정"""
     hwp_path = Path(hwp_path)
@@ -181,13 +205,23 @@ def set_red_field(hwp_path: str, output_path: str = None):
                             if not cell_info:
                                 cell_info = {}
                             bg_color = cell_info.get('bg_color', '')
+                            cell_text = cell_info.get('text', '').strip()
+
+                            # 노란색 셀: 셀 텍스트를 필드명으로 사용 (20자 제한)
+                            if is_yellow_color(bg_color):
+                                if cell_text:
+                                    field_name = cell_text[:20]
+                                    tc.set('name', field_name)
+                                    set_count += 1
+                                    modified = True
+                                    print(f"  테이블{current_tbl_idx} ({row},{col}) -> [{field_name}]")
+                                continue
 
                             # 빨간색 배경이 아니면 스킵
                             if not is_red_color(bg_color):
                                 continue
 
                             # 텍스트가 있으면 스킵 (빈 셀에서만 필드 설정)
-                            cell_text = cell_info.get('text', '').strip()
                             if cell_text:
                                 continue
 
