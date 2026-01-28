@@ -28,9 +28,9 @@ except ImportError:
         sys.path.insert(0, win32hwp_dir)
 
 try:
-    from hwp_utils import get_hwp_instance, create_hwp_instance, get_active_filepath
+    from hwp_file_manager import get_hwp_instance, create_hwp_instance, get_active_filepath
 except ImportError:
-    from win32.hwp_utils import get_hwp_instance, create_hwp_instance, get_active_filepath
+    from win32.hwp_file_manager import get_hwp_instance, create_hwp_instance, get_active_filepath
 from typing import List, Dict, Optional
 from dataclasses import dataclass, field
 

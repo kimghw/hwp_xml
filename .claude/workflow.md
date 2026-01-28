@@ -156,12 +156,12 @@ cmd.exe /c "cd /d C:\hwp_xml\win32 && python workflow5_integrated.py" 2>&1
 
 # Workflow 6: 빨간색 셀 필드 자동 설정
 
-`set_red_field.py` - 빨간색 배경 빈 셀에 필드명 자동 설정
+`insert_field_within_redcells.py` - 빨간색 배경 빈 셀에 필드명 자동 설정
 
 ## 실행 방법
 
 ```bash
-python set_red_field.py <입력.hwp> <출력.hwp>
+python insert_field_within_redcells.py <입력.hwp> <출력.hwp>
 ```
 
 ## 프로세스

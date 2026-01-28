@@ -59,19 +59,19 @@ table_cell_details = parser.from_hwpx_by_table(hwpx_path)
 
 ### win32/
 Windows 한글 COM API 연동 (WSL에서 cmd.exe로 실행)
-- `hwp_utils.py`: 공통 유틸리티 (인스턴스 연결, 파일 대화상자, 저장)
+- `hwp_file_manager.py`: 공통 유틸리티 (인스턴스 연결, 파일 대화상자, 저장)
 - `convert_hwp.py`: HWP↔HWPX 변환
 - `insert_ctrl_id.py`: 테이블에 ctrl_id 메타데이터 삽입
 - `insert_table_field.py`: 테이블 셀에 필드 이름(메타데이터) 설정
 - `get_para_style.py`: 문단 스타일 추출 → `파일_para.yaml`
 - `get_table_property.py`: COM API로 테이블 속성 추출
 - `get_table_info.py`: 테이블 위치/구조 조회
-- `set_red_field.py`: 빨간색 배경 빈 셀에 필드명 자동 설정 (`[왼쪽][위쪽]` 형식)
+- `insert_field_within_redcells.py`: 빨간색 배경 빈 셀에 필드명 자동 설정 (`[왼쪽][위쪽]` 형식)
 
-## 한글 COM API 공통 유틸리티 (hwp_utils.py)
+## 한글 COM API 공통 유틸리티 (hwp_file_manager.py)
 
 ```python
-from hwp_utils import get_hwp_instance, create_hwp_instance, get_active_filepath, open_file_dialog, save_hwp
+from hwp_file_manager import get_hwp_instance, create_hwp_instance, get_active_filepath, open_file_dialog, save_hwp
 
 hwp = get_hwp_instance()  # 열린 한글 연결 (없으면 None)
 hwp = create_hwp_instance()  # 새 한글 생성 (SecurityModule 포함)

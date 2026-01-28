@@ -22,8 +22,12 @@ except ImportError:
     if win32hwp_dir not in sys.path:
         sys.path.insert(0, win32hwp_dir)
 
-import win32com.client as win32
 from hwpxml.get_cell_detail import GetCellDetail
+
+try:
+    from hwp_file_manager import create_hwp_instance
+except ImportError:
+    from win32.hwp_file_manager import create_hwp_instance
 
 
 def is_red_color(color: str) -> bool:
@@ -64,9 +68,7 @@ def set_red_field(hwp_path: str, output_path: str = None):
     print()
 
     # 한글 실행 (숨김)
-    hwp = win32.gencache.EnsureDispatch("hwpframe.hwpobject")
-    hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
-    hwp.XHwpWindows.Item(0).Visible = False
+    hwp = create_hwp_instance(visible=False)
 
     # 파일 열기
     hwp.Open(str(hwp_path), "HWP", "forceopen:true")

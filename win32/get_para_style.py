@@ -649,9 +649,9 @@ class GetParaStyle:
 
 
 try:
-    from hwp_utils import get_hwp_instance, open_file_dialog, get_active_filepath, create_hwp_instance
+    from hwp_file_manager import get_hwp_instance, open_file_dialog, get_active_filepath, create_hwp_instance
 except ImportError:
-    from win32.hwp_utils import get_hwp_instance, open_file_dialog, get_active_filepath, create_hwp_instance
+    from win32.hwp_file_manager import get_hwp_instance, open_file_dialog, get_active_filepath, create_hwp_instance
 
 
 def open_file_dialog_win32() -> Optional[str]:

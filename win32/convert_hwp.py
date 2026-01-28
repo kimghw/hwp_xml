@@ -18,18 +18,10 @@ except ImportError:
     print("pywin32가 설치되지 않았습니다.")
     sys.exit(1)
 
-
-def get_hwp_instance():
-    """실행 중인 한글 인스턴스 가져오기 또는 새로 생성"""
-    try:
-        # 실행 중인 한글에 연결 시도
-        hwp = win32.GetActiveObject("hwpframe.hwpobject")
-        return hwp, False  # (인스턴스, 새로 생성 여부)
-    except:
-        # 새 인스턴스 생성
-        hwp = win32.gencache.EnsureDispatch("hwpframe.hwpobject")
-        hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
-        return hwp, True
+try:
+    from hwp_file_manager import get_or_create_hwp
+except ImportError:
+    from win32.hwp_file_manager import get_or_create_hwp
 
 
 def convert_hwp_to_hwpx(hwp_path: str, output_path: str = None) -> str:
@@ -52,11 +44,11 @@ def convert_hwp_to_hwpx(hwp_path: str, output_path: str = None) -> str:
     else:
         output_path = Path(output_path)
 
-    hwp, is_new = get_hwp_instance()
+    hwp, is_new = get_or_create_hwp(visible=False)
 
     try:
         # 파일 열기
-        hwp.Open(str(hwp_path))
+        hwp.Open(str(hwp_path), "HWP", "forceopen:true")
 
         # HWPX로 저장
         hwp.HAction.GetDefault("FileSaveAs_S", hwp.HParameterSet.HFileOpenSave.HSet)
@@ -96,10 +88,10 @@ def convert_hwpx_to_hwp(hwpx_path: str, output_path: str = None) -> str:
     else:
         output_path = Path(output_path)
 
-    hwp, is_new = get_hwp_instance()
+    hwp, is_new = get_or_create_hwp(visible=False)
 
     try:
-        hwp.Open(str(hwpx_path))
+        hwp.Open(str(hwpx_path), "HWPX", "forceopen:true")
 
         hwp.HAction.GetDefault("FileSaveAs_S", hwp.HParameterSet.HFileOpenSave.HSet)
         hwp.HParameterSet.HFileOpenSave.filename = str(output_path)
