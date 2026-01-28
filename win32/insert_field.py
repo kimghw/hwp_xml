@@ -90,14 +90,14 @@ def is_yellow_color(color: str) -> bool:
 
 
 def convert_hwp_to_hwpx(hwp_path: str) -> str:
-    """HWP 파일을 _insert_field.hwpx로 변환"""
+    """HWP 파일을 _insert_field.hwpx로 변환 후 열기"""
     hwp_path = Path(hwp_path)
     hwpx_path = hwp_path.parent / f"{hwp_path.stem}_insert_field.hwpx"
 
     print(f"입력: {hwp_path}")
     print(f"출력: {hwpx_path}")
 
-    hwp = create_hwp_instance(visible=False)
+    hwp = create_hwp_instance(visible=True)
 
     # 파일 열기
     hwp.HAction.GetDefault("FileOpen", hwp.HParameterSet.HFileOpenSave.HSet)
@@ -111,10 +111,10 @@ def convert_hwp_to_hwpx(hwp_path: str) -> str:
     hwp.HParameterSet.HFileOpenSave.Format = "HWPX"
     hwp.HAction.Execute("FileSaveAs_S", hwp.HParameterSet.HFileOpenSave.HSet)
 
-    hwp.Quit()
     print(f"HWPX 변환 완료: {hwpx_path}")
     print()
-    print("이제 HWPX 파일에서 색상 블럭 작업 후 다시 실행하세요.")
+    print("색상 블럭 작업 후 저장하고, 다시 실행하세요.")
+    # hwp.Quit() 하지 않음 - 파일 열린 상태 유지
     return str(hwpx_path)
 
 
