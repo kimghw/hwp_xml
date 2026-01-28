@@ -45,7 +45,7 @@ def get_or_create_hwp():
         return hwp
     hwp = win32.gencache.EnsureDispatch("hwpframe.hwpobject")
     hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
-            hwp.SetMessageBoxMode(0x00010000)
+    hwp.SetMessageBoxMode(0x00010000)
     return hwp
 
 

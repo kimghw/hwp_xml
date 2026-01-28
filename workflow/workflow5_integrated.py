@@ -51,7 +51,7 @@ except ImportError:
     if win32hwp_dir not in sys.path:
         sys.path.insert(0, win32hwp_dir)
 
-from win32.hwp_utils import get_hwp_instance, create_hwp_instance, get_active_filepath, open_file_dialog, save_hwp
+from win32.hwp_file_manager import get_hwp_instance, create_hwp_instance, get_active_filepath, open_file_dialog, save_hwp
 
 
 class Workflow5:

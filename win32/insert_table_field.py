@@ -55,7 +55,7 @@ def get_or_create_hwp():
         # 기존 인스턴스도 보안 모듈 등록 확인
         try:
             hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
-    hwp.SetMessageBoxMode(0x00010000)
+            hwp.SetMessageBoxMode(0x00010000)
         except:
             pass
         return hwp
