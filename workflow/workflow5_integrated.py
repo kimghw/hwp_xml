@@ -72,13 +72,21 @@ class Workflow5:
         self.field_extractor = None  # 필드 추출/복원용
 
     def _create_output_dir(self) -> str:
-        """결과 저장 폴더 생성 (data/파일명/ 구조)"""
+        """결과 저장 폴더 생성 (data/원본파일명/ 구조)
+
+        _insert_field 접미사가 있으면 제거하여 원본 파일명으로 폴더 생성
+        예: test_insert_field.hwpx → data/test/
+        """
         if not self.filepath:
             raise ValueError("파일 경로가 설정되지 않았습니다.")
 
         # data/파일명/ 폴더 생성
         file_dir = os.path.dirname(self.filepath)
         file_name = os.path.splitext(os.path.basename(self.filepath))[0]
+
+        # _insert_field 접미사 제거 (원본 파일명으로 통일)
+        if file_name.endswith('_insert_field'):
+            file_name = file_name[:-len('_insert_field')]
 
         output_dir = os.path.join(file_dir, 'data', file_name)
         os.makedirs(output_dir, exist_ok=True)
@@ -362,6 +370,11 @@ class Workflow5:
 
         각 셀의 문단별로 행 생성 (para_idx, para_text 포함)
         VB Workflow7에서 같은 셀의 문단들을 합쳐서 HWP에 반영
+
+        데이터 출처:
+        - _meta.yaml: tbl_idx, table_id, row, col, row_span, col_span, list_id
+        - HWPX 파싱: para_idx, para_text
+        - _field.yaml: field_name, field_type
         """
         import yaml
         from openpyxl import load_workbook
@@ -386,13 +399,23 @@ class Workflow5:
                     'field_type': field.get('type', '')
                 }
 
-        # _meta.yaml 로드 → (tbl_idx) → table_id 매핑
-        table_id_map = {}
+        # _meta.yaml 로드 → (tbl_idx, row, col) → 셀 메타 정보
+        cell_meta_map = {}  # (tbl_idx, row, col) → {table_id, list_id, ...}
         if meta_yaml and os.path.exists(meta_yaml):
             with open(meta_yaml, 'r', encoding='utf-8') as f:
                 meta_data = yaml.safe_load(f)
             for tbl in meta_data.get('tables', []):
-                table_id_map[tbl.get('tbl_idx')] = str(tbl.get('table_id', ''))
+                tbl_idx = tbl.get('tbl_idx')
+                table_id = str(tbl.get('table_id', ''))
+                # cells: [tblIdx, row, col, rowSpan, colSpan, list_id]
+                for cell in tbl.get('cells', []):
+                    row, col = cell[1], cell[2]
+                    cell_meta_map[(tbl_idx, row, col)] = {
+                        'table_id': table_id,
+                        'row_span': cell[3] if len(cell) > 3 else 1,
+                        'col_span': cell[4] if len(cell) > 4 else 1,
+                        'list_id': cell[5] if len(cell) > 5 else None
+                    }
 
         # HWPX에서 셀 상세 정보 읽기 (문단 포함)
         cell_detail_parser = GetCellDetail()
@@ -400,18 +423,27 @@ class Workflow5:
 
         row_num = 1
 
-        # 헤더
-        meta_headers = ['tbl_idx', 'table_id', 'row', 'col', 'row_span', 'col_span',
-                        'list_id', 'para_idx', 'para_text', 'field_name', 'field_type']
+        # 헤더 (출처 표시, para_text는 마지막 컬럼)
+        # 컬럼 순서: 1~6 meta, 7 list_id, 8 para_idx, 9~10 field, 11 para_text(숨김)
+        meta_headers = [
+            'tbl_idx(meta)', 'table_id(meta)', 'row(meta)', 'col(meta)',
+            'row_span(meta)', 'col_span(meta)', 'list_id(meta)',
+            'para_idx(hwpx)', 'field_name(field)', 'field_type(field)',
+            'para_text(hwpx)'
+        ]
         for col_idx, header in enumerate(meta_headers, 1):
             ws.cell(row=row_num, column=col_idx, value=header)
         row_num += 1
 
         # 데이터: 각 테이블의 각 셀의 각 문단별로 행 생성
         for tbl_idx, cell_details in enumerate(all_cell_details):
-            table_id = table_id_map.get(tbl_idx, '')
-
             for cd in cell_details:
+                # _meta.yaml에서 셀 메타 정보 가져오기
+                cell_meta = cell_meta_map.get((tbl_idx, cd.row, cd.col), {})
+                table_id = cell_meta.get('table_id', '')
+                list_id = cell_meta.get('list_id')
+
+                # _field.yaml에서 필드 정보 가져오기
                 field_info = field_map.get((table_id, cd.row, cd.col), {})
                 field_name = field_info.get('field_name', '')
                 field_type = field_info.get('field_type', '')
@@ -425,11 +457,11 @@ class Workflow5:
                         ws.cell(row=row_num, column=4, value=cd.col)
                         ws.cell(row=row_num, column=5, value=cd.row_span)
                         ws.cell(row=row_num, column=6, value=cd.col_span)
-                        ws.cell(row=row_num, column=7, value=cd.list_id)
+                        ws.cell(row=row_num, column=7, value=list_id)
                         ws.cell(row=row_num, column=8, value=para_idx)
-                        ws.cell(row=row_num, column=9, value=para.text)
-                        ws.cell(row=row_num, column=10, value=field_name)
-                        ws.cell(row=row_num, column=11, value=field_type)
+                        ws.cell(row=row_num, column=9, value=field_name)
+                        ws.cell(row=row_num, column=10, value=field_type)
+                        ws.cell(row=row_num, column=11, value=para.text)
                         row_num += 1
                 else:
                     # 문단 정보 없으면 셀 텍스트 사용
@@ -439,12 +471,16 @@ class Workflow5:
                     ws.cell(row=row_num, column=4, value=cd.col)
                     ws.cell(row=row_num, column=5, value=cd.row_span)
                     ws.cell(row=row_num, column=6, value=cd.col_span)
-                    ws.cell(row=row_num, column=7, value=cd.list_id)
+                    ws.cell(row=row_num, column=7, value=list_id)
                     ws.cell(row=row_num, column=8, value=0)
-                    ws.cell(row=row_num, column=9, value=cd.text)
-                    ws.cell(row=row_num, column=10, value=field_name)
-                    ws.cell(row=row_num, column=11, value=field_type)
+                    ws.cell(row=row_num, column=9, value=field_name)
+                    ws.cell(row=row_num, column=10, value=field_type)
+                    ws.cell(row=row_num, column=11, value=cd.text)
                     row_num += 1
+
+        # para_text 컬럼(11) 숨김 처리
+        from openpyxl.utils import get_column_letter
+        ws.column_dimensions[get_column_letter(11)].hidden = True
 
         wb.save(excel_path)
         print(f"  meta 시트 추가 완료 ({row_num - 1}행)")
@@ -498,6 +534,9 @@ class Workflow5:
             # 3. 결과 저장 폴더 생성
             self._create_output_dir()
             file_name = os.path.splitext(os.path.basename(self.filepath))[0]
+            # _insert_field 접미사 제거 (원본 파일명으로 통일)
+            if file_name.endswith('_insert_field'):
+                file_name = file_name[:-len('_insert_field')]
             base_path = os.path.join(self.output_dir, file_name)
 
             # 4. HWP에서 북마크 개수 확인 (HeadCtrl 순회)
