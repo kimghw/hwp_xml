@@ -30,6 +30,7 @@ except ImportError:
         sys.path.insert(0, win32hwp_dir)
 
 from cursor import get_hwp_instance
+from hwp_file_manager import open_hwp
 import win32com.client as win32
 
 
@@ -74,7 +75,7 @@ class ExtractCellMeta:
             output_yaml = os.path.splitext(hwp_path)[0] + "_meta.yaml"
 
         # 1. HWP 파일 열기
-        self.hwp.Open(hwp_path)
+        open_hwp(self.hwp,hwp_path)
 
         # 2. 임시 HWPX로 저장
         temp_dir = tempfile.gettempdir()
@@ -148,7 +149,7 @@ class ExtractCellMeta:
                         zf.write(file_path, arcname)
 
             # 수정된 HWPX 열어서 HWP로 저장
-            self.hwp.Open(hwpx_path)
+            open_hwp(self.hwp,hwpx_path)
             self._save_as(output_hwp, "HWP")
             print(f"필드 삭제 후 저장: {total_cleared}개 셀, {output_hwp}")
 

@@ -51,7 +51,7 @@ except ImportError:
     if win32hwp_dir not in sys.path:
         sys.path.insert(0, win32hwp_dir)
 
-from win32.hwp_file_manager import get_hwp_instance, create_hwp_instance, get_active_filepath, open_file_dialog, save_hwp
+from win32.hwp_file_manager import get_hwp_instance, create_hwp_instance, get_active_filepath, open_file_dialog, save_hwp, open_hwp
 
 
 class Workflow5:
@@ -119,7 +119,7 @@ class Workflow5:
                 raise ValueError("파일이 선택되지 않았습니다.")
 
         if not get_active_filepath(self.hwp) == self.filepath:
-            self.hwp.Open(self.filepath)
+            open_hwp(self.hwp,self.filepath)
         print(f"파일 열림: {self.filepath}")
         return self.filepath
 
@@ -175,7 +175,7 @@ class Workflow5:
         print("\n원본에서 마커 삭제 중...")
 
         # 원본 파일 다시 열기
-        self.hwp.Open(self.filepath)
+        open_hwp(self.hwp,self.filepath)
 
         # 마커 텍스트는 삽입하지 않았으므로 삭제 불필요
         # (HWPX 변환 전에만 마커 삽입하고, 원본은 건드리지 않음)
@@ -243,7 +243,7 @@ class Workflow5:
             print("  테이블 없음, 건너뜀")
             return None
 
-        self.hwp.Open(self.temp_hwpx)
+        open_hwp(self.hwp,self.temp_hwpx)
 
         print("캡션 삽입 중...")
         table_infos = inserter.collect_table_list_ids()
@@ -418,7 +418,7 @@ class Workflow5:
             self._save_as_hwpx()
 
             # 7. 원본 HWP 복원
-            self.hwp.Open(self.filepath)
+            open_hwp(self.hwp,self.filepath)
 
             # 8. Workflow 1: 메타데이터 추출
             results['meta_yaml'] = self._run_workflow1(base_path)

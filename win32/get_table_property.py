@@ -17,6 +17,11 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any, Union
 from enum import IntEnum
 
+try:
+    from hwp_file_manager import open_hwp
+except ImportError:
+    from win32.hwp_file_manager import open_hwp
+
 
 # 한글 컨트롤 타입 상수
 class CtrlType(IntEnum):
@@ -219,7 +224,7 @@ class GetTableProperty:
         Returns:
             성공 여부
         """
-        return self.hwp.Open(file_path, "HWP", "")
+        return open_hwp(self.hwp, file_path, "HWP")
 
     def _get_ctrl_properties(self, ctrl) -> Dict[str, Any]:
         """컨트롤의 속성 추출"""

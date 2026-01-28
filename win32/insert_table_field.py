@@ -43,6 +43,7 @@ except ImportError:
         sys.path.insert(0, win32hwp_dir)
 
 from cursor import get_hwp_instance
+from hwp_file_manager import open_hwp
 from dataclasses import dataclass
 from typing import List
 import win32com.client as win32
@@ -104,7 +105,7 @@ class InsertTableField:
     def open_file(self, filepath: str) -> bool:
         """파일 열기"""
         try:
-            self.hwp.Open(filepath)
+            open_hwp(self.hwp, filepath)
             print(f"파일 열림: {filepath}")
             return True
         except Exception as e:

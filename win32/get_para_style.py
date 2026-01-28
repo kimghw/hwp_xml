@@ -11,6 +11,11 @@ import yaml
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
 
+try:
+    from hwp_file_manager import open_hwp
+except ImportError:
+    from win32.hwp_file_manager import open_hwp
+
 
 @dataclass
 class CharStyle:
@@ -171,12 +176,13 @@ class GetParaStyle:
         """한글 문서 열기"""
         if self.hwp is None:
             import win32com.client as win32
-            self.hwp = win32.gencache.EnsureDispatch("HWPFrame.HwpObject")
+            self.hwp = win32.Dispatch("HWPFrame.HwpObject")
+            self.hwp.SetMessageBoxMode(0x7FFFFFFF)
+            self.hwp.RegisterModule("FilePathCheckerModuleExample", "FilePathCheckerModule")
             self.hwp.RegisterModule("FilePathCheckDLL", "SecurityModule")
-            self.hwp.SetMessageBoxMode(0x00010000)
             self.hwp.XHwpWindows.Item(0).Visible = True
 
-        return self.hwp.Open(file_path, "HWP", "")
+        return open_hwp(self.hwp, file_path, "HWP")
 
     def _get_position(self) -> tuple:
         """현재 커서 위치 반환 (list_id, para_id, char_id)"""

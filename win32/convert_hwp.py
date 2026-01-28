@@ -19,9 +19,9 @@ except ImportError:
     sys.exit(1)
 
 try:
-    from hwp_file_manager import get_or_create_hwp
+    from hwp_file_manager import get_or_create_hwp, open_hwp
 except ImportError:
-    from win32.hwp_file_manager import get_or_create_hwp
+    from win32.hwp_file_manager import get_or_create_hwp, open_hwp
 
 
 def convert_hwp_to_hwpx(hwp_path: str, output_path: str = None) -> str:
@@ -48,7 +48,7 @@ def convert_hwp_to_hwpx(hwp_path: str, output_path: str = None) -> str:
 
     try:
         # 파일 열기
-        hwp.Open(str(hwp_path), "HWP", "forceopen:true")
+        open_hwp(hwp, str(hwp_path), "HWP")
 
         # HWPX로 저장
         hwp.HAction.GetDefault("FileSaveAs_S", hwp.HParameterSet.HFileOpenSave.HSet)
@@ -91,7 +91,7 @@ def convert_hwpx_to_hwp(hwpx_path: str, output_path: str = None) -> str:
     hwp, is_new = get_or_create_hwp(visible=False)
 
     try:
-        hwp.Open(str(hwpx_path), "HWPX", "forceopen:true")
+        open_hwp(hwp, str(hwpx_path), "HWPX")
 
         hwp.HAction.GetDefault("FileSaveAs_S", hwp.HParameterSet.HFileOpenSave.HSet)
         hwp.HParameterSet.HFileOpenSave.filename = str(output_path)

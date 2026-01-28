@@ -42,7 +42,7 @@ except ImportError:
     if win32hwp_dir not in sys.path:
         sys.path.insert(0, win32hwp_dir)
 
-from win32.hwp_utils import get_hwp_instance, create_hwp_instance, get_active_filepath, open_file_dialog, save_hwp
+from win32.hwp_file_manager import get_hwp_instance, create_hwp_instance, get_active_filepath, open_file_dialog, save_hwp, open_hwp
 
 
 class Workflow4:
@@ -93,7 +93,7 @@ class Workflow4:
 
         # 파일 열기
         if not get_active_filepath(self.hwp) == self.filepath:
-            self.hwp.Open(self.filepath)
+            open_hwp(self.hwp,self.filepath)
         print(f"파일 열림: {self.filepath}")
         return self.filepath
 
@@ -143,7 +143,7 @@ class Workflow4:
             return None
 
         # 수정된 HWPX 열기
-        self.hwp.Open(self.temp_hwpx)
+        open_hwp(self.hwp,self.temp_hwpx)
 
         # 캡션 삽입
         print("캡션 삽입 중...")
@@ -493,7 +493,7 @@ class Workflow4:
 
             # 5. Workflow 2: 문단 스타일 추출
             # HWPX 다시 열기 (workflow1에서 수정되었을 수 있음)
-            self.hwp.Open(self.temp_hwpx)
+            open_hwp(self.hwp,self.temp_hwpx)
             results['para_yaml'] = self._run_workflow2(base_path)
 
             # 6. Workflow 3: Excel 변환
