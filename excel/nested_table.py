@@ -407,7 +407,7 @@ class NestedTableHandler:
             except Exception:
                 pass
 
-        # 8. nested 테이블 인라인 배치 (점선 테두리)
+        # 8. nested 테이블 인라인 배치 (점선 테두리) + 부모 셀 외곽 테두리
         for (nested_idx, p_row, p_col, nested_tbl) in nested_positions:
             if nested_idx >= len(all_cell_details):
                 continue
@@ -418,17 +418,38 @@ class NestedTableHandler:
             parent_new_row = start_row + row_mapping[p_row]
             parent_new_col = col_mapping[p_col] + 1  # 1-based
 
+            # nested 테이블의 행/열 수
+            nested_row_count = nested_tbl.row_count
+            nested_col_count = nested_tbl.col_count
+
+            # 부모 셀의 CellDetail 찾기 (테두리 정보용)
+            parent_cd = None
+            for cd in parent_cell_details:
+                if cd.row == p_row and cd.col == p_col:
+                    parent_cd = cd
+                    break
+
             # nested 테이블 셀 배치
             for ncd in nested_cell_details:
                 nested_row = parent_new_row + ncd.row
                 nested_col = parent_new_col + ncd.col
 
+                # 셀이 nested 테이블 내에서의 위치 (외곽 판단용)
+                is_first_row = (ncd.row == 0)
+                is_last_row = (ncd.row + ncd.row_span - 1 == nested_row_count - 1)
+                is_first_col = (ncd.col == 0)
+                is_last_col = (ncd.col + ncd.col_span - 1 == nested_col_count - 1)
+
                 try:
                     excel_cell = ws.cell(row=nested_row, column=nested_col)
                     excel_cell.value = ncd.text
 
-                    # 스타일 적용 (점선 테두리)
-                    self._apply_nested_cell_style(excel_cell, ncd, 0, 1, hwp_color_to_rgb_func)
+                    # 스타일 적용 (위치 기반 테두리)
+                    self._apply_nested_cell_style_with_position(
+                        excel_cell, ncd,
+                        is_first_row, is_last_row, is_first_col, is_last_col,
+                        parent_cd, hwp_color_to_rgb_func
+                    )
 
                     # 병합 처리
                     if ncd.row_span > 1 or ncd.col_span > 1:
@@ -439,10 +460,12 @@ class NestedTableHandler:
                                 end_row=nested_row + ncd.row_span - 1,
                                 end_column=nested_col + ncd.col_span - 1
                             )
-                            # 병합 영역에도 점선 테두리
-                            self._apply_nested_merged_borders(
+                            # 병합 영역에도 위치 기반 테두리
+                            self._apply_nested_merged_borders_with_position(
                                 ws, ncd, nested_row, nested_col,
-                                nested_row + ncd.row_span - 1, nested_col + ncd.col_span - 1
+                                nested_row + ncd.row_span - 1, nested_col + ncd.col_span - 1,
+                                is_first_row, is_last_row, is_first_col, is_last_col,
+                                parent_cd
                             )
                         except ValueError:
                             pass
@@ -527,3 +550,140 @@ class NestedTableHandler:
                     cell.border = border
                 except:
                     pass
+
+    def _apply_nested_cell_style_with_position(
+        self, excel_cell, cd: CellDetail,
+        is_first_row: bool, is_last_row: bool,
+        is_first_col: bool, is_last_col: bool,
+        parent_cd: CellDetail = None,
+        hwp_color_to_rgb_func=None
+    ):
+        """
+        nested 테이블 셀에 위치 기반 스타일 적용
+        - 내부 셀: 점선 테두리
+        - 외곽 셀: 부모 셀의 테두리 스타일 상속 (실선)
+        """
+        # 점선 테두리 (내부용)
+        dashed_side = Side(style='dashed', color='808080')
+        # 실선 테두리 (외곽용 - 부모 셀 테두리 상속)
+        solid_side = Side(style='thin', color='000000')
+
+        # 부모 셀의 테두리 정보가 있으면 사용
+        if parent_cd and parent_cd.border:
+            parent_border = parent_cd.border
+            # 부모 테두리 타입을 Side로 변환
+            top_side = self._get_border_side_from_type(parent_border.top) if is_first_row else dashed_side
+            bottom_side = self._get_border_side_from_type(parent_border.bottom) if is_last_row else dashed_side
+            left_side = self._get_border_side_from_type(parent_border.left) if is_first_col else dashed_side
+            right_side = self._get_border_side_from_type(parent_border.right) if is_last_col else dashed_side
+        else:
+            # 부모 테두리 정보 없으면 기본값
+            top_side = solid_side if is_first_row else dashed_side
+            bottom_side = solid_side if is_last_row else dashed_side
+            left_side = solid_side if is_first_col else dashed_side
+            right_side = solid_side if is_last_col else dashed_side
+
+        border = Border(
+            left=left_side,
+            right=right_side,
+            top=top_side,
+            bottom=bottom_side,
+        )
+        excel_cell.border = border
+
+        # 배경색
+        if hwp_color_to_rgb_func:
+            bg_color = hwp_color_to_rgb_func(cd.border.bg_color)
+            if bg_color and bg_color != 'FFFFFF':
+                excel_cell.fill = PatternFill(start_color=bg_color, end_color=bg_color, fill_type='solid')
+
+        # 폰트
+        para_font = cd.font
+        if cd.paragraphs and cd.paragraphs[0].font:
+            para_font = cd.paragraphs[0].font
+
+        font_color = None
+        if hwp_color_to_rgb_func:
+            font_color = hwp_color_to_rgb_func(para_font.color)
+
+        excel_cell.font = Font(
+            name=para_font.name if para_font.name else None,
+            size=para_font.size_pt() if para_font.size > 0 else None,
+            bold=para_font.bold,
+            italic=para_font.italic,
+            underline='single' if para_font.underline else None,
+            strike=para_font.strikeout,
+            color=font_color if font_color else None,
+        )
+
+        # 정렬
+        h_align_map = {'LEFT': 'left', 'CENTER': 'center', 'RIGHT': 'right', 'JUSTIFY': 'justify'}
+        v_align_map = {'TOP': 'top', 'CENTER': 'center', 'BOTTOM': 'bottom', 'BASELINE': 'center'}
+        h_align = 'left'
+        v_align = 'center'
+        if cd.paragraphs:
+            h_align = h_align_map.get(cd.paragraphs[0].align_h, 'left')
+            v_align = v_align_map.get(cd.paragraphs[0].align_v, 'center')
+        excel_cell.alignment = Alignment(horizontal=h_align, vertical=v_align, wrap_text=True)
+
+    def _apply_nested_merged_borders_with_position(
+        self, ws, cd: CellDetail,
+        start_row: int, start_col: int, end_row: int, end_col: int,
+        is_first_row: bool, is_last_row: bool,
+        is_first_col: bool, is_last_col: bool,
+        parent_cd: CellDetail = None
+    ):
+        """nested 테이블의 병합 셀 영역에 위치 기반 테두리 적용"""
+        if start_row == end_row and start_col == end_col:
+            return
+
+        dashed_side = Side(style='dashed', color='808080')
+        solid_side = Side(style='thin', color='000000')
+
+        # 부모 셀의 테두리 정보
+        if parent_cd and parent_cd.border:
+            parent_border = parent_cd.border
+            outer_top = self._get_border_side_from_type(parent_border.top) if is_first_row else dashed_side
+            outer_bottom = self._get_border_side_from_type(parent_border.bottom) if is_last_row else dashed_side
+            outer_left = self._get_border_side_from_type(parent_border.left) if is_first_col else dashed_side
+            outer_right = self._get_border_side_from_type(parent_border.right) if is_last_col else dashed_side
+        else:
+            outer_top = solid_side if is_first_row else dashed_side
+            outer_bottom = solid_side if is_last_row else dashed_side
+            outer_left = solid_side if is_first_col else dashed_side
+            outer_right = solid_side if is_last_col else dashed_side
+
+        for r in range(start_row, end_row + 1):
+            for c in range(start_col, end_col + 1):
+                try:
+                    cell = ws.cell(row=r, column=c)
+
+                    # 병합 영역의 각 위치에 따른 테두리
+                    left = outer_left if c == start_col else Side()
+                    right = outer_right if c == end_col else Side()
+                    top = outer_top if r == start_row else Side()
+                    bottom = outer_bottom if r == end_row else Side()
+
+                    border = Border(left=left, right=right, top=top, bottom=bottom)
+                    cell.border = border
+                except:
+                    pass
+
+    def _get_border_side_from_type(self, border_type: str) -> Side:
+        """HWP 테두리 타입을 openpyxl Side로 변환"""
+        border_style_map = {
+            'NONE': None,
+            'SOLID': 'thin',
+            'DOUBLE': 'double',
+            'DOTTED': 'dotted',
+            'DASHED': 'dashed',
+            'DASH_DOT': 'dashDot',
+            'DASH_DOT_DOT': 'dashDotDot',
+            'THICK': 'medium',
+            'THICK_DOUBLE': 'double',
+            'THICK_DOUBLE_SLIM': 'double',
+        }
+        style = border_style_map.get(border_type, 'thin')
+        if style is None:
+            return Side()
+        return Side(style=style, color='000000')

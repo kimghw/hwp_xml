@@ -402,8 +402,12 @@ class HwpxToExcel:
             if not body_elements:
                 continue
 
-            # 시트 이름 (31자 제한, 중복 방지)
-            sheet_name = bm_name[:31] if len(bm_name) <= 31 else bm_name[:28] + "..."
+            # 시트 이름 (31자 제한, 유효하지 않은 문자 제거, 중복 방지)
+            # Excel 시트 이름에 사용할 수 없는 문자: [ ] * ? / \ :
+            safe_name = bm_name
+            for invalid_char in ['[', ']', '*', '?', '/', '\\', ':']:
+                safe_name = safe_name.replace(invalid_char, '_')
+            sheet_name = safe_name[:31] if len(safe_name) <= 31 else safe_name[:28] + "..."
             if sheet_name in wb.sheetnames:
                 sheet_name = f"{bm_idx}_{sheet_name}"[:31]
 
