@@ -33,6 +33,21 @@ class TableHierarchy:
     col_count: int = 0
 
 
+@dataclass
+class CellPositionMapping:
+    """셀 위치 매핑 정보 (원본 -> Excel)"""
+    tbl_idx: int
+    table_id: str
+    orig_row: int
+    orig_col: int
+    excel_row: int  # 1-based
+    excel_col: int  # 1-based
+    list_id: str = ""
+    is_nested: bool = False
+    parent_tbl_idx: int = -1
+    sheet_name: str = ""  # Excel 시트 이름
+
+
 class NestedTableHandler:
     """Nested 테이블 처리 클래스"""
 
@@ -238,12 +253,13 @@ class NestedTableHandler:
         all_tables: List[TableProperty],
         all_cell_details: List[List[CellDetail]],
         start_row: int = 1,
+        parent_tbl_idx: int = -1,
         get_column_widths_func=None,
         get_row_heights_func=None,
         apply_cell_style_func=None,
         apply_merged_cell_borders_func=None,
         hwp_color_to_rgb_func=None
-    ) -> int:
+    ) -> Tuple[int, List[CellPositionMapping]]:
         """
         부모 테이블에 nested table을 인라인으로 배치
 
@@ -255,6 +271,7 @@ class NestedTableHandler:
             all_tables: 모든 테이블 정보
             all_cell_details: 모든 테이블의 셀 디테일
             start_row: 시작 행 (1-based)
+            parent_tbl_idx: 부모 테이블 인덱스 (메타 정보용)
             get_column_widths_func: 열 너비 가져오기 함수 (외부 의존성)
             get_row_heights_func: 행 높이 가져오기 함수 (외부 의존성)
             apply_cell_style_func: 셀 스타일 적용 함수 (외부 의존성)
@@ -262,7 +279,7 @@ class NestedTableHandler:
             hwp_color_to_rgb_func: HWP 색상 변환 함수 (외부 의존성)
 
         Returns:
-            사용된 행 수
+            (사용된 행 수, 셀 위치 매핑 리스트)
         """
         # 1. 확장 정보 계산
         expansion_info = self.calculate_inline_nested_expansion(
@@ -357,6 +374,10 @@ class NestedTableHandler:
         for (nested_idx, p_row, p_col, nested_tbl) in nested_positions:
             nested_cell_positions.add((p_row, p_col))
 
+        # 셀 위치 매핑 리스트 초기화
+        cell_mappings: List[CellPositionMapping] = []
+        parent_table_id = str(parent_table.id) if parent_table.id else ""
+
         # 7. 부모 테이블 셀 배치 (nested 위치 제외)
         for cd in parent_cell_details:
             orig_row, orig_col = cd.row, cd.col
@@ -368,6 +389,19 @@ class NestedTableHandler:
             # 확장된 위치 계산
             new_row = start_row + row_mapping[orig_row]
             new_col = col_mapping[orig_col] + 1  # 1-based
+
+            # 부모 셀 위치 매핑 추가
+            cell_mappings.append(CellPositionMapping(
+                tbl_idx=parent_tbl_idx,
+                table_id=parent_table_id,
+                orig_row=orig_row,
+                orig_col=orig_col,
+                excel_row=new_row,
+                excel_col=new_col,
+                list_id=cd.list_id or "",
+                is_nested=False,
+                parent_tbl_idx=-1
+            ))
 
             # 확장된 row_span, col_span 계산
             new_row_span = 0
@@ -408,11 +442,16 @@ class NestedTableHandler:
                 pass
 
         # 8. nested 테이블 인라인 배치 (점선 테두리) + 부모 셀 외곽 테두리
+        # nested_tables_info에서 테이블 정보 매핑 생성
+        nested_info_map = {h.tbl_idx: h for h in nested_tables_info}
+
         for (nested_idx, p_row, p_col, nested_tbl) in nested_positions:
             if nested_idx >= len(all_cell_details):
                 continue
 
             nested_cell_details = all_cell_details[nested_idx]
+            nested_hierarchy = nested_info_map.get(nested_idx)
+            nested_table_id = nested_hierarchy.table_id if nested_hierarchy else f"tbl_{nested_idx}"
 
             # 부모 셀의 확장된 시작 위치
             parent_new_row = start_row + row_mapping[p_row]
@@ -433,6 +472,19 @@ class NestedTableHandler:
             for ncd in nested_cell_details:
                 nested_row = parent_new_row + ncd.row
                 nested_col = parent_new_col + ncd.col
+
+                # nested 셀 위치 매핑 추가
+                cell_mappings.append(CellPositionMapping(
+                    tbl_idx=nested_idx,
+                    table_id=nested_table_id,
+                    orig_row=ncd.row,
+                    orig_col=ncd.col,
+                    excel_row=nested_row,
+                    excel_col=nested_col,
+                    list_id=ncd.list_id or "",
+                    is_nested=True,
+                    parent_tbl_idx=parent_tbl_idx
+                ))
 
                 # 셀이 nested 테이블 내에서의 위치 (외곽 판단용)
                 is_first_row = (ncd.row == 0)
@@ -472,7 +524,7 @@ class NestedTableHandler:
                 except Exception:
                     pass
 
-        return total_rows
+        return total_rows, cell_mappings
 
     def _apply_nested_cell_style(
         self, excel_cell, cd: CellDetail, para_idx: int, total_paras: int,

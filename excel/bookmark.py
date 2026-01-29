@@ -563,6 +563,9 @@ class BookmarkHandler:
         wb = Workbook()
         default_sheet = wb.active
 
+        # inline_nested 모드: 전체 셀 위치 매핑 수집
+        all_cell_mappings = []
+
         for bm_idx, (bm_name, body_elements) in enumerate(bookmark_body_mapping.items()):
             if not body_elements:
                 continue
@@ -630,16 +633,21 @@ class BookmarkHandler:
 
                     if nested_for_this:
                         # nested 테이블이 있으면 인라인 배치
-                        rows_used = self.converter.nested_handler.place_table_with_inline_nested(
+                        rows_used, cell_mappings = self.converter.nested_handler.place_table_with_inline_nested(
                             ws, table, cell_details,
                             nested_for_this, all_tables, all_cell_details,
                             start_row=current_row,
+                            parent_tbl_idx=tbl_idx,
                             get_column_widths_func=self.converter.placer.get_column_widths,
                             get_row_heights_func=self.converter.placer.get_row_heights,
                             apply_cell_style_func=self.converter.styler.apply_cell_style_single,
                             apply_merged_cell_borders_func=self.converter.styler.apply_merged_cell_borders,
                             hwp_color_to_rgb_func=self.converter.styler.hwp_color_to_rgb
                         )
+                        # 시트 이름 정보 추가하여 매핑 저장
+                        for mapping in cell_mappings:
+                            mapping.sheet_name = sheet_name
+                        all_cell_mappings.extend(cell_mappings)
                     elif split_by_para and cell_details:
                         rows_used = self.converter._place_table_with_para_split_unified(
                             ws, table, cell_details, col_mapping, unified_col_widths, current_row
@@ -664,6 +672,14 @@ class BookmarkHandler:
                 from cell_info_sheet import add_cell_info_sheet
             page_id = page.section_id if page and page.section_id else "section_0"
             add_cell_info_sheet(wb, hwpx_path, "CellInfo", hide_para_rows, page_id, "")
+
+        # inline_nested 모드: 메타 시트 생성
+        if inline_nested and all_cell_mappings:
+            try:
+                from .cell_info_sheet import add_meta_sheet_with_mappings
+            except ImportError:
+                from cell_info_sheet import add_meta_sheet_with_mappings
+            add_meta_sheet_with_mappings(wb, all_cell_mappings, all_cell_details, "메타")
 
         # 기본 시트 삭제
         if default_sheet in wb:

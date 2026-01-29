@@ -271,6 +271,103 @@ def add_cell_info_sheet(
     return maker.create_cell_info_sheet(wb, hwpx_path, sheet_name, hide_para_rows, page_id, table_id)
 
 
+# 메타 시트 컬럼 정의 (Excel 위치 매핑 포함)
+META_SHEET_COLUMNS = [
+    ('sheet_name', 'sheet', 15),
+    ('tbl_idx', 'tbl_idx', 8),
+    ('table_id', 'table_id', 12),
+    ('is_nested', 'is_nested', 10),
+    ('parent_tbl_idx', 'parent_tbl', 10),
+    ('orig_row', 'orig_row', 8),
+    ('orig_col', 'orig_col', 8),
+    ('excel_row', 'excel_row', 10),
+    ('excel_col', 'excel_col', 10),
+    ('list_id', 'list_id', 15),
+    ('text', 'text', 30),
+    ('field_name', 'field_name', 15),
+]
+
+
+def add_meta_sheet_with_mappings(
+    wb: Workbook,
+    cell_mappings: List,
+    all_cell_details: List[List],
+    sheet_name: str = "메타"
+) -> Worksheet:
+    """
+    셀 위치 매핑 정보를 포함한 메타 시트 생성
+
+    Args:
+        wb: 대상 워크북
+        cell_mappings: CellPositionMapping 리스트
+        all_cell_details: 모든 테이블의 CellDetail 리스트
+        sheet_name: 시트 이름
+
+    Returns:
+        생성된 워크시트
+    """
+    ws = wb.create_sheet(title=sheet_name)
+
+    # 헤더 작성
+    header_font = Font(bold=True)
+    header_fill = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
+    header_align = Alignment(horizontal="center", vertical="center")
+
+    for col_idx, (key, label, width) in enumerate(META_SHEET_COLUMNS, start=1):
+        cell = ws.cell(row=1, column=col_idx, value=label)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_align
+        col_letter = get_column_letter(col_idx)
+        ws.column_dimensions[col_letter].width = width
+
+    # 헤더 행 고정
+    ws.freeze_panes = "A2"
+
+    # 데이터 작성
+    # list_id -> CellDetail 매핑 생성
+    cell_detail_by_list_id = {}
+    for tbl_details in all_cell_details:
+        for cd in tbl_details:
+            if cd.list_id:
+                cell_detail_by_list_id[cd.list_id] = cd
+
+    current_row = 2
+    for mapping in cell_mappings:
+        # CellDetail에서 추가 정보 가져오기
+        cd = cell_detail_by_list_id.get(mapping.list_id)
+        text = cd.text if cd else ""
+        field_name = ""
+        if cd and cd.paragraphs:
+            for para in cd.paragraphs:
+                if para.field_name:
+                    field_name = para.field_name
+                    break
+
+        row_data = {
+            'sheet_name': mapping.sheet_name if hasattr(mapping, 'sheet_name') else "",
+            'tbl_idx': mapping.tbl_idx,
+            'table_id': mapping.table_id,
+            'is_nested': 1 if mapping.is_nested else 0,
+            'parent_tbl_idx': mapping.parent_tbl_idx if mapping.parent_tbl_idx >= 0 else "",
+            'orig_row': mapping.orig_row,
+            'orig_col': mapping.orig_col,
+            'excel_row': mapping.excel_row,
+            'excel_col': mapping.excel_col,
+            'list_id': mapping.list_id,
+            'text': text,
+            'field_name': field_name,
+        }
+
+        for col_idx, (key, label, width) in enumerate(META_SHEET_COLUMNS, start=1):
+            value = row_data.get(key, '')
+            ws.cell(row=current_row, column=col_idx, value=value)
+
+        current_row += 1
+
+    return ws
+
+
 if __name__ == "__main__":
     import platform
 
