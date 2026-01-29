@@ -512,7 +512,8 @@ class BookmarkHandler:
         include_body: bool = True,
         split_by_para: bool = False,
         include_cell_info: bool = False,
-        hide_para_rows: bool = True
+        hide_para_rows: bool = True,
+        inline_nested: bool = False
     ) -> Path:
         """
         전체 문서를 북마크별로 시트 분리하여 변환
@@ -526,6 +527,7 @@ class BookmarkHandler:
             split_by_para: 문단별 행 분할 여부
             include_cell_info: 셀 상세 정보 시트 포함 여부
             hide_para_rows: para_id 행 숨김 여부 (include_cell_info=True일 때)
+            inline_nested: True면 nested 테이블을 부모 셀에 인라인 배치
 
         Returns:
             생성된 Excel 파일 경로
@@ -534,6 +536,8 @@ class BookmarkHandler:
 
         if output_path is None:
             suffix = "_by_bookmark_body" if include_body else "_by_bookmark"
+            if inline_nested:
+                suffix += "_inline"
             output_path = hwpx_path.with_name(f"{hwpx_path.stem}{suffix}.xlsx")
         else:
             output_path = Path(output_path)
@@ -544,6 +548,17 @@ class BookmarkHandler:
         pages = self.converter.page_parser.from_hwpx(hwpx_path)
         all_cell_details = self.converter.cell_detail_parser.from_hwpx_by_table(hwpx_path)
         page = pages[0] if pages else None
+
+        # inline_nested 모드: 테이블 계층 구조 파악
+        table_hierarchy = []
+        nested_by_parent = {}  # parent_tbl_idx -> [nested1, nested2, ...]
+        if inline_nested:
+            table_hierarchy = self.converter._parse_table_hierarchy(hwpx_path)
+            for h in table_hierarchy:
+                if h.parent_tbl_idx != -1:
+                    if h.parent_tbl_idx not in nested_by_parent:
+                        nested_by_parent[h.parent_tbl_idx] = []
+                    nested_by_parent[h.parent_tbl_idx].append(h)
 
         wb = Workbook()
         default_sheet = wb.active
@@ -610,7 +625,22 @@ class BookmarkHandler:
                     col_mapping = self.converter._map_columns_to_unified(table_col_boundaries, unified_col_boundaries)
                     cell_details = cell_details_map.get(tbl_idx, [])
 
-                    if split_by_para and cell_details:
+                    # inline_nested 모드: nested 테이블을 부모 셀에 인라인 배치
+                    nested_for_this = nested_by_parent.get(tbl_idx, []) if inline_nested else []
+
+                    if nested_for_this:
+                        # nested 테이블이 있으면 인라인 배치
+                        rows_used = self.converter.nested_handler.place_table_with_inline_nested(
+                            ws, table, cell_details,
+                            nested_for_this, all_tables, all_cell_details,
+                            start_row=current_row,
+                            get_column_widths_func=self.converter.placer.get_column_widths,
+                            get_row_heights_func=self.converter.placer.get_row_heights,
+                            apply_cell_style_func=self.converter.styler.apply_cell_style_single,
+                            apply_merged_cell_borders_func=self.converter.styler.apply_merged_cell_borders,
+                            hwp_color_to_rgb_func=self.converter.styler.hwp_color_to_rgb
+                        )
+                    elif split_by_para and cell_details:
                         rows_used = self.converter._place_table_with_para_split_unified(
                             ws, table, cell_details, col_mapping, unified_col_widths, current_row
                         )
