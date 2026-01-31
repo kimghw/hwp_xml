@@ -2,102 +2,68 @@
 
 텍스트 양식 변환을 위한 정규식 기반 포맷터 모듈입니다.
 
-## 구조
+## 파일 구조
 
 ```
-merge/formatters/          # 정규식 기반 (포맷 적용)
-├── bullet_formatter.py    # 글머리 기호 변환
-├── caption_formatter.py   # 캡션 변환
-├── config_loader.py       # YAML 설정 로더
-├── formatter_config.yaml  # 기본 설정 템플릿
-└── __init__.py
-
-agent/                     # SDK 기반 (분석만)
-├── bullet_formatter.py    # 글머리 레벨 분석
-├── caption_formatter.py   # 캡션 제목 추출
-└── sdk.py                 # Claude SDK 래퍼
+merge/formatters/
+├── __init__.py             # 모듈 진입점, 모든 클래스/함수 export
+├── bullet_formatter.py     # 글머리 기호 변환
+├── caption_formatter.py    # 캡션 변환
+├── config_loader.py        # YAML 설정 로더
+├── formatter_config.yaml   # 기본 설정 템플릿
+└── README.md
 ```
-
-## 역할 분리
-
-| 구분 | SDK (agent/) | 정규식 (merge/formatters/) |
-|------|-------------|---------------------------|
-| **BulletFormatter** | `analyze_levels()` → `List[int]` | `format_text(levels=...)` |
-| **CaptionFormatter** | `extract_title_with_sdk()` → 제목 | `format_caption()`, `to_bracket_format()` |
-
-**핵심 원칙**: SDK는 분석만, 포맷 적용은 정규식으로
 
 ---
 
-## YAML 설정 파일
+## YAML 설정 사용법
 
-포맷터 옵션을 YAML 파일로 설정할 수 있습니다.
-
-### 설정 파일 구조
-
-```yaml
-# formatter_config.yaml
-
-# 글머리 기호 설정 (BulletFormatter)
-bullet:
-  style: default        # default, filled, numbered
-  auto_detect: true     # 자동 레벨 감지
-  # 커스텀 글머리 (선택적)
-  # custom_bullets:
-  #   0: { symbol: "□ ", indent: " " }
-  #   1: { symbol: "○", indent: "   " }
-  #   2: { symbol: "- ", indent: "    " }
-
-# 캡션 설정 (CaptionFormatter 공통)
-caption:
-  format: standard      # standard, bracket, parenthesis
-  position: TOP         # TOP, BOTTOM, LEFT, RIGHT
-  renumber: true        # 번호 재정렬
-  renumber_by_type: true  # 유형별 따로 번호 (그림 1,2... 표 1,2...)
-  start_number: 1
-  separator: ". "       # 번호와 제목 사이 구분자
-  keep_auto_num: false  # autoNum 유지 여부
-
-# 테이블 캡션 설정
-table_caption:
-  format: standard
-  position: TOP         # 테이블은 캡션이 위로
-  renumber: true
-  renumber_by_type: true
-  start_number: 1
-  separator: ". "
-  keep_auto_num: false
-
-# 이미지 캡션 설정
-image_caption:
-  format: standard
-  position: BOTTOM      # 이미지는 캡션이 아래로
-  renumber: true
-  renumber_by_type: true
-  start_number: 1
-  separator: ". "
-  keep_auto_num: false
-```
-
-### 설정 로더 사용
+### ConfigLoader
 
 ```python
-from merge.formatters import load_config, save_default_config, ConfigLoader
+from merge.formatters import ConfigLoader, load_config, save_default_config
 
-# 설정 로드
+# 방법 1: load_config 편의 함수
 config = load_config("formatter_config.yaml")
-print(f"글머리 스타일: {config.bullet.style}")
-print(f"캡션 형식: {config.caption.format}")
-print(f"테이블 캡션 위치: {config.table_caption.position}")
+
+# 방법 2: ConfigLoader 직접 사용
+loader = ConfigLoader()
+config = loader.load("formatter_config.yaml")
+
+# YAML 문자열에서 로드
+config = loader.load_from_string(yaml_string)
+
+# 딕셔너리에서 로드
+config = loader.load_from_dict(data_dict)
+
+# 설정 저장
+loader.save(config, "updated_config.yaml")
 
 # 기본 설정 파일 생성
 save_default_config("my_config.yaml")
+```
 
-# 설정 수정 후 저장
-loader = ConfigLoader()
-config = loader.load("config.yaml")
-config.caption.format = "bracket"
-loader.save(config, "updated_config.yaml")
+### 설정 접근
+
+```python
+config = load_config("formatter_config.yaml")
+
+# 글머리 설정
+print(config.bullet.style)       # "default"
+print(config.bullet.auto_detect) # True
+
+# 캡션 설정
+print(config.caption.format)     # "standard"
+print(config.caption.position)   # "TOP"
+print(config.caption.separator)  # ". "
+
+# 테이블 캡션 설정
+print(config.table_caption.position)     # "TOP"
+print(config.table_caption.type_prefix)  # "표"
+
+# 이미지 캡션 설정
+print(config.image_caption.position)     # "BOTTOM"
+print(config.image_caption.type_prefix)  # "그림"
 ```
 
 ---
@@ -119,7 +85,7 @@ formatter = BulletFormatter(style="default")
 # 레벨 지정하여 변환
 result = formatter.format_text("항목1\n항목2\n항목3", levels=[0, 1, 2])
 print(result.formatted_text)
-# □ 항목1
+#  □ 항목1
 #    ○항목2
 #     - 항목3
 
@@ -129,16 +95,25 @@ result = formatter.auto_format("1. 첫번째\n  a. 두번째\n    - 세번째")
 
 ### 글머리 스타일
 
+| 스타일 | 레벨 0 | 레벨 1 | 레벨 2 |
+|--------|--------|--------|--------|
+| `default` | □ (빈 네모) | ○ (빈 원) | - (대시) |
+| `filled` | ■ (채운 네모) | ● (채운 원) | - (대시) |
+| `numbered` | 1. | 1) | - |
+| `arrow` | ▶ | ▷ | - |
+
 ```python
+from merge.formatters import BULLET_STYLES
+
 BULLET_STYLES = {
     "default": {
-        0: ("□ ", " "),      # 레벨 0: 빈 네모
-        1: ("○", "   "),     # 레벨 1: 빈 원
-        2: ("- ", "    "),   # 레벨 2: 대시
+        0: ("□ ", " "),      # (기호, 들여쓰기)
+        1: ("○", "   "),
+        2: ("- ", "    "),
     },
     "filled": {
-        0: ("■ ", " "),      # 채운 네모
-        1: ("● ", "   "),    # 채운 원
+        0: ("■ ", " "),
+        1: ("● ", "   "),
         2: ("- ", "    "),
     },
     "numbered": {
@@ -146,23 +121,12 @@ BULLET_STYLES = {
         1: ("1) ", "   "),
         2: ("- ", "    "),
     },
+    "arrow": {
+        0: ("▶ ", ""),
+        1: ("▷ ", "  "),
+        2: ("- ", "    "),
+    },
 }
-```
-
-### SDK로 레벨 분석
-
-```python
-from agent import BulletFormatter as SDKBulletFormatter
-from merge.formatters import BulletFormatter
-
-# 1. SDK로 레벨 분석
-sdk = SDKBulletFormatter()
-levels = sdk.analyze_levels("주요 내용\n세부 설명\n추가 사항")
-# → [0, 1, 1]
-
-# 2. 사용자가 레벨 확인/수정 후 정규식으로 포맷 적용
-formatter = BulletFormatter()
-result = formatter.format_text(text, levels=levels)
 ```
 
 ### 주요 메서드
@@ -172,8 +136,12 @@ result = formatter.format_text(text, levels=levels)
 | `format_text(text, levels)` | 지정된 레벨로 글머리 적용 |
 | `auto_format(text)` | 자동 레벨 감지 후 적용 |
 | `normalize_style(text)` | 기존 글머리를 현재 스타일로 통일 |
-| `convert_style(text, style)` | 다른 스타일로 변환 |
-| `parse_items(text)` | 글머리 목록 파싱 |
+| `convert_style(text, target_style)` | 다른 스타일로 변환 |
+| `set_style(style)` | 현재 스타일 변경 |
+| `parse_items(text)` | 글머리 목록을 BulletItem 리스트로 파싱 |
+| `has_bullet(text)` | 텍스트에 글머리 기호 존재 여부 |
+| `apply_hierarchy(items, base_level)` | 계층적 글머리 적용 |
+| `apply_flat(items, level)` | 동일 레벨 글머리 적용 |
 
 ---
 
@@ -182,7 +150,7 @@ result = formatter.format_text(text, levels=levels)
 ### 기본 사용법
 
 ```python
-from merge.formatters import CaptionFormatter, load_config
+from merge.formatters import CaptionFormatter
 
 formatter = CaptionFormatter()
 
@@ -197,7 +165,22 @@ print(result.formatted_text)  # "[연구 결과]"
 # 괄호 형식
 result = formatter.to_parenthesis_format("그림 1. 테스트")
 print(result.formatted_text)  # "그림 (1) 테스트"
+
+# 표준 형식 (구분자 지정)
+result = formatter.to_standard_format("그림1테스트", separator=": ")
+print(result.formatted_text)  # "그림 1: 테스트"
 ```
+
+### 캡션 형식 프리셋
+
+| 프리셋 | 패턴 | 예시 |
+|--------|------|------|
+| `title_only` | `[{title}]` | `[연구결과]` |
+| `type_title` | `[{type} {title}]` | `[표 연구결과]` |
+| `type_num_title` | `[{type} {number} {title}]` | `[표 1 연구결과]` |
+| `standard` | `{type} {number}{separator}{title}` | `표 1. 연구결과` |
+| `parenthesis` | `{type} ({number}) {title}` | `표 (1) 연구결과` |
+| `bracket_num` | `[{type} {number}] {title}` | `[표 1] 연구결과` |
 
 ### YAML 설정 적용
 
@@ -205,11 +188,10 @@ print(result.formatted_text)  # "그림 (1) 테스트"
 from merge.formatters import CaptionFormatter, load_config
 
 config = load_config("formatter_config.yaml")
-
 formatter = CaptionFormatter()
 
 # 설정에 따라 캡션 형식 변환
-if config.caption.format == "bracket":
+if config.caption.format == "title_only":
     result = formatter.to_bracket_format(text)
 elif config.caption.format == "parenthesis":
     result = formatter.to_parenthesis_format(text)
@@ -220,82 +202,115 @@ else:
 ### HWPX 파일 처리
 
 ```python
+from merge.formatters import CaptionFormatter, get_captions, print_captions, renumber_captions
+
+formatter = CaptionFormatter()
+
 # 캡션 조회
 captions = formatter.get_all_captions("document.hwpx")
-for cap in captions:
-    print(f"{cap.caption_type}: {cap.text}")
+# 또는 편의 함수 사용
+captions = get_captions("document.hwpx")
+
+# 캡션 출력
+print_captions(captions)
 
 # 번호 재정렬
 renumbered = formatter.renumber_captions(
     captions,
-    by_type=config.caption.renumber_by_type,
-    start_number=config.caption.start_number
+    by_type=True,      # 유형별 따로 번호 (그림 1,2... 표 1,2...)
+    start_number=1
 )
+# 또는 편의 함수 사용
+renumbered = renumber_captions("document.hwpx", by_type=True)
 
 # HWPX 파일에 적용
 formatter.apply_to_hwpx(
     "input.hwpx",
     "output.hwpx",
-    to_bracket=(config.caption.format == "bracket"),
-    keep_auto_num=config.caption.keep_auto_num,
-    renumber=config.caption.renumber
+    to_bracket=True,
+    keep_auto_num=False,
+    renumber=True
 )
+
+# 대괄호 형식 적용 (편의 메서드)
+formatter.apply_bracket_format("input.hwpx", "output.hwpx")
+
+# 번호만 재정렬
+formatter.renumber_hwpx("input.hwpx", "output.hwpx")
 
 # 캡션 위치 변경
-formatter.set_caption_position(
-    "input.hwpx",
-    position=config.table_caption.position,
-    output_path="output.hwpx"
-)
-```
+formatter.set_caption_position("input.hwpx", "TOP", "output.hwpx")
+formatter.set_caption_to_top("input.hwpx")     # 위로
+formatter.set_caption_to_bottom("input.hwpx")  # 아래로
 
-### SDK로 제목 추출
-
-```python
-from agent import CaptionFormatter as SDKCaptionFormatter
-
-# 복잡한 패턴도 처리 가능
-sdk = SDKCaptionFormatter()
-title = sdk.extract_title_with_sdk("Figure3-Sample Data")
-# → "Sample Data"
-
-title = sdk.extract_title_with_sdk("Table1:Results")
-# → "Results"
+# 글자처럼 취급 설정
+formatter.set_table_as_char("input.hwpx")      # 테이블 글자처럼
+formatter.set_image_as_anchor("input.hwpx")    # 이미지 어울림
+formatter.set_all_as_char("input.hwpx")        # 전체 글자처럼
 ```
 
 ### 주요 메서드
 
 | 메서드 | 설명 |
 |--------|------|
-| `auto_format(text)` | 표준 양식으로 변환 |
-| `to_standard_format(text)` | "그림 1. 제목" 형식 |
-| `to_bracket_format(text)` | "[제목]" 형식 |
+| `auto_format(text)` | 표준 양식으로 자동 변환 |
+| `to_standard_format(text, separator)` | "그림 1. 제목" 형식 |
+| `to_bracket_format(text)` | "[제목]" 형식 (제목만) |
 | `to_parenthesis_format(text)` | "그림 (1) 제목" 형식 |
+| `normalize_format(text)` | 공백/구두점 정규화 |
 | `remove_number(text)` | 번호 제거 |
 | `extract_title(text)` | 제목만 추출 |
-| `renumber_captions(captions)` | 번호 재정렬 |
+| `get_type_prefix(text)` | 유형 접두어 추출 |
 | `get_all_captions(hwpx_path)` | HWPX에서 캡션 조회 |
+| `renumber_captions(captions)` | 번호 재정렬 |
 | `apply_to_hwpx(...)` | HWPX 파일에 변환 적용 |
 | `set_caption_position(...)` | 캡션 위치 변경 |
+| `set_treat_as_char(...)` | 글자처럼 취급 설정 |
 
 ---
 
-## ContentFormatter (통합 사용)
+## TableCaptionConfig, ImageCaptionConfig 설정
+
+테이블과 이미지에 대해 별도 캡션 설정 가능:
+
+```yaml
+# formatter_config.yaml
+
+table_caption:
+  format: standard
+  position: TOP           # 테이블은 캡션이 위로
+  renumber: true
+  renumber_by_type: true
+  start_number: 1
+  separator: ". "
+  keep_auto_num: false
+  type_prefix: "표"       # 유형 접두어
+
+image_caption:
+  format: standard
+  position: BOTTOM        # 이미지는 캡션이 아래로
+  renumber: true
+  renumber_by_type: true
+  start_number: 1
+  separator: ". "
+  keep_auto_num: false
+  type_prefix: "그림"     # 유형 접두어
+```
 
 ```python
-from merge.content_formatter import ContentFormatter
+from merge.formatters import load_config, TableCaptionConfig, ImageCaptionConfig
 
-formatter = ContentFormatter(style="default", use_sdk=True)
+config = load_config("formatter_config.yaml")
 
-# SDK로 레벨 분석만
-levels = formatter.analyze_levels_with_sdk("항목1\n항목2\n항목3")
-# → [0, 1, 2]
+# 테이블 캡션 설정
+table_cfg: TableCaptionConfig = config.table_caption
+print(table_cfg.position)     # "TOP"
+print(table_cfg.type_prefix)  # "표"
 
-# SDK 분석 + 정규식 포맷 적용
-result = formatter.format_with_analyzed_levels("항목1\n항목2\n항목3")
-
-# 정규식만 사용
-result = formatter.format_as_bullet_list("항목1\n항목2", levels=[0, 1])
+# 이미지 캡션 설정
+image_cfg: ImageCaptionConfig = config.image_caption
+print(image_cfg.position)     # "BOTTOM"
+print(image_cfg.type_prefix)  # "그림"
 ```
 
 ---
@@ -305,20 +320,33 @@ result = formatter.format_as_bullet_list("항목1\n항목2", levels=[0, 1])
 모든 포맷터가 반환하는 공통 결과 클래스:
 
 ```python
+from dataclasses import dataclass, field
+from typing import List
+
 @dataclass
 class FormatResult:
     success: bool = True           # 변환 성공 여부
     original_text: str = ""        # 원본 텍스트
     formatted_text: str = ""       # 변환된 텍스트
-    changes: List[str] = []        # 변경 내역
-    errors: List[str] = []         # 오류 메시지
+    changes: List[str] = field(default_factory=list)   # 변경 내역
+    errors: List[str] = field(default_factory=list)    # 오류 메시지
+```
+
+사용 예시:
+```python
+result = formatter.auto_format("그림1 테스트")
+if result.success:
+    print(result.formatted_text)
+    print(f"변경 사항: {result.changes}")
+else:
+    print(f"오류: {result.errors}")
 ```
 
 ---
 
 ## 새 포맷터 추가 방법
 
-### 1. 정규식 기반 포맷터 (merge/formatters/)
+### 1. 포맷터 클래스 생성 (merge/formatters/)
 
 ```python
 # merge/formatters/my_formatter.py
@@ -336,13 +364,20 @@ class MyFormatter:
         self.style = style
 
     def format_text(self, text: str, levels: Optional[List[int]] = None) -> FormatResult:
-        # 구현
-        return FormatResult(success=True, formatted_text=formatted)
+        # 변환 로직 구현
+        formatted = text  # 실제 변환 로직
+        return FormatResult(
+            success=True,
+            original_text=text,
+            formatted_text=formatted,
+            changes=["변환 완료"]
+        )
 ```
 
 ### 2. __init__.py에 등록
 
 ```python
+# merge/formatters/__init__.py
 from .my_formatter import MyFormatter, MyItem
 
 __all__ = [
@@ -352,11 +387,28 @@ __all__ = [
 ]
 ```
 
-### 3. config_loader.py에 설정 추가
+### 3. config_loader.py에 설정 추가 (선택)
 
 ```python
+# merge/formatters/config_loader.py
+from dataclasses import dataclass
+
 @dataclass
 class MyConfig:
     option1: str = "default"
     option2: bool = True
+
+@dataclass
+class FormatterConfig:
+    # 기존 설정...
+    my: MyConfig = field(default_factory=MyConfig)
+```
+
+### 4. formatter_config.yaml에 기본값 추가 (선택)
+
+```yaml
+# formatter_config.yaml
+my:
+  option1: default
+  option2: true
 ```

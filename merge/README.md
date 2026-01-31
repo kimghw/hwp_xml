@@ -13,23 +13,31 @@
 
 ```
 merge/
-├── __init__.py
-├── merge_hwpx.py       # 핵심 병합 로직
-├── parser.py           # HWPX 문단 파싱
-├── models.py           # Paragraph, OutlineNode 등
-├── outline.py          # 개요 트리 처리
-├── get_outline.py      # 개요 추출
-├── format_validator.py # 형식 검증/수정
-├── merge_with_review.py # 병합 + Agent 통합
+├── __init__.py             # 모듈 진입점, 공개 API
+├── merge_hwpx.py           # 핵심 병합 로직 (HwpxMerger)
+├── parser.py               # HWPX 문단 파싱
+├── models.py               # Paragraph, OutlineNode 등
+├── outline.py              # 개요 트리 처리
+├── get_outline.py          # 개요 추출
+├── content_formatter.py    # 개요 내용 양식 변환
+├── format_validator.py     # 형식 검증/수정
+├── merge_with_review.py    # 병합 + Agent 통합
 │
-└── table/              # 테이블 병합 서브모듈
+├── formatters/             # 정규식 기반 포맷터 (→ formatters/README.md)
+│   ├── __init__.py
+│   ├── bullet_formatter.py     # 글머리 기호 변환
+│   ├── caption_formatter.py    # 캡션 변환
+│   ├── config_loader.py        # YAML 설정 로더
+│   └── formatter_config.yaml   # 기본 설정 템플릿
+│
+└── table/                  # 테이블 병합 서브모듈 (→ table/README.md)
     ├── __init__.py
-    ├── models.py       # CellInfo, TableInfo 등
-    ├── parser.py       # 테이블 파싱
-    ├── merger.py       # 테이블 셀 병합
-    ├── field_name_generator.py  # 필드명 자동 생성
-    ├── insert_auto_field.py     # 자동 필드 삽입
-    └── insert_field_text.py     # 필드 텍스트 삽입
+    ├── models.py               # CellInfo, TableInfo 등
+    ├── parser.py               # 테이블 파싱
+    ├── merger.py               # 테이블 셀 병합
+    ├── field_name_generator.py # 필드명 자동 생성
+    ├── insert_auto_field.py    # 자동 필드 삽입
+    └── insert_field_text.py    # 필드 텍스트 삽입
 ```
 
 ## 사용법
@@ -62,7 +70,57 @@ python merge_with_review.py -o output.hwpx --agent file1.hwpx file2.hwpx
 ## 형식 검토 규칙
 
 - **캡션**: `표 N. 제목`, `그림 N. 제목`
-- **글머리**: ■ (1단계) → ● (2단계) → - (3단계)
+- **글머리**: □ (1단계) → ○ (2단계) → - (3단계)
+
+---
+
+## 서브모듈
+
+### formatters/ (정규식 기반 포맷터)
+
+텍스트 양식 변환을 위한 정규식 기반 모듈. 자세한 내용은 [formatters/README.md](formatters/README.md) 참조.
+
+```python
+from merge.formatters import BulletFormatter, CaptionFormatter, load_config
+
+# YAML 설정 로드
+config = load_config("formatter_config.yaml")
+
+# 글머리 기호 변환
+bullet = BulletFormatter(style=config.bullet.style)  # default, filled, numbered, arrow
+result = bullet.format_text("항목1\n항목2", levels=[0, 1])
+
+# 캡션 변환
+caption = CaptionFormatter()
+result = caption.to_bracket_format("표 1. 연구결과")  # → "[연구결과]"
+```
+
+**글머리 스타일**: `default` | `filled` | `numbered` | `arrow`
+
+**캡션 프리셋**: `title_only` | `type_title` | `type_num_title` | `standard` | `parenthesis` | `bracket_num`
+
+### table/ (테이블 병합)
+
+HWPX 테이블 파싱, 필드명 자동 생성, 데이터 병합 모듈. 자세한 내용은 [table/README.md](table/README.md) 참조.
+
+```python
+from merge.table import TableParser, TableMerger, FieldNameGenerator
+
+# 테이블 파싱
+parser = TableParser()
+tables = parser.parse_hwpx("document.hwpx")
+
+# 필드명 자동 생성
+generator = FieldNameGenerator()
+for table in tables:
+    generator.generate_field_names(table)
+
+# 테이블 병합
+merger = TableMerger()
+merger.merge(template_table, addition_table)
+```
+
+---
 
 ## 데이터 구조
 
