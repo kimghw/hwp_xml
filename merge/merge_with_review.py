@@ -11,6 +11,9 @@ Claude Agent SDK Sub Agent를 사용하여:
     # 동기 방식
     python merge_with_review.py -o output.hwpx file1.hwpx file2.hwpx
 
+    # YAML 설정 사용
+    python merge_with_review.py -o output.hwpx --config formatter_config.yaml file1.hwpx file2.hwpx
+
     # Claude Agent SDK 사용 (비동기)
     from merge_with_review import merge_with_review_async
     await merge_with_review_async([...], output_path, use_agent=True)
@@ -24,10 +27,7 @@ from pathlib import Path
 from typing import List, Dict, Optional, Union
 from dataclasses import dataclass, field
 
-# Windows 콘솔 인코딩 설정
-if sys.platform == 'win32':
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+# Windows 콘솔 인코딩 설정 (run_merge.py main에서 처리)
 
 # 로컬 모듈
 from .merge_hwpx import (
@@ -43,9 +43,40 @@ from .outline import (
     print_outline_tree,
 )
 from .format_validator import (
-    FormatValidator, FormatFixer, ValidationResult,
+    FormatValidator, ValidationResult,
     validate_and_fix, print_validation_result
 )
+
+# formatters 모듈 (YAML 설정 기반 포맷터)
+from .formatters import (
+    BulletFormatter as RegexBulletFormatter,
+    CaptionFormatter as RegexCaptionFormatter,
+    BULLET_STYLES,
+)
+
+# SDK 기반 포맷터 (핵심)
+try:
+    from agent import (
+        BulletFormatter as SDKBulletFormatter,
+        CaptionFormatter as SDKCaptionFormatter,
+    )
+    HAS_SDK_FORMATTERS = True
+except ImportError:
+    HAS_SDK_FORMATTERS = False
+    SDKBulletFormatter = None
+    SDKCaptionFormatter = None
+
+# formatters 모듈 (YAML 설정)
+try:
+    from .formatters import (
+        load_config,
+        FormatterConfig,
+        BULLET_STYLES as FORMATTER_BULLET_STYLES,
+    )
+    HAS_FORMATTERS = True
+except ImportError:
+    HAS_FORMATTERS = False
+    FormatterConfig = None
 
 
 # 글머리 기호 순서 정의
@@ -68,29 +99,272 @@ class MergeReviewResult:
 
 
 class MergeReviewPipeline:
-    """병합 + 검토 파이프라인"""
+    """병합 + 검토 파이프라인 (SDK 기반)"""
 
-    def __init__(self, bullet_styles: Dict[int, str] = None, caption_styles: Dict[str, str] = None):
-        self.bullet_styles = bullet_styles or BULLET_ORDER
-        self.caption_styles = caption_styles or {
-            "table": "표 {num}. {title}",
-            "figure": "그림 {num}. {title}",
-        }
+    def __init__(
+        self,
+        bullet_styles: Dict[int, str] = None,
+        caption_styles: Dict[str, str] = None,
+        config: 'FormatterConfig' = None,
+        use_sdk: bool = True
+    ):
+        """
+        Args:
+            bullet_styles: 글머리 스타일 {level: symbol}
+            caption_styles: 캡션 스타일 {type: format}
+            config: FormatterConfig 객체 (YAML 설정 사용 시)
+            use_sdk: SDK 포맷터 사용 여부 (기본: True)
+        """
+        self.use_sdk = use_sdk and HAS_SDK_FORMATTERS
+        self.config = config
+
+        # YAML 설정에서 스타일 추출
+        if config is not None and HAS_FORMATTERS:
+            self.bullet_style_name = config.bullet.style
+            self.bullet_styles = self._extract_bullet_styles_from_config(config)
+            self.caption_styles = {
+                "table": f"{config.table_caption.type_prefix} {{num}}{config.table_caption.separator}{{title}}",
+                "figure": f"{config.image_caption.type_prefix} {{num}}{config.image_caption.separator}{{title}}",
+            }
+        else:
+            self.bullet_style_name = "filled"
+            self.bullet_styles = bullet_styles or BULLET_ORDER
+            self.caption_styles = caption_styles or {
+                "table": "표 {num}. {title}",
+                "figure": "그림 {num}. {title}",
+            }
+
+        # 포맷터 생성 (SDK 우선, fallback으로 정규식)
+        if self.use_sdk:
+            self._bullet_formatter = SDKBulletFormatter(style=self.bullet_style_name)
+            self._caption_formatter = SDKCaptionFormatter()
+            print(f"    [SDK] BulletFormatter 활성화 (style: {self.bullet_style_name})")
+        else:
+            self._bullet_formatter = RegexBulletFormatter(style=self.bullet_style_name)
+            self._caption_formatter = RegexCaptionFormatter()
+            print(f"    [정규식] BulletFormatter 활성화 (style: {self.bullet_style_name})")
+
         self.parser = HwpxParser()
         self.validator = FormatValidator(self.caption_styles, self.bullet_styles)
-        self.fixer = FormatFixer(self.bullet_styles)
 
-    def _apply_fixes_to_hwpx_data(self, hwpx_data_list: List[HwpxData], merged_tree):
-        """
-        수정된 개요 트리의 변경 사항을 원본 HwpxData의 element에 반영
+    def _extract_bullet_styles_from_config(self, config: 'FormatterConfig') -> Dict[int, str]:
+        """FormatterConfig에서 글머리 스타일 추출"""
+        bullet_style = config.bullet.style
+        if bullet_style in BULLET_STYLES:
+            style_config = BULLET_STYLES[bullet_style]
+            # symbol_tuple = (symbol, indent) → indent + symbol 형태로 반환
+            return {
+                level: symbol_tuple[1] + symbol_tuple[0]
+                for level, symbol_tuple in style_config.items()
+            }
+        return BULLET_ORDER
 
-        FormatFixer가 para.text와 para.element를 동시에 수정하므로,
-        수정된 element가 원본 데이터에 이미 반영되어 있음.
-        이 메서드는 추가 동기화가 필요한 경우를 위해 유지.
+    @classmethod
+    def from_config(cls, config: 'FormatterConfig', use_sdk: bool = True) -> 'MergeReviewPipeline':
         """
-        # FormatFixer가 para.element를 직접 수정하므로
-        # 별도 동기화 불필요 (element는 참조이므로 원본에 반영됨)
-        pass
+        YAML 설정에서 파이프라인 생성
+
+        Args:
+            config: FormatterConfig 객체
+            use_sdk: SDK 포맷터 사용 여부 (기본: True)
+
+        Returns:
+            MergeReviewPipeline 인스턴스
+
+        사용 예:
+            from merge.formatters import load_config
+            config = load_config("formatter_config.yaml")
+            pipeline = MergeReviewPipeline.from_config(config)
+        """
+        return cls(config=config, use_sdk=use_sdk)
+
+    @classmethod
+    def from_config_file(cls, config_path: Union[str, Path], use_sdk: bool = True) -> 'MergeReviewPipeline':
+        """
+        YAML 설정 파일에서 파이프라인 생성
+
+        Args:
+            config_path: YAML 설정 파일 경로
+            use_sdk: SDK 포맷터 사용 여부 (기본: True)
+
+        Returns:
+            MergeReviewPipeline 인스턴스
+        """
+        if not HAS_FORMATTERS:
+            raise ImportError("formatters 모듈을 import할 수 없습니다.")
+        config = load_config(str(config_path))
+        return cls.from_config(config, use_sdk=use_sdk)
+
+    def _fix_bullets_in_tree(self, outline_tree, parent_level: int = -1) -> List[Dict]:
+        """
+        개요 트리에서 글머리 기호 수정 (SDK 레벨 분석 사용)
+
+        처리 순서:
+        1. 기존 글머리가 YAML 설정과 일치하면 패스
+        2. 기존 글머리가 다르거나 없으면 SDK로 레벨 분석
+        3. 분석된 레벨에 맞는 글머리 적용
+        """
+        fixes = []
+
+        # YAML 설정에서 유효한 글머리 기호 (문자열 형태)
+        valid_bullets = list(self.bullet_styles.values())
+
+        for node in outline_tree:
+            # 현재 노드의 상대적 깊이 계산 (부모 기준)
+            if parent_level < 0:
+                relative_depth = 0
+            else:
+                relative_depth = node.level - parent_level
+            relative_depth = max(0, min(relative_depth, 2))
+
+            # 문단별로 처리
+            paras_needing_analysis = []  # SDK 분석이 필요한 문단들
+
+            for i, para in enumerate(node.paragraphs):
+                if not para.text:
+                    continue
+
+                # 개요 제목(첫 번째 문단, is_outline=True)은 글머리 수정 스킵
+                if i == 0 and para.is_outline:
+                    continue
+
+                text = para.text.strip()
+
+                # 1. 기존 글머리가 YAML 설정과 일치하는지 확인
+                has_valid_bullet = False
+                for bullet in valid_bullets:
+                    bullet_stripped = bullet.strip()
+                    if text.startswith(bullet_stripped):
+                        has_valid_bullet = True
+                        break
+
+                if has_valid_bullet:
+                    # 이미 유효한 글머리 → 스킵
+                    continue
+                else:
+                    # SDK 분석 필요
+                    paras_needing_analysis.append((i, para))
+
+            # 2. SDK로 레벨 분석 + 글머리 제거 (분석 필요한 문단만)
+            if paras_needing_analysis and self.use_sdk:
+                texts_to_analyze = [para.text for _, para in paras_needing_analysis]
+                combined_text = '\n'.join(texts_to_analyze)
+
+                try:
+                    # SDK가 레벨과 글머리 제거된 텍스트를 함께 반환
+                    analyzed_levels, stripped_texts = self._bullet_formatter.analyze_and_strip(combined_text)
+                except Exception as e:
+                    print(f"    [SDK 오류] 분석 실패: {e}")
+                    analyzed_levels = [relative_depth] * len(texts_to_analyze)
+                    stripped_texts = [t.strip() for t in texts_to_analyze]
+            else:
+                analyzed_levels = [relative_depth] * len(paras_needing_analysis)
+                stripped_texts = [para.text.strip() for _, para in paras_needing_analysis]
+
+            # 3. 분석된 레벨에 맞는 글머리 적용
+            for idx, (para_idx, para) in enumerate(paras_needing_analysis):
+                if idx < len(analyzed_levels):
+                    level = analyzed_levels[idx]
+                else:
+                    level = relative_depth
+
+                level = max(0, min(level, 2))
+                expected_bullet = self.bullet_styles.get(level, '- ')
+
+                # SDK에서 받은 글머리 제거된 텍스트 사용
+                if idx < len(stripped_texts) and stripped_texts[idx]:
+                    clean_text = stripped_texts[idx]
+                else:
+                    # SDK 실패 시 원본 텍스트 사용
+                    clean_text = para.text.strip()
+
+                new_text = expected_bullet + clean_text
+
+                # 원본과 다르면 수정 기록
+                if para.text.strip() != new_text.strip():
+                    fixes.append({
+                        'type': 'bullet_fix',
+                        'para_index': para.index,
+                        'new_bullet': expected_bullet,
+                        'level': level,
+                        'original_text': para.text,
+                        'new_text': new_text,
+                        'sdk_analyzed': self.use_sdk,
+                    })
+                    para.text = new_text
+                    self._update_element_text(para.element, new_text)
+
+            # 하위 개요 재귀 처리
+            if node.children:
+                child_fixes = self._fix_bullets_in_tree(node.children, node.level)
+                fixes.extend(child_fixes)
+
+        return fixes
+
+    def _fix_captions(self, paragraphs: list) -> List[Dict]:
+        """캡션 형식 수정"""
+        import re
+        fixes = []
+
+        for para in paragraphs:
+            if not para.text:
+                continue
+
+            text = para.text
+
+            # 테이블 캡션 수정
+            table_match = re.match(r'^(?:표|Table|\[표)\s*(\d+)[.\s\]]*(.*)$', text, re.IGNORECASE)
+            if table_match:
+                table_num = int(table_match.group(1))
+                title = table_match.group(2).strip()
+                new_text = f"표 {table_num}. {title}"
+
+                if text != new_text:
+                    fixes.append({
+                        'type': 'caption_fix',
+                        'para_index': para.index,
+                        'caption_type': 'table',
+                        'original': text,
+                        'new': new_text,
+                    })
+                    para.text = new_text
+                    self._update_element_text(para.element, new_text)
+                continue
+
+            # 그림 캡션 수정
+            figure_match = re.match(r'^(?:그림|Figure|\[그림)\s*(\d+)[.\s\]]*(.*)$', text, re.IGNORECASE)
+            if figure_match:
+                figure_num = int(figure_match.group(1))
+                title = figure_match.group(2).strip()
+                new_text = f"그림 {figure_num}. {title}"
+
+                if text != new_text:
+                    fixes.append({
+                        'type': 'caption_fix',
+                        'para_index': para.index,
+                        'caption_type': 'figure',
+                        'original': text,
+                        'new': new_text,
+                    })
+                    para.text = new_text
+                    self._update_element_text(para.element, new_text)
+
+        return fixes
+
+    def _update_element_text(self, elem, new_text: str):
+        """문단 요소의 텍스트를 새 텍스트로 교체"""
+        if elem is None:
+            return
+
+        # 첫 번째 run의 t 요소 찾아서 텍스트 교체
+        for run in elem:
+            if run.tag.endswith('}run'):
+                t_elements = [t for t in run if t.tag.endswith('}t')]
+                if t_elements:
+                    t_elements[0].text = new_text
+                    for t in t_elements[1:]:
+                        run.remove(t)
+                    return
 
     def merge_and_review(
         self,
@@ -127,32 +401,30 @@ class MergeReviewPipeline:
             # 3. 형식 검토 및 수정
             print("[3/4] 형식 검토 및 수정 중...")
             if auto_fix:
-                # 글머리 기호 수정 (텍스트 + XML 요소 동시 수정)
-                bullet_fixes = self.fixer.fix_bullets_in_tree(merged_tree)
+                # 글머리 기호 수정 (SDK 레벨 분석 + 정규식 적용)
+                bullet_fixes = self._fix_bullets_in_tree(merged_tree)
                 result.fixes_applied.extend(bullet_fixes)
 
-                # 캡션 형식 수정 (텍스트 + XML 요소 동시 수정)
+                # 캡션 형식 수정
                 merged_paragraphs = flatten_outline_tree(merged_tree)
-                caption_fixes = self.fixer.fix_caption_format(merged_paragraphs)
+                caption_fixes = self._fix_captions(merged_paragraphs)
                 result.fixes_applied.extend(caption_fixes)
 
                 if bullet_fixes or caption_fixes:
                     print(f"    - 글머리 기호 수정: {len(bullet_fixes)}건")
                     print(f"    - 캡션 수정: {len(caption_fixes)}건")
 
-                # 수정된 내용을 원본 HwpxData에 반영
-                self._apply_fixes_to_hwpx_data(hwpx_data_list, merged_tree)
-
             result.review_success = True
 
-            # 4. 병합된 파일 생성
+            # 4. 병합된 파일 생성 (수정된 트리 사용)
             print("[4/4] 병합 파일 생성 중...")
-            merger = HwpxMerger()
+            # format_content=False: 이미 _fix_bullets_in_tree에서 글머리 적용했으므로 중복 방지
+            merger = HwpxMerger(format_content=False)
             for data in hwpx_data_list:
                 merger.hwpx_data_list.append(data)
 
-            # 병합 (수정된 element가 반영됨)
-            merger.merge(output_path)
+            # 수정된 merged_tree로 병합 (element 수정이 반영됨)
+            merger.merge_with_tree(output_path, merged_tree)
             result.merge_success = True
 
             # 5. 최종 검증

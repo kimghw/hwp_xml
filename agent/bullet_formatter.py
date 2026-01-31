@@ -48,11 +48,18 @@ LEVEL_ANALYSIS_INSTRUCTION = """다음 텍스트의 각 줄에 대해 계층 레
 - 1: 하위 항목, 세부 설명, 부연 설명
 - 2: 가장 하위 항목, 세부 사항, 예시
 
-분석 기준:
-1. 문맥과 의미를 파악하여 계층 구조를 결정
-2. 들여쓰기, 번호, 기존 글머리 기호도 참고
-3. 상위 항목을 설명하거나 보충하는 내용은 하위 레벨
-4. 새로운 주제나 독립적인 내용은 상위 레벨
+분석 기준 (우선순위 순):
+1. 번호/구조 패턴 우선:
+   - "1.", "2.", "3." → 레벨 0
+   - "1.1", "1.2", "2.1" → 레벨 1
+   - "1.1.1", "1.2.3" → 레벨 2
+   - "가.", "나.", "다." → 레벨 1
+   - "(1)", "(2)", "(가)" → 레벨 2
+2. 들여쓰기: 들여쓰기가 많을수록 하위 레벨
+3. 기존 글머리 기호: □/■ → 0, ○/● → 1, -/· → 2
+4. 내용 의미: 상위 항목을 설명/보충하는 내용은 하위 레벨
+
+중요: 번호 패턴이 있으면 그 구조를 우선 따르세요.
 
 출력 형식:
 각 줄마다 레벨 번호만 출력 (0, 1, 2 중 하나)
@@ -62,6 +69,39 @@ LEVEL_ANALYSIS_INSTRUCTION = """다음 텍스트의 각 줄에 대해 계층 레
 1
 2
 0
+
+텍스트:
+{text}
+
+레벨 (숫자만):"""
+
+# 기존 포맷 참고 레벨 분석 프롬프트
+LEVEL_ANALYSIS_WITH_CONTEXT_INSTRUCTION = """다음 텍스트의 각 줄에 대해 계층 레벨(0, 1, 2)을 분석해주세요.
+
+레벨 기준:
+- 0: 최상위 항목 (□/■ 글머리)
+- 1: 하위 항목 (○/● 글머리)
+- 2: 가장 하위 항목 (-/· 글머리)
+
+**기존 문서의 포맷 예시** (이 패턴을 참고하세요):
+{existing_format}
+
+분석 기준 (우선순위 순):
+1. **기존 포맷 패턴 우선**: 위 예시와 유사한 구조/내용이면 같은 레벨 적용
+2. 번호/구조 패턴:
+   - "1.", "2.", "3." → 레벨 0
+   - "1.1", "1.2", "2.1" → 레벨 1
+   - "1.1.1", "1.2.3" → 레벨 2
+   - "가.", "나.", "다." → 레벨 1
+   - "(1)", "(2)", "(가)" → 레벨 2
+3. 들여쓰기: 들여쓰기가 많을수록 하위 레벨
+4. 기존 글머리 기호: □/■ → 0, ○/● → 1, -/· → 2
+5. 내용 의미: 상위 항목을 설명/보충하는 내용은 하위 레벨
+
+중요: 기존 포맷 예시가 있으면 그 스타일을 우선 따르세요.
+
+출력 형식:
+각 줄마다 레벨 번호만 출력 (0, 1, 2 중 하나)
 
 텍스트:
 {text}
@@ -186,12 +226,97 @@ class BulletFormatter:
 
         return text.strip()
 
-    def analyze_levels(self, text: str) -> List[int]:
+    def analyze_and_strip(self, text: str, existing_format: Optional[str] = None) -> tuple:
+        """
+        SDK를 사용하여 텍스트의 레벨 분석 + 기존 글머리 제거
+
+        Args:
+            text: 분석할 텍스트
+            existing_format: 기존 문서의 포맷 예시 (참고용)
+
+        Returns:
+            tuple: (레벨 리스트, 글머리 제거된 텍스트 리스트)
+                예: ([0, 1, 2], ["안녕하세요", "세부내용", "상세항목"])
+        """
+        if not text or not text.strip():
+            return [], []
+
+        lines = [l for l in text.split('\n') if l.strip()]
+        if not lines:
+            return [], []
+
+        # SDK에 레벨 분석 + 글머리 제거 요청
+        prompt = f"""NOTE: 글머리/번호만 제거하고 본문은 100% 보존할 것
+
+다음 텍스트의 각 줄을 분석해주세요.
+
+각 줄에 대해:
+1. 계층 레벨 (0, 1, 2) - 글머리/번호 패턴과 들여쓰기 기준
+2. 글머리/번호 제거한 순수 텍스트 (본문 그대로 유지)
+
+레벨 기준:
+- 0: □, ■, ▶, ▷, "1.", "가." 등 최상위
+- 1: ○, ●, "1.1", "1)", "(1)" 등 중간
+- 2: -, ·, "1.1.1", "(가)" 등 하위
+
+출력 형식 (각 줄마다):
+레벨|순수텍스트
+
+예시:
+0|프로젝트 개요
+1|세부 내용 설명
+2|상세 항목
+
+텍스트:
+{text}
+
+분석 결과:"""
+
+        result = self.sdk.call(prompt)
+
+        if result.success and result.output:
+            return self._parse_analyze_strip_response(result.output, len(lines))
+        else:
+            # SDK 실패 시 정규식 fallback
+            levels = self._regex_formatter._detect_levels(lines)
+            stripped_texts = []
+            for line in lines:
+                _, clean_text = self._regex_formatter._remove_existing_bullet(line)
+                stripped_texts.append(clean_text.strip())
+            return levels, stripped_texts
+
+    def _parse_analyze_strip_response(self, response: str, expected_count: int) -> tuple:
+        """SDK 응답에서 레벨과 텍스트 파싱"""
+        levels = []
+        stripped_texts = []
+
+        for line in response.strip().split('\n'):
+            line = line.strip()
+            if '|' in line:
+                parts = line.split('|', 1)
+                try:
+                    level = int(parts[0].strip())
+                    level = max(0, min(level, 2))
+                    levels.append(level)
+                    stripped_texts.append(parts[1].strip() if len(parts) > 1 else '')
+                except ValueError:
+                    continue
+
+        # 개수 맞추기
+        while len(levels) < expected_count:
+            levels.append(0)
+            stripped_texts.append('')
+
+        return levels[:expected_count], stripped_texts[:expected_count]
+
+    def analyze_levels(self, text: str, existing_format: Optional[str] = None) -> List[int]:
         """
         SDK를 사용하여 텍스트의 각 줄에 대한 계층 레벨 분석
 
         Args:
             text: 분석할 텍스트
+            existing_format: 기존 문서의 포맷 예시 (참고용)
+                예: " □ 주요 내용\\n   ○세부 설명\\n    - 상세 항목"
 
         Returns:
             각 줄의 레벨 리스트 [0, 1, 2, ...]
@@ -203,7 +328,15 @@ class BulletFormatter:
         if not lines:
             return []
 
-        prompt = LEVEL_ANALYSIS_INSTRUCTION.format(text=text)
+        # 기존 포맷이 있으면 컨텍스트 포함 프롬프트 사용
+        if existing_format:
+            prompt = LEVEL_ANALYSIS_WITH_CONTEXT_INSTRUCTION.format(
+                existing_format=existing_format,
+                text=text
+            )
+        else:
+            prompt = LEVEL_ANALYSIS_INSTRUCTION.format(text=text)
+
         result = self.sdk.call(prompt)
 
         if result.success and result.output:

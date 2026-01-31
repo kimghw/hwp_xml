@@ -226,7 +226,9 @@ class CaptionFormatter:
     ) -> FormatResult:
         """
         캡션을 대괄호 형식으로 변환
-        예: "표 1. 연구 결과" → "[표 연구 결과]"
+        예: "표 1. 연구 결과" → "[연구 결과]"
+
+        대괄호 안에는 제목만 들어감 (유형 접두어 제외)
 
         SDK로 제목 추출 → 정규식으로 대괄호 포맷 적용
 
@@ -252,15 +254,8 @@ class CaptionFormatter:
         else:
             title = self._regex_formatter.extract_title(text)
 
-        # 유형 접두어 추출
-        prefix = self._regex_formatter.get_type_prefix(text, caption_type)
-
-        # 대괄호 형식 생성
-        if prefix and title:
-            formatted = f"[{prefix} {title}]"
-        elif prefix:
-            formatted = f"[{prefix}]"
-        elif title:
+        # 대괄호 형식 생성 (제목만)
+        if title:
             formatted = f"[{title}]"
         else:
             formatted = text

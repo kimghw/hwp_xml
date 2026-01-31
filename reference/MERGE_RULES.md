@@ -175,9 +175,149 @@ merger.save("output.hwpx")
 | `append_row` | 항상 새 행 추가 |
 | `smart` | 빈 셀 먼저 채우고, 부족하면 행 추가 (기본값) |
 
+## 스타일 규칙
+
+### 테이블 셀 스타일
+
+| 상황 | 스타일 처리 |
+|------|------------|
+| `input_` 데이터 입력 | Base 테이블 셀 스타일 유지 |
+| 새 행 추가 | Base 테이블 마지막 행 스타일 복사 |
+| `add_` 내용 추가 | 기존 셀 스타일 유지 |
+| 같은 문단 내 추가 | 빈칸 1개로 구분 |
+
+### 텍스트 구분자
+
+```
+기존 텍스트: "첫 번째 내용"
+추가 텍스트: "두 번째 내용"
+
+결과 (같은 문단): "첫 번째 내용 두 번째 내용"  ← 빈칸 1개
+결과 (새 문단):   "첫 번째 내용\n두 번째 내용"  ← 줄바꿈
+```
+
+## Claude Code SDK 검증
+
+병합 전 데이터 형식을 Claude Code SDK로 검증하여 양식에 맞게 조정합니다.
+
+### 검증 대상
+
+| 대상 | 검증 내용 |
+|------|----------|
+| 개요 본문 | 문단 형식, 헤딩 레벨, 목록 스타일 검증 후 병합 |
+| `add_` 필드 | 기존 셀 형식에 맞게 검증 후 추가 |
+| `input_` 필드 | 데이터 형식 검증 (선택적) |
+
+### 검증 흐름
+
+```
+1. 개요 본문 병합
+   ├─ Base 문서에서 개요 구조 파싱
+   ├─ Add 데이터 SDK 검증
+   ├─ 형식 맞춤 (헤딩, 목록 등)
+   └─ 병합
+
+2. add_ 필드 추가
+   ├─ 기존 셀 스타일 분석
+   ├─ Add 데이터 SDK 검증
+   ├─ 양식에 맞게 조정
+   └─ 기존 텍스트 뒤에 추가
+
+3. input_ 필드 입력
+   ├─ 데이터 형식 검증 (선택적)
+   └─ Base 셀 스타일로 입력
+```
+
+### SDK 검증 예시
+
+```python
+from merge.format_validator import AddFieldValidator, create_sdk_validator
+
+# 기본 규칙 기반 검증
+validator = AddFieldValidator()
+
+# add_ 필드 검증
+add_text = "추가할 내용..."
+result = validator.validate_add_content(
+    add_text,
+    base_cell_style="bullet_list"  # 기존 셀이 bullet list면 맞춤
+)
+print(result.validated_text)  # 검증/조정된 텍스트
+print(result.changes_made)    # 변경 내역
+
+# 개요 본문 검증
+outline_text = "## 섹션 제목\n내용..."
+result = validator.validate_outline(
+    outline_text,
+    target_level=2  # 목표 헤딩 레벨
+)
+
+# input_ 필드 검증 (선택적)
+input_text = "2024-01-15"
+result = validator.validate_input_content(
+    input_text,
+    expected_format="date"  # date, number, text
+)
+
+# 일괄 검증
+data_list = [
+    {"add_memo": "메모1", "input_value": "100"},
+    {"add_memo": "메모2", "input_value": "200"},
+]
+results = validator.validate_batch(
+    data_list,
+    field_styles={"add_memo": "plain"}
+)
+```
+
+### Claude Code SDK 연동
+
+```python
+from merge.format_validator import AddFieldValidator, create_sdk_validator
+
+# SDK 클라이언트가 있는 경우
+# sdk_client = ... (실제 Claude Code SDK 클라이언트)
+# sdk_validator = create_sdk_validator(sdk_client)
+# validator = AddFieldValidator(sdk_validator=sdk_validator)
+
+# SDK 없이 기본 규칙만 사용
+validator = AddFieldValidator()
+```
+
+### TableMerger에서 검증 사용
+
+```python
+from merge.table_merger import TableMerger
+
+# 검증 활성화
+merger = TableMerger(validate_format=True)
+merger.load_base_table("base.hwpx", table_index=0)
+
+# add_ 필드 스타일 지정
+field_styles = {
+    "add_memo": "bullet_list",  # 글머리 기호 목록
+    "add_note": "plain",        # 일반 텍스트
+}
+
+add_data = [
+    {"add_memo": "첫 번째 메모", "input_value": "100"},
+    {"add_memo": "두 번째 메모", "input_value": "200"},
+]
+
+# 병합 실행 (검증 포함)
+merger.merge_with_stub(
+    add_data,
+    field_styles=field_styles,
+    add_separator=" "  # 같은 문단 구분자 (빈칸 1개)
+)
+
+merger.save("output.hwpx")
+```
+
 ## 제약 사항
 
 1. **data_ 셀은 변경 불가**: 기존 데이터 보존
 2. **header_ 셀은 변경 불가**: 테이블 구조 유지
 3. **colspan은 유지**: 병합된 열 구조 유지
 4. **필드명 일치 필요**: Base와 Add의 필드명이 일치해야 매칭
+5. **SDK 검증 실패 시**: 원본 데이터 그대로 사용 (경고 로그)

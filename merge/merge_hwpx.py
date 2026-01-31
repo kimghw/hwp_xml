@@ -31,6 +31,7 @@ from .outline import (
     print_outline_tree,
 )
 from .table import TableParser, TableMerger
+from .content_formatter import ContentFormatter
 
 # 네임스페이스 등록
 for prefix, uri in NAMESPACES.items():
@@ -40,7 +41,12 @@ for prefix, uri in NAMESPACES.items():
 class HwpxMerger:
     """HWPX 파일 병합"""
 
-    def __init__(self):
+    def __init__(self, format_content: bool = True, use_sdk_for_levels: bool = True):
+        """
+        Args:
+            format_content: 내용 문단에 글머리 기호 양식 적용 여부
+            use_sdk_for_levels: SDK로 계층 레벨 분석 여부 (True: SDK 사용, False: 정규식만)
+        """
         self.hwpx_data_list: List[HwpxData] = []
         self.parser = HwpxParser()
         self.table_parser = TableParser()
@@ -48,6 +54,11 @@ class HwpxMerger:
         # 템플릿 파일의 테이블 필드명 캐시: {field_name: table_index}
         self._template_table_fields: Dict[str, int] = {}
         self._template_path: Optional[Path] = None  # 템플릿 파일 경로 (정규화)
+        self.format_content = format_content
+        self.use_sdk_for_levels = use_sdk_for_levels
+        self.content_formatter = ContentFormatter(style="default", use_sdk=use_sdk_for_levels) if format_content else None
+        # 템플릿의 기존 글머리 포맷 예시 (SDK 참고용)
+        self._existing_format: Optional[str] = None
 
     def add_file(self, hwpx_path: Union[str, Path]):
         """병합할 파일 추가"""
@@ -83,18 +94,29 @@ class HwpxMerger:
 
         return all_names
 
-    def merge(self, output_path: Union[str, Path], exclude_outlines: Optional[Set[str]] = None):
+    def merge(self, output_path: Optional[Union[str, Path]] = None, exclude_outlines: Optional[Set[str]] = None):
         """
         파일 병합 후 저장
 
         Args:
-            output_path: 출력 파일 경로
+            output_path: 출력 파일 경로 (None이면 merge/output/merged.hwpx)
             exclude_outlines: 제외할 개요 (None이면 self.exclude_outlines 사용)
         """
         if not self.hwpx_data_list:
             raise ValueError("병합할 파일이 없습니다.")
 
-        output_path = Path(output_path)
+        # 출력 경로 설정
+        output_dir = Path(__file__).parent / "output"
+        if output_path is None:
+            output_path = output_dir / "merged.hwpx"
+        else:
+            output_path = Path(output_path)
+            # 파일명만 주어진 경우 기본 출력 디렉토리에 저장
+            if not output_path.is_absolute() and not output_path.parent.exists():
+                output_path = output_dir / output_path.name
+
+        # 출력 디렉토리 생성
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
         # 제외 개요 설정
         exclude = exclude_outlines if exclude_outlines is not None else self.exclude_outlines
@@ -106,6 +128,35 @@ class HwpxMerger:
         # 2. 병합된 문단 리스트 생성
         merged_paragraphs = flatten_outline_tree(merged_tree)
 
+        # 내부 메서드 호출
+        return self._merge_with_paragraphs(output_path, merged_paragraphs)
+
+    def merge_with_tree(self, output_path: Union[str, Path], merged_tree: List) -> Path:
+        """
+        수정된 개요 트리로 병합 파일 생성
+
+        merge_and_review에서 element를 수정한 후 호출합니다.
+
+        Args:
+            output_path: 출력 파일 경로
+            merged_tree: 수정된 개요 트리 (OutlineNode 리스트)
+
+        Returns:
+            출력 파일 경로
+        """
+        if not self.hwpx_data_list:
+            raise ValueError("병합할 파일이 없습니다.")
+
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # 병합된 문단 리스트 생성 (수정된 element 사용)
+        merged_paragraphs = flatten_outline_tree(merged_tree)
+
+        return self._merge_with_paragraphs(output_path, merged_paragraphs)
+
+    def _merge_with_paragraphs(self, output_path: Path, merged_paragraphs: List[Paragraph]) -> Path:
+        """문단 리스트로 병합 파일 생성 (내부 메서드)"""
         # 3. 템플릿 파일 (첫 번째 파일)
         template_data = self.hwpx_data_list[0]
         self._template_path = Path(template_data.path).resolve()
@@ -115,6 +166,10 @@ class HwpxMerger:
 
         # 4.5 템플릿 테이블 필드명 수집
         self._collect_template_table_fields(template_data)
+
+        # 4.6 템플릿의 기존 글머리 포맷 수집 (SDK 참고용)
+        if self.format_content and self.use_sdk_for_levels:
+            self._collect_existing_format(merged_paragraphs)
 
         # 5. section XML 생성 (테이블 머지 포함)
         merged_section_xml = self._create_merged_section(merged_paragraphs, template_data, bin_id_map)
@@ -190,6 +245,62 @@ class HwpxMerger:
             # 테이블 파싱 실패 시 빈 상태로 유지
             pass
 
+    def _collect_existing_format(self, paragraphs: List[Paragraph]):
+        """
+        병합 대상 파일들에서 기존 글머리 포맷 수집 (SDK 참고용)
+
+        이미 글머리 기호가 적용된 문단을 찾아 예시로 사용
+        템플릿 파일 우선, 없으면 다른 파일에서 수집
+        """
+        self._existing_format = None
+
+        # 글머리 기호 패턴
+        bullet_chars = '□■◆◇○●◎•-–—·∙'
+
+        format_examples = []
+
+        # 1단계: 템플릿 파일에서 먼저 수집
+        for para in paragraphs:
+            if not self._is_from_template(para.source_file):
+                continue
+
+            if para.has_table or para.has_image or para.is_outline:
+                continue
+
+            text = para.text.strip() if para.text else ''
+            if not text:
+                continue
+
+            first_char = text.lstrip()[0] if text.lstrip() else ''
+            if first_char in bullet_chars or text.startswith((' □', '   ○', '    -')):
+                format_examples.append(text)
+
+            if len(format_examples) >= 10:
+                break
+
+        # 2단계: 템플릿에 없으면 다른 파일에서 수집
+        if not format_examples:
+            for para in paragraphs:
+                if self._is_from_template(para.source_file):
+                    continue  # 템플릿 이미 확인함
+
+                if para.has_table or para.has_image or para.is_outline:
+                    continue
+
+                text = para.text.strip() if para.text else ''
+                if not text:
+                    continue
+
+                first_char = text.lstrip()[0] if text.lstrip() else ''
+                if first_char in bullet_chars or text.startswith((' □', '   ○', '    -')):
+                    format_examples.append(text)
+
+                if len(format_examples) >= 10:
+                    break
+
+        if format_examples:
+            self._existing_format = '\n'.join(format_examples)
+
     def _get_table_fields_from_element(self, tbl_elem) -> Set[str]:
         """테이블 요소에서 필드명 추출"""
         fields = set()
@@ -261,9 +372,22 @@ class HwpxMerger:
         # 템플릿 테이블 요소 위치 추적: {table_idx: paragraph_elem}
         template_table_paragraphs: Dict[int, Any] = {}
 
+        # 문단 순서 인덱스 → 요소 매핑 (글머리 기호 적용 후 참조용)
+        # para.index는 원본 파일 내 인덱스라 중복될 수 있으므로 순차 인덱스 사용
+        para_elements: Dict[int, Any] = {}
+        para_seq_map: Dict[int, int] = {}  # para.id(객체 ID) → seq_idx
+
         # 병합된 문단 추가
-        for para in paragraphs:
+        for seq_idx, para in enumerate(paragraphs):
             elem = copy.deepcopy(para.element)
+            para_elements[seq_idx] = elem
+            para_seq_map[id(para)] = seq_idx
+
+            # Addition 문단의 스타일을 Template 스타일로 변경
+            if not self._is_from_template(para.source_file) and para.para_pr_id:
+                current_style = elem.get('paraPrIDRef', '')
+                if current_style != para.para_pr_id:
+                    elem.set('paraPrIDRef', para.para_pr_id)
 
             # 이미지 ID 재매핑
             if para.source_file in bin_id_map:
@@ -322,6 +446,10 @@ class HwpxMerger:
 
         # 테이블 머지 적용
         self._apply_table_merges(root, template_data, table_merge_data)
+
+        # 글머리 기호 양식 적용 (개요 단위로 내용 문단 모아서 처리)
+        if self.format_content and self.content_formatter:
+            self._apply_bullet_format_by_outline(root, paragraphs, para_elements, para_seq_map)
 
         # XML 직렬화
         return ET.tostring(root, encoding='UTF-8', xml_declaration=True)
@@ -405,6 +533,121 @@ class HwpxMerger:
             # stub/gstub/input 기반 머지
             merger.merge_with_stub(addition_data_list)
 
+    def _apply_bullet_format_by_outline(self, root, paragraphs: List[Paragraph], para_elements: Dict[int, Any], para_seq_map: Dict[int, int]):
+        """
+        개요 단위로 내용 문단들을 모아서 글머리 기호 양식 적용
+
+        use_sdk_for_levels=True: SDK로 계층 구조 분석 후 정규식으로 글머리 적용
+        use_sdk_for_levels=False: 정규식만으로 레벨 감지 및 글머리 적용
+
+        같은 개요 아래의 여러 내용 문단을 한 번에 분석해서
+        계층 구조를 파악하고 적절한 레벨(□/○/-)을 지정
+        """
+        # 개요별 내용 문단 그룹화
+        content_groups: List[Tuple[int, List[Paragraph]]] = []  # [(outline_index, [content_paras])]
+        current_outline_idx = -1
+        current_content_paras = []
+
+        for para in paragraphs:
+            if para.is_outline:
+                # 이전 그룹 저장
+                if current_content_paras:
+                    content_groups.append((current_outline_idx, current_content_paras))
+                current_outline_idx = para.index
+                current_content_paras = []
+            else:
+                # 내용 문단 (테이블/이미지 제외)
+                if not para.has_table and not para.has_image and para.text and para.text.strip():
+                    current_content_paras.append(para)
+
+        # 마지막 그룹 저장
+        if current_content_paras:
+            content_groups.append((current_outline_idx, current_content_paras))
+
+        # 각 그룹에 대해 레벨 분석 후 글머리 적용
+        for outline_idx, content_paras in content_groups:
+            if not content_paras:
+                continue
+
+            # 여러 문단의 텍스트를 줄바꿈으로 합침
+            combined_text = '\n'.join(para.text for para in content_paras)
+
+            if self.use_sdk_for_levels:
+                # SDK로 레벨 분석 후 정규식으로 글머리 적용 (기존 포맷 참고)
+                result = self.content_formatter.format_with_analyzed_levels(
+                    combined_text,
+                    existing_format=self._existing_format
+                )
+            else:
+                # 정규식만으로 레벨 감지 및 글머리 적용
+                result = self.content_formatter.auto_format(combined_text, use_sdk_for_levels=False)
+
+            if result.success and result.formatted_text != combined_text:
+                # 변환된 텍스트를 줄 단위로 분리 (빈 줄 제외)
+                formatted_lines = [line for line in result.formatted_text.split('\n') if line.strip()]
+
+                # 줄 수가 일치하는 경우에만 적용
+                if len(formatted_lines) == len(content_paras):
+                    for i, para in enumerate(content_paras):
+                        new_text = formatted_lines[i]
+                        seq_idx = para_seq_map.get(id(para))
+                        if seq_idx is not None:
+                            elem = para_elements.get(seq_idx)
+                            if elem is not None:
+                                self._update_paragraph_text(elem, new_text)
+                else:
+                    # 줄 수가 맞지 않으면 개별 문단씩 처리
+                    for para in content_paras:
+                        if self.use_sdk_for_levels:
+                            result = self.content_formatter.format_with_analyzed_levels(
+                                para.text,
+                                existing_format=self._existing_format
+                            )
+                        else:
+                            result = self.content_formatter.auto_format(para.text, use_sdk_for_levels=False)
+
+                        if result.success and result.formatted_text != para.text:
+                            # 첫 줄만 사용 (빈 줄 제외)
+                            lines = [l for l in result.formatted_text.split('\n') if l.strip()]
+                            if lines:
+                                seq_idx = para_seq_map.get(id(para))
+                                if seq_idx is not None:
+                                    elem = para_elements.get(seq_idx)
+                                    if elem is not None:
+                                        self._update_paragraph_text(elem, lines[0])
+
+    def _has_bullet(self, text: str) -> bool:
+        """텍스트에 글머리 기호가 있는지 확인"""
+        text = text.strip()
+        if not text:
+            return False
+
+        # 글머리 기호 패턴
+        bullet_chars = '□■◆◇○●◎•-–—·∙'
+        first_char = text[0] if text else ''
+        if first_char in bullet_chars:
+            return True
+
+        # 숫자 글머리 확인 (1. 또는 1) 형식)
+        if re.match(r'^\d+[.)]\s', text):
+            return True
+
+        return False
+
+    def _update_paragraph_text(self, elem, new_text: str):
+        """문단 요소의 텍스트를 새 텍스트로 교체"""
+        # 첫 번째 run의 t 요소 찾기
+        for run in elem:
+            if run.tag.endswith('}run'):
+                for t in run:
+                    if t.tag.endswith('}t'):
+                        t.text = new_text
+                        # 나머지 t 요소 제거 (텍스트를 하나로 합침)
+                        for other_t in list(run)[list(run).index(t)+1:]:
+                            if other_t.tag.endswith('}t'):
+                                run.remove(other_t)
+                        return
+
     def _remap_bin_ids(self, elem, id_map: Dict[str, str]):
         """요소 내 BinData ID 재매핑"""
         # binDataIDRef 속성 찾아서 변경
@@ -417,6 +660,61 @@ class HwpxMerger:
             img_id = child.get('imgID')
             if img_id and img_id in id_map:
                 child.set('imgID', id_map[img_id])
+
+    def _update_content_hpf(self, content_hpf: bytes, bin_data: Dict[str, bytes]) -> bytes:
+        """content.hpf에 이미지 항목 추가"""
+        root = ET.parse(BytesIO(content_hpf)).getroot()
+
+        # manifest 찾기
+        manifest = None
+        for elem in root.iter():
+            if elem.tag.endswith('}manifest'):
+                manifest = elem
+                break
+
+        if manifest is None:
+            return content_hpf
+
+        # 기존 이미지 항목 ID 수집
+        existing_ids = set()
+        for item in manifest:
+            if item.tag.endswith('}item'):
+                item_id = item.get('id', '')
+                if item_id.startswith('image'):
+                    existing_ids.add(item_id)
+
+        # 새 이미지 항목 추가
+        ns = '{http://www.idpf.org/2007/opf/}'
+        for name in sorted(bin_data.keys()):
+            # BinData/image1.jpeg -> image1
+            match = re.search(r'(image\d+)', name)
+            if not match:
+                continue
+
+            image_id = match.group(1)
+            if image_id in existing_ids:
+                continue
+
+            # 확장자로 media-type 결정
+            ext = Path(name).suffix.lower()
+            media_types = {
+                '.jpeg': 'image/jpeg',
+                '.jpg': 'image/jpeg',
+                '.png': 'image/png',
+                '.gif': 'image/gif',
+                '.bmp': 'image/bmp',
+            }
+            media_type = media_types.get(ext, 'application/octet-stream')
+
+            # item 요소 생성
+            item = ET.Element(f'{ns}item')
+            item.set('id', image_id)
+            item.set('href', name)
+            item.set('media-type', media_type)
+            item.set('isEmbeded', '1')
+            manifest.append(item)
+
+        return ET.tostring(root, encoding='UTF-8', xml_declaration=True)
 
     def _write_hwpx(self, output_path: Path, template_data: HwpxData,
                     section_xml: bytes, header_xml: bytes, bin_data: Dict[str, bytes]):
@@ -436,9 +734,16 @@ class HwpxMerger:
             for name, content in bin_data.items():
                 zf.writestr(name, content)
 
-            # 기타 파일 (mimetype 제외)
+            # 기타 파일 (mimetype 제외, content.hpf는 별도 처리)
             for name, content in template_data.other_files.items():
-                if name != 'mimetype' and not name.startswith('BinData/'):
+                if name == 'mimetype' or name.startswith('BinData/'):
+                    continue
+
+                if name == 'Contents/content.hpf':
+                    # content.hpf에 이미지 항목 추가
+                    updated_content = self._update_content_hpf(content, bin_data)
+                    zf.writestr(name, updated_content)
+                else:
                     zf.writestr(name, content)
 
 
@@ -449,23 +754,43 @@ def get_outline_structure(hwpx_path: Union[str, Path]) -> List[OutlineNode]:
     return data.outline_tree
 
 
+# 기본 출력 디렉토리
+DEFAULT_OUTPUT_DIR = Path(__file__).parent / "output"
+
+
 def merge_hwpx_files(
     hwpx_paths: List[Union[str, Path]],
-    output_path: Union[str, Path],
-    exclude_outlines: Optional[Set[str]] = None
+    output_path: Optional[Union[str, Path]] = None,
+    exclude_outlines: Optional[Set[str]] = None,
+    format_content: bool = True,
+    use_sdk_for_levels: bool = True
 ) -> Path:
     """
     여러 HWPX 파일을 개요 기준으로 병합
 
     Args:
         hwpx_paths: 병합할 파일 경로들
-        output_path: 출력 파일 경로
+        output_path: 출력 파일 경로 (None이면 merge/output/merged.hwpx)
         exclude_outlines: 제외할 개요 이름 집합
+        format_content: 글머리 기호 양식 적용 여부
+        use_sdk_for_levels: SDK로 계층 레벨 분석 여부 (True: SDK 사용, False: 정규식만)
 
     Returns:
         출력 파일 경로
     """
-    merger = HwpxMerger()
+    # 출력 경로 설정
+    if output_path is None:
+        output_path = DEFAULT_OUTPUT_DIR / "merged.hwpx"
+    else:
+        output_path = Path(output_path)
+        # 파일명만 주어진 경우 기본 출력 디렉토리에 저장
+        if not output_path.parent.exists() and output_path.parent == Path('.'):
+            output_path = DEFAULT_OUTPUT_DIR / output_path.name
+
+    # 출력 디렉토리 생성
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    merger = HwpxMerger(format_content=format_content, use_sdk_for_levels=use_sdk_for_levels)
 
     for path in hwpx_paths:
         merger.add_file(path)

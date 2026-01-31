@@ -23,6 +23,11 @@ Claude Agent SDK를 이용한 Sub Agent로 병합 데이터의 형식을 검토�
         "## 섹션 제목\\n내용...",
         target_level=2
     )
+
+    # YAML 설정 기반 검증
+    from merge.formatters import load_config
+    config = load_config("formatter_config.yaml")
+    fixer = FormatFixer.from_config(config)
 """
 
 import zipfile
@@ -34,8 +39,36 @@ from io import BytesIO
 import copy
 import re
 
+# formatters 모듈 import (YAML 설정 지원, 정규식 기반)
+try:
+    from .formatters import (
+        BulletFormatter as RegexBulletFormatter,
+        CaptionFormatter as RegexCaptionFormatter,
+        load_config,
+        FormatterConfig,
+        BULLET_STYLES as FORMATTER_BULLET_STYLES,
+    )
+    HAS_FORMATTERS = True
+except ImportError:
+    HAS_FORMATTERS = False
+    FORMATTER_BULLET_STYLES = None
+    RegexBulletFormatter = None
+    RegexCaptionFormatter = None
 
-# 글머리 기호 정의
+# SDK 기반 포맷터 import (핵심 - agent 모듈)
+try:
+    from agent import (
+        BulletFormatter as SDKBulletFormatter,
+        CaptionFormatter as SDKCaptionFormatter,
+    )
+    HAS_SDK_FORMATTERS = True
+except ImportError:
+    HAS_SDK_FORMATTERS = False
+    SDKBulletFormatter = None
+    SDKCaptionFormatter = None
+
+
+# 글머리 기호 정의 (기본값)
 BULLET_STYLES = {
     0: "■",  # 네모 (1단계)
     1: "●",  # 원 (2단계)
@@ -243,51 +276,180 @@ class FormatValidator:
 
 
 class FormatFixer:
-    """HWPX 형식 수정기"""
+    """HWPX 형식 수정기 (SDK 기반)"""
 
-    def __init__(self, bullet_styles: Dict[int, str] = None):
+    def __init__(
+        self,
+        bullet_styles: Dict[int, str] = None,
+        caption_formatter = None,
+        bullet_formatter = None,
+        use_sdk: bool = True
+    ):
+        """
+        Args:
+            bullet_styles: 글머리 스타일 {level: symbol}
+            caption_formatter: 캡션 포맷터 (SDK 또는 정규식)
+            bullet_formatter: 글머리 포맷터 (SDK 또는 정규식)
+            use_sdk: SDK 포맷터 사용 여부 (기본: True)
+        """
         self.bullet_styles = bullet_styles or BULLET_STYLES
         self._bullet_counters = {}  # 개요 레벨별 카운터
+        self.use_sdk = use_sdk and HAS_SDK_FORMATTERS
+
+        # SDK 포맷터 우선, fallback으로 정규식 포맷터
+        if caption_formatter:
+            self._caption_formatter = caption_formatter
+        elif self.use_sdk and SDKCaptionFormatter:
+            self._caption_formatter = SDKCaptionFormatter()
+        elif HAS_FORMATTERS and RegexCaptionFormatter:
+            self._caption_formatter = RegexCaptionFormatter()
+        else:
+            self._caption_formatter = None
+
+        if bullet_formatter:
+            self._bullet_formatter = bullet_formatter
+        elif self.use_sdk and SDKBulletFormatter:
+            self._bullet_formatter = SDKBulletFormatter()
+        elif HAS_FORMATTERS and RegexBulletFormatter:
+            self._bullet_formatter = RegexBulletFormatter()
+        else:
+            self._bullet_formatter = None
+
+        # SDK 사용 가능 여부 로깅
+        if self.use_sdk and self._bullet_formatter:
+            print(f"    [SDK] BulletFormatter 활성화")
+
+    @classmethod
+    def from_config(cls, config: 'FormatterConfig', use_sdk: bool = True) -> 'FormatFixer':
+        """
+        YAML 설정에서 FormatFixer 생성
+
+        Args:
+            config: FormatterConfig 객체 (load_config로 로드)
+            use_sdk: SDK 포맷터 사용 여부 (기본: True)
+
+        Returns:
+            FormatFixer 인스턴스
+
+        사용 예:
+            from merge.formatters import load_config
+            config = load_config("formatter_config.yaml")
+            fixer = FormatFixer.from_config(config)
+        """
+        if not HAS_FORMATTERS:
+            raise ImportError("formatters 모듈을 import할 수 없습니다.")
+
+        # 스타일에서 글머리 기호 추출
+        bullet_style = config.bullet.style
+        if FORMATTER_BULLET_STYLES and bullet_style in FORMATTER_BULLET_STYLES:
+            style_config = FORMATTER_BULLET_STYLES[bullet_style]
+            # (symbol, indent) 튜플에서 symbol만 추출
+            bullet_styles = {
+                level: symbol_tuple[0].strip()
+                for level, symbol_tuple in style_config.items()
+            }
+        else:
+            bullet_styles = BULLET_STYLES
+
+        # SDK 포맷터 우선 생성
+        if use_sdk and HAS_SDK_FORMATTERS:
+            caption_formatter = SDKCaptionFormatter()
+            bullet_formatter = SDKBulletFormatter(style=bullet_style)
+        else:
+            caption_formatter = RegexCaptionFormatter() if RegexCaptionFormatter else None
+            bullet_formatter = RegexBulletFormatter(style=bullet_style) if RegexBulletFormatter else None
+
+        return cls(
+            bullet_styles=bullet_styles,
+            caption_formatter=caption_formatter,
+            bullet_formatter=bullet_formatter,
+            use_sdk=use_sdk
+        )
 
     def fix_bullets_in_tree(self, outline_tree, parent_level: int = -1) -> List[Dict]:
         """
-        개요 트리에서 글머리 기호 수정
+        개요 트리에서 글머리 기호 수정 (SDK 레벨 분석 사용)
 
         규칙:
-        - 같은 부모 아래 같은 레벨: 순서대로 번호 증가
+        - SDK로 텍스트 레벨 분석 후 글머리 기호 적용
         - 개요 3단계: 네모(■) → 원(●) → 대시(-)
         """
         fixes = []
 
         for node in outline_tree:
             # 현재 노드의 상대적 깊이 계산 (부모 기준)
-            # parent_level=-1(루트)이면 depth=0, 그 외에는 부모와의 차이
             if parent_level < 0:
                 relative_depth = 0
             else:
                 relative_depth = node.level - parent_level
             relative_depth = max(0, min(relative_depth, 2))  # 0~2 범위로 제한
 
-            expected_bullet = self.bullet_styles.get(relative_depth, '-')
-
-            # 노드의 문단들 검사
+            # 노드의 문단들 텍스트 수집
+            para_texts = []
             for para in node.paragraphs:
-                if para.text and para.text[0] in ['■', '□', '●', '○', '-', '‑', '–']:
-                    current_bullet = para.text[0]
-                    if current_bullet != expected_bullet:
+                if para.text:
+                    para_texts.append(para.text)
+
+            # SDK로 레벨 분석
+            if self.use_sdk and self._bullet_formatter and para_texts:
+                combined_text = '\n'.join(para_texts)
+                try:
+                    analyzed_levels = self._bullet_formatter.analyze_levels(combined_text)
+                except Exception as e:
+                    print(f"    [SDK 오류] 레벨 분석 실패: {e}")
+                    analyzed_levels = [relative_depth] * len(para_texts)
+            else:
+                analyzed_levels = [relative_depth] * len(para_texts)
+
+            # 각 문단에 분석된 레벨 적용
+            for i, para in enumerate(node.paragraphs):
+                if not para.text:
+                    continue
+
+                # SDK 분석 레벨 또는 기본 레벨 사용
+                if i < len(analyzed_levels):
+                    level = analyzed_levels[i]
+                else:
+                    level = relative_depth
+
+                # 레벨 범위 제한 (0~2)
+                level = max(0, min(level, 2))
+                expected_bullet = self.bullet_styles.get(level, '-')
+
+                # 기존 글머리 기호 확인
+                first_char = para.text[0] if para.text else ''
+                bullet_chars = ['■', '□', '●', '○', '-', '‑', '–', '◆', '◇', '•', '·']
+
+                if first_char in bullet_chars:
+                    # 기존 글머리가 있으면 교체
+                    if first_char != expected_bullet:
                         new_text = expected_bullet + para.text[1:]
                         fixes.append({
                             'type': 'bullet_fix',
                             'para_index': para.index,
-                            'original_bullet': current_bullet,
+                            'original_bullet': first_char,
                             'new_bullet': expected_bullet,
+                            'level': level,
                             'original_text': para.text,
                             'new_text': new_text,
+                            'sdk_analyzed': self.use_sdk,
                         })
-                        # 텍스트 수정
                         para.text = new_text
-                        # XML 요소도 수정
                         self._update_element_text(para.element, new_text)
+                else:
+                    # 글머리가 없으면 추가
+                    new_text = expected_bullet + ' ' + para.text
+                    fixes.append({
+                        'type': 'bullet_add',
+                        'para_index': para.index,
+                        'new_bullet': expected_bullet,
+                        'level': level,
+                        'original_text': para.text,
+                        'new_text': new_text,
+                        'sdk_analyzed': self.use_sdk,
+                    })
+                    para.text = new_text
+                    self._update_element_text(para.element, new_text)
 
             # 하위 개요 재귀 처리
             if node.children:

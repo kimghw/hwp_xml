@@ -111,7 +111,7 @@ class ContentFormatter:
 
         return self._sdk_formatter.format_text(text)
 
-    def analyze_levels_with_sdk(self, text: str) -> List[int]:
+    def analyze_levels_with_sdk(self, text: str, existing_format: Optional[str] = None) -> List[int]:
         """
         SDK를 사용하여 내용 문단의 계층 레벨 분석
 
@@ -119,6 +119,7 @@ class ContentFormatter:
 
         Args:
             text: 분석할 텍스트 (줄바꿈으로 구분)
+            existing_format: 기존 문서의 포맷 예시 (참고용)
 
         Returns:
             각 줄의 레벨 리스트 [0, 1, 2, ...]
@@ -128,18 +129,19 @@ class ContentFormatter:
             lines = [l for l in text.split('\n') if l.strip()]
             return self._regex_formatter._detect_levels(lines)
 
-        return self._sdk_formatter.analyze_levels(text)
+        return self._sdk_formatter.analyze_levels(text, existing_format)
 
-    def format_with_analyzed_levels(self, text: str) -> FormatResult:
+    def format_with_analyzed_levels(self, text: str, existing_format: Optional[str] = None) -> FormatResult:
         """
         SDK로 레벨을 분석한 후 정규식으로 글머리 기호 적용
 
         개요로 선택되지 않은 내용 문단들에 대해:
-        1. SDK로 의미적 계층 구조 분석
+        1. SDK로 의미적 계층 구조 분석 (기존 포맷 참고)
         2. 분석된 레벨에 따라 글머리 기호 적용
 
         Args:
             text: 변환할 텍스트
+            existing_format: 기존 문서의 포맷 예시 (참고용)
 
         Returns:
             FormatResult: 변환 결과
@@ -152,8 +154,8 @@ class ContentFormatter:
                 changes=[]
             )
 
-        # SDK로 레벨 분석
-        levels = self.analyze_levels_with_sdk(text)
+        # SDK로 레벨 분석 (기존 포맷 참고)
+        levels = self.analyze_levels_with_sdk(text, existing_format)
 
         # 정규식으로 글머리 기호 적용
         result = self._regex_formatter.format_text(text, levels=levels, auto_detect=False)
