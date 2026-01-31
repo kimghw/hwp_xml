@@ -33,8 +33,9 @@ from pathlib import Path
 from io import BytesIO
 import copy
 
-from .table_models import CellInfo, HeaderConfig, TableInfo
-from .table_parser import TableParser, NAMESPACES
+from .models import CellInfo, HeaderConfig, TableInfo
+from .parser import TableParser, NAMESPACES
+from ..format_validator import AddFieldValidator, AddFieldValidationResult, CellStyleInfo
 
 for prefix, uri in NAMESPACES.items():
     ET.register_namespace(prefix, uri)
@@ -43,11 +44,18 @@ for prefix, uri in NAMESPACES.items():
 class TableMerger:
     """테이블 셀 내용 병합"""
 
-    def __init__(self):
+    def __init__(self, validate_format: bool = False, sdk_validator=None):
+        """
+        Args:
+            validate_format: True면 add_/input_ 필드 병합 전 형식 검증
+            sdk_validator: Claude Code SDK 검증 함수 (외부 주입)
+        """
         self.parser = TableParser()
         self.base_table: Optional[TableInfo] = None
         self.hwpx_path: Optional[Path] = None
         self.hwpx_data: Dict[str, bytes] = {}  # HWPX 파일 내용
+        self.validate_format = validate_format
+        self.field_validator = AddFieldValidator(sdk_validator) if validate_format else None
 
     def load_base_table(self, hwpx_path: Union[str, Path], table_index: int = 0):
         """
@@ -168,7 +176,9 @@ class TableMerger:
     def merge_with_stub(
         self,
         data_list: List[Dict[str, str]],
-        fill_empty_first: bool = True
+        fill_empty_first: bool = True,
+        field_styles: Optional[Dict[str, str]] = None,
+        add_separator: str = " "
     ):
         """
         stub/gstub/input 기반 병합
@@ -176,7 +186,7 @@ class TableMerger:
         접두사별 처리:
         - header_: 유지 (변경 없음)
         - data_: 유지 (변경 없음)
-        - add_: 기존 셀에 내용 추가
+        - add_: 기존 셀에 내용 추가 (같은 문단 시 빈칸 1개 구분)
         - stub_: 새 행 생성
         - gstub_: 같은 값이면 rowspan 확장, 다른 값이면 새 셀
         - input_: 빈 셀 채우기, 없으면 새 행 추가
@@ -184,6 +194,8 @@ class TableMerger:
         Args:
             data_list: [{field_name: value}, ...] 형태의 데이터
             fill_empty_first: True면 빈 input_ 셀 먼저 채움
+            field_styles: {field_name: style_type} add_ 필드 스타일 지정 (검증용)
+            add_separator: add_ 필드 구분자 (기본: 빈칸 1개)
         """
         if self.base_table is None:
             return
@@ -207,10 +219,14 @@ class TableMerger:
             if row_item:
                 row_data_list.append(row_item)
 
-        # add_ 처리
+        # add_ 처리 (같은 문단 = 빈칸 1개 구분)
         for field_name, values in add_data.items():
-            combined = "\n".join(values)
-            self._process_add_fields({field_name: combined})
+            combined = add_separator.join(values)
+            self._process_add_fields(
+                {field_name: combined},
+                separator=add_separator,
+                field_styles=field_styles
+            )
 
         # 각 데이터 행 처리
         for data in row_data_list:
@@ -625,23 +641,46 @@ class TableMerger:
             for data in row_data_list:
                 self._add_row_with_data(data)
 
-    def _process_add_fields(self, add_field_data: Dict[str, str], separator: str = "\n"):
+    def _process_add_fields(
+        self,
+        add_field_data: Dict[str, str],
+        separator: str = " ",
+        field_styles: Optional[Dict[str, str]] = None
+    ):
         """
         add_ 접두사 필드 처리: 기존 셀에 내용 추가
 
         Args:
             add_field_data: {field_name: value} 딕셔너리
-            separator: 기존 내용과 새 내용 사이 구분자 (기본: 줄바꿈)
+            separator: 기존 내용과 새 내용 사이 구분자 (기본: 빈칸 1개)
+            field_styles: {field_name: style_type} 필드별 스타일 지정
         """
         if not self.base_table:
             return
 
+        field_styles = field_styles or {}
+
         for field_name, value in add_field_data.items():
+            # 형식 검증 (validate_format=True인 경우)
+            if self.field_validator:
+                style = field_styles.get(field_name, "plain")
+                validation_result = self.field_validator.validate_add_content(
+                    value,
+                    base_cell_style=style,
+                    separator=separator
+                )
+                if validation_result.changes_made:
+                    print(f"  {field_name}: {', '.join(validation_result.changes_made)}")
+                if validation_result.warnings:
+                    for warning in validation_result.warnings:
+                        print(f"  경고: {warning}")
+                value = validation_result.validated_text
+
             # 필드명으로 셀 찾기
             cells = self.base_table.get_cells_by_field(field_name)
 
             for cell in cells:
-                # 기존 내용에 새 내용 추가
+                # 기존 내용에 새 내용 추가 (같은 문단 = 빈칸 1개 구분)
                 if cell.text:
                     new_text = f"{cell.text}{separator}{value}"
                 else:

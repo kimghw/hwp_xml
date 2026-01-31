@@ -11,14 +11,26 @@
 
 ## 모듈 구조
 
-| 파일 | 설명 |
-|------|------|
-| `merge_hwpx.py` | 핵심 병합 로직 |
-| `get_outline.py` | 개요 추출 |
-| `format_validator.py` | 형식 검증/수정 |
-| `table_merger.py` | 테이블 셀 병합 |
-| `table_parser.py` | 테이블 파싱 |
-| `merge_with_review.py` | 병합 + Agent 통합 |
+```
+merge/
+├── __init__.py
+├── merge_hwpx.py       # 핵심 병합 로직
+├── parser.py           # HWPX 문단 파싱
+├── models.py           # Paragraph, OutlineNode 등
+├── outline.py          # 개요 트리 처리
+├── get_outline.py      # 개요 추출
+├── format_validator.py # 형식 검증/수정
+├── merge_with_review.py # 병합 + Agent 통합
+│
+└── table/              # 테이블 병합 서브모듈
+    ├── __init__.py
+    ├── models.py       # CellInfo, TableInfo 등
+    ├── parser.py       # 테이블 파싱
+    ├── merger.py       # 테이블 셀 병합
+    ├── field_name_generator.py  # 필드명 자동 생성
+    ├── insert_auto_field.py     # 자동 필드 삽입
+    └── insert_field_text.py     # 필드 텍스트 삽입
+```
 
 ## 사용법
 

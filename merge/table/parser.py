@@ -12,7 +12,7 @@ from typing import List, Dict, Union
 from pathlib import Path
 from io import BytesIO
 
-from .table_models import CellInfo, TableInfo
+from .models import CellInfo, TableInfo
 from .field_name_generator import FieldNameGenerator, CellForNaming
 
 

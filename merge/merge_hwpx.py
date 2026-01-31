@@ -30,8 +30,7 @@ from .outline import (
     get_all_outline_names,
     print_outline_tree,
 )
-from .table_parser import TableParser
-from .table_merger import TableMerger
+from .table import TableParser, TableMerger
 
 # 네임스페이스 등록
 for prefix, uri in NAMESPACES.items():
