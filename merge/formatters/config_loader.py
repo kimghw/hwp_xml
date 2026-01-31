@@ -37,9 +37,17 @@ class BulletConfig:
 
 
 @dataclass
+class CaptionFormatPreset:
+    """캡션 형식 프리셋"""
+    pattern: str = "{type} {number}{separator}{title}"
+    include_type: bool = True
+    include_number: bool = True
+
+
+@dataclass
 class CaptionConfig:
     """캡션 설정 (CaptionFormatter 옵션)"""
-    # 캡션 형식: standard, bracket, parenthesis
+    # 캡션 형식: title_only, type_title, type_num_title, standard, parenthesis, bracket_num
     format: str = "standard"
 
     # 캡션 위치: TOP, BOTTOM, LEFT, RIGHT
@@ -60,17 +68,37 @@ class CaptionConfig:
     # autoNum 유지 여부
     keep_auto_num: bool = False
 
+    # 캡션 형식 프리셋들 (YAML에서 로드)
+    formats: Optional[Dict[str, CaptionFormatPreset]] = None
+
+    def get_format_preset(self) -> CaptionFormatPreset:
+        """현재 형식의 프리셋 반환"""
+        if self.formats and self.format in self.formats:
+            return self.formats[self.format]
+        # 기본 프리셋
+        default_formats = {
+            "title_only": CaptionFormatPreset("[{title}]", False, False),
+            "type_title": CaptionFormatPreset("[{type} {title}]", True, False),
+            "type_num_title": CaptionFormatPreset("[{type} {number} {title}]", True, True),
+            "standard": CaptionFormatPreset("{type} {number}{separator}{title}", True, True),
+            "parenthesis": CaptionFormatPreset("{type} ({number}) {title}", True, True),
+            "bracket_num": CaptionFormatPreset("[{type} {number}] {title}", True, True),
+        }
+        return default_formats.get(self.format, default_formats["standard"])
+
 
 @dataclass
 class TableCaptionConfig(CaptionConfig):
     """테이블 캡션 설정"""
     position: str = "TOP"  # 테이블은 기본 위로
+    type_prefix: str = "표"  # 유형 접두어
 
 
 @dataclass
 class ImageCaptionConfig(CaptionConfig):
     """이미지 캡션 설정"""
     position: str = "BOTTOM"  # 이미지는 기본 아래로
+    type_prefix: str = "그림"  # 유형 접두어
 
 
 @dataclass
@@ -171,11 +199,24 @@ class ConfigLoader:
         if 'keep_auto_num' in data:
             config.keep_auto_num = bool(data['keep_auto_num'])
 
+        # 캡션 형식 프리셋 파싱
+        if 'formats' in data and isinstance(data['formats'], dict):
+            config.formats = {}
+            for format_name, format_data in data['formats'].items():
+                if isinstance(format_data, dict):
+                    preset = CaptionFormatPreset(
+                        pattern=format_data.get('pattern', ''),
+                        include_type=bool(format_data.get('include_type', True)),
+                        include_number=bool(format_data.get('include_number', True))
+                    )
+                    config.formats[format_name] = preset
+
         return config
 
     def _parse_table_caption_config(self, data: Dict[str, Any]) -> TableCaptionConfig:
         """테이블 캡션 설정 파싱"""
         base = self._parse_caption_config(data, default_position="TOP")
+        type_prefix = data.get('type_prefix', '표')
         return TableCaptionConfig(
             format=base.format,
             position=base.position,
@@ -183,12 +224,15 @@ class ConfigLoader:
             renumber_by_type=base.renumber_by_type,
             start_number=base.start_number,
             separator=base.separator,
-            keep_auto_num=base.keep_auto_num
+            keep_auto_num=base.keep_auto_num,
+            formats=base.formats,
+            type_prefix=type_prefix
         )
 
     def _parse_image_caption_config(self, data: Dict[str, Any]) -> ImageCaptionConfig:
         """이미지 캡션 설정 파싱"""
         base = self._parse_caption_config(data, default_position="BOTTOM")
+        type_prefix = data.get('type_prefix', '그림')
         return ImageCaptionConfig(
             format=base.format,
             position=base.position,
@@ -196,7 +240,9 @@ class ConfigLoader:
             renumber_by_type=base.renumber_by_type,
             start_number=base.start_number,
             separator=base.separator,
-            keep_auto_num=base.keep_auto_num
+            keep_auto_num=base.keep_auto_num,
+            formats=base.formats,
+            type_prefix=type_prefix
         )
 
     def save(self, config: FormatterConfig, path: Optional[str] = None) -> str:
@@ -239,7 +285,7 @@ class ConfigLoader:
 
     def _caption_config_to_dict(self, config: CaptionConfig) -> Dict[str, Any]:
         """CaptionConfig를 딕셔너리로 변환"""
-        return {
+        result = {
             'format': config.format,
             'position': config.position,
             'renumber': config.renumber,
@@ -248,6 +294,19 @@ class ConfigLoader:
             'separator': config.separator,
             'keep_auto_num': config.keep_auto_num,
         }
+        if config.formats:
+            result['formats'] = {
+                name: {
+                    'pattern': preset.pattern,
+                    'include_type': preset.include_type,
+                    'include_number': preset.include_number
+                }
+                for name, preset in config.formats.items()
+            }
+        # type_prefix 추가 (TableCaptionConfig, ImageCaptionConfig)
+        if hasattr(config, 'type_prefix'):
+            result['type_prefix'] = config.type_prefix
+        return result
 
     def to_yaml_string(self, config: FormatterConfig) -> str:
         """설정을 YAML 문자열로 변환"""
