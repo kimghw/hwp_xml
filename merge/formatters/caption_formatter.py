@@ -331,8 +331,10 @@ class CaptionFormatter:
         caption_type: str = "default"
     ) -> FormatResult:
         """
-        캡션을 대괄호 형식으로 변환 (번호 제거)
-        예: "표 1. 연구 결과" → "[표 연구 결과]"
+        캡션을 대괄호 형식으로 변환 (번호 및 유형 접두어 제거)
+        예: "표 1. 연구 결과" → "[연구 결과]"
+
+        대괄호 안에는 제목만 들어감 (유형 접두어 제외)
 
         Args:
             text: 캡션 텍스트
@@ -342,9 +344,8 @@ class CaptionFormatter:
             FormatResult
         """
         title = self.extract_title(text)
-        type_prefix = self.get_type_prefix(text, caption_type)
 
-        bracket_text = f"[{type_prefix} {title}]" if type_prefix else f"[{title}]"
+        bracket_text = f"[{title}]" if title else text
 
         return FormatResult(
             success=True,
@@ -749,6 +750,282 @@ class CaptionFormatter:
             저장된 파일 경로
         """
         return self.apply_to_hwpx(hwpx_path, output_path, renumber=True)
+
+    # ========== 캡션 위치 변경 기능 ==========
+
+    def set_caption_position(
+        self,
+        hwpx_path: str,
+        position: str = "TOP",
+        output_path: Optional[str] = None,
+        caption_type: Optional[str] = None
+    ) -> str:
+        """
+        HWPX 파일의 캡션 위치 변경
+
+        Args:
+            hwpx_path: 원본 HWPX 파일 경로
+            position: 캡션 위치 ("TOP", "BOTTOM", "LEFT", "RIGHT")
+            output_path: 저장 경로 (None이면 원본 덮어쓰기)
+            caption_type: 특정 유형만 변경 ("table", "figure", "equation", None이면 전체)
+
+        Returns:
+            저장된 파일 경로
+        """
+        valid_positions = {"TOP", "BOTTOM", "LEFT", "RIGHT"}
+        position = position.upper()
+        if position not in valid_positions:
+            raise ValueError(f"유효하지 않은 위치: {position}. 가능한 값: {valid_positions}")
+
+        hwpx_path = Path(hwpx_path)
+        output_path = Path(output_path) if output_path else hwpx_path
+
+        if not hwpx_path.exists():
+            raise FileNotFoundError(f"파일을 찾을 수 없습니다: {hwpx_path}")
+
+        # 네임스페이스 등록
+        for prefix, uri in NAMESPACES.items():
+            ET.register_namespace(prefix, uri)
+
+        temp_path = hwpx_path.with_suffix('.hwpx.tmp')
+
+        try:
+            with zipfile.ZipFile(hwpx_path, 'r') as zf_in:
+                with zipfile.ZipFile(temp_path, 'w', zipfile.ZIP_DEFLATED) as zf_out:
+                    for item in zf_in.namelist():
+                        content = zf_in.read(item)
+
+                        if item.startswith('Contents/section') and item.endswith('.xml'):
+                            content = self._change_caption_position(
+                                content, position, caption_type
+                            )
+
+                        zf_out.writestr(item, content)
+
+            if output_path != hwpx_path:
+                shutil.copy2(temp_path, output_path)
+            else:
+                shutil.move(temp_path, output_path)
+
+            return str(output_path)
+
+        finally:
+            if temp_path.exists():
+                temp_path.unlink()
+
+    def _change_caption_position(
+        self,
+        xml_content: bytes,
+        position: str,
+        caption_type: Optional[str] = None
+    ) -> bytes:
+        """섹션 XML의 캡션 위치 변경"""
+        root = ET.parse(BytesIO(xml_content)).getroot()
+        modified = False
+
+        for caption_elem in root.iter():
+            if not caption_elem.tag.endswith('}caption'):
+                continue
+
+            # 캡션 유형 필터링
+            if caption_type:
+                caption_text, _ = self._extract_caption_text(caption_elem)
+                parent_type = self._get_parent_type(caption_elem, root)
+                detected_type = self._detect_caption_type(caption_text, parent_type)
+                if detected_type != caption_type:
+                    continue
+
+            # side 속성 변경
+            current_side = caption_elem.get('side', '')
+            if current_side != position:
+                caption_elem.set('side', position)
+                modified = True
+
+        if modified:
+            return ET.tostring(root, encoding='UTF-8', xml_declaration=True)
+        return xml_content
+
+    def set_caption_to_top(
+        self,
+        hwpx_path: str,
+        output_path: Optional[str] = None,
+        caption_type: Optional[str] = None
+    ) -> str:
+        """
+        캡션을 표/그림 위로 이동
+
+        Args:
+            hwpx_path: HWPX 파일 경로
+            output_path: 저장 경로 (None이면 원본 덮어쓰기)
+            caption_type: 특정 유형만 변경 (None이면 전체)
+
+        Returns:
+            저장된 파일 경로
+        """
+        return self.set_caption_position(hwpx_path, "TOP", output_path, caption_type)
+
+    def set_caption_to_bottom(
+        self,
+        hwpx_path: str,
+        output_path: Optional[str] = None,
+        caption_type: Optional[str] = None
+    ) -> str:
+        """
+        캡션을 표/그림 아래로 이동
+
+        Args:
+            hwpx_path: HWPX 파일 경로
+            output_path: 저장 경로 (None이면 원본 덮어쓰기)
+            caption_type: 특정 유형만 변경 (None이면 전체)
+
+        Returns:
+            저장된 파일 경로
+        """
+        return self.set_caption_position(hwpx_path, "BOTTOM", output_path, caption_type)
+
+    # ========== 글자처럼 취급 설정 ==========
+
+    def set_treat_as_char(
+        self,
+        hwpx_path: str,
+        treat_as_char: bool = True,
+        output_path: Optional[str] = None,
+        element_type: Optional[str] = None
+    ) -> str:
+        """
+        HWPX 파일의 테이블/이미지를 '글자처럼 취급' 설정
+
+        Args:
+            hwpx_path: 원본 HWPX 파일 경로
+            treat_as_char: True면 글자처럼 취급, False면 어울림(앵커)
+            output_path: 저장 경로 (None이면 원본 덮어쓰기)
+            element_type: 대상 요소 ("table", "image", None이면 전체)
+
+        Returns:
+            저장된 파일 경로
+        """
+        hwpx_path = Path(hwpx_path)
+        output_path = Path(output_path) if output_path else hwpx_path
+
+        if not hwpx_path.exists():
+            raise FileNotFoundError(f"파일을 찾을 수 없습니다: {hwpx_path}")
+
+        # 네임스페이스 등록
+        for prefix, uri in NAMESPACES.items():
+            ET.register_namespace(prefix, uri)
+
+        temp_path = hwpx_path.with_suffix('.hwpx.tmp')
+
+        try:
+            with zipfile.ZipFile(hwpx_path, 'r') as zf_in:
+                with zipfile.ZipFile(temp_path, 'w', zipfile.ZIP_DEFLATED) as zf_out:
+                    for item in zf_in.namelist():
+                        content = zf_in.read(item)
+
+                        if item.startswith('Contents/section') and item.endswith('.xml'):
+                            content = self._change_treat_as_char(
+                                content, treat_as_char, element_type
+                            )
+
+                        zf_out.writestr(item, content)
+
+            if output_path != hwpx_path:
+                shutil.copy2(temp_path, output_path)
+            else:
+                shutil.move(temp_path, output_path)
+
+            return str(output_path)
+
+        finally:
+            if temp_path.exists():
+                temp_path.unlink()
+
+    def _change_treat_as_char(
+        self,
+        xml_content: bytes,
+        treat_as_char: bool,
+        element_type: Optional[str] = None
+    ) -> bytes:
+        """섹션 XML의 treatAsChar 속성 변경"""
+        root = ET.parse(BytesIO(xml_content)).getroot()
+        modified = False
+        value = "1" if treat_as_char else "0"
+
+        # 대상 태그 결정
+        target_tags = []
+        if element_type == "table":
+            target_tags = ['}tbl']
+        elif element_type == "image":
+            target_tags = ['}pic']
+        else:
+            target_tags = ['}tbl', '}pic']
+
+        for elem in root.iter():
+            # 테이블 또는 이미지 요소 확인
+            is_target = any(elem.tag.endswith(tag) for tag in target_tags)
+            if not is_target:
+                continue
+
+            # hp:pos 요소 찾기
+            for child in elem:
+                if child.tag.endswith('}pos'):
+                    current_value = child.get('treatAsChar', '0')
+                    if current_value != value:
+                        child.set('treatAsChar', value)
+                        modified = True
+                    break
+
+        if modified:
+            return ET.tostring(root, encoding='UTF-8', xml_declaration=True)
+        return xml_content
+
+    def set_table_as_char(
+        self,
+        hwpx_path: str,
+        output_path: Optional[str] = None
+    ) -> str:
+        """테이블을 글자처럼 취급으로 설정"""
+        return self.set_treat_as_char(hwpx_path, True, output_path, "table")
+
+    def set_table_as_anchor(
+        self,
+        hwpx_path: str,
+        output_path: Optional[str] = None
+    ) -> str:
+        """테이블을 어울림(앵커)으로 설정"""
+        return self.set_treat_as_char(hwpx_path, False, output_path, "table")
+
+    def set_image_as_char(
+        self,
+        hwpx_path: str,
+        output_path: Optional[str] = None
+    ) -> str:
+        """이미지를 글자처럼 취급으로 설정"""
+        return self.set_treat_as_char(hwpx_path, True, output_path, "image")
+
+    def set_image_as_anchor(
+        self,
+        hwpx_path: str,
+        output_path: Optional[str] = None
+    ) -> str:
+        """이미지를 어울림(앵커)으로 설정"""
+        return self.set_treat_as_char(hwpx_path, False, output_path, "image")
+
+    def set_all_as_char(
+        self,
+        hwpx_path: str,
+        output_path: Optional[str] = None
+    ) -> str:
+        """모든 테이블/이미지를 글자처럼 취급으로 설정"""
+        return self.set_treat_as_char(hwpx_path, True, output_path, None)
+
+    def set_all_as_anchor(
+        self,
+        hwpx_path: str,
+        output_path: Optional[str] = None
+    ) -> str:
+        """모든 테이블/이미지를 어울림(앵커)으로 설정"""
+        return self.set_treat_as_char(hwpx_path, False, output_path, None)
 
     # ========== 스타일 자동 적용 기능 ==========
 
