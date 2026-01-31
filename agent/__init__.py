@@ -2,24 +2,20 @@
 """
 Claude Code SDK Agent 모듈
 
-Claude Code SDK를 사용한 텍스트 처리 기능을 제공합니다.
-정규식만 사용하려면 merge.formatters 모듈을 사용하세요.
+SDK 역할: 분석만 수행 (레벨 분석, 제목 추출)
+정규식 역할: 실제 포맷 적용
 
 사용 예:
     from agent import ClaudeSDK, BulletFormatter, CaptionFormatter
 
-    # 기본 SDK 호출
-    sdk = ClaudeSDK()
-    result = sdk.call("텍스트를 분석해주세요")
+    # 글머리 레벨 분석 (SDK) → 포맷 적용은 사용자 결정
+    bullet = BulletFormatter()
+    levels = bullet.analyze_levels("항목1\\n항목2\\n항목3")  # [0, 1, 2]
 
-    # 글머리 기호 변환 (SDK 사용)
-    formatter = BulletFormatter()
-    formatted = formatter.format_text("항목1\\n항목2\\n항목3")
-
-    # 캡션 조회 및 변환 (SDK 사용)
-    caption_formatter = CaptionFormatter()
-    captions = caption_formatter.get_all_captions("document.hwpx")
-    result = caption_formatter.format_caption("그림 1. 테스트", caption_type="figure")
+    # 캡션 제목 추출 (SDK) → 포맷 적용은 정규식
+    caption = CaptionFormatter()
+    title = caption.extract_title_with_sdk("Figure3-Sample Data")  # "Sample Data"
+    result = caption.format_caption("그림 1. 테스트")  # 정규식으로 포맷
 
 정규식만 사용:
     from merge.formatters import BulletFormatter, CaptionFormatter
