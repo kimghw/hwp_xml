@@ -19,12 +19,13 @@ HWPX 테이블 필드 관리 모듈
     insert_field_text("template.hwpx", "output.hwpx")
 """
 
-from .auto_field import (
-    AutoFieldInserter,
-    insert_auto_fields,
+# auto_insert_field_template를 먼저 import (순환 참조 방지)
+from .auto_insert_field_template import (
     FieldNameGenerator,
     CellForNaming,
     generate_field_names,
+    AutoFieldInserter,
+    insert_auto_fields,
 )
 
 from .fill_empty import (
@@ -32,7 +33,7 @@ from .fill_empty import (
     fill_empty_fields,
 )
 
-from .visualizer import (
+from .check_empty_field import (
     FieldVisualizer,
     highlight_empty_fields,
     insert_field_text,

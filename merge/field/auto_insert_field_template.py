@@ -259,7 +259,7 @@ class FieldNameGenerator:
                     header_cell = above_cell
                     break
 
-            # 좌측 stub 패턴
+            # 좌측 stub 패턴 (gstub의 경우 시작 행 기준으로 통일)
             has_text_left = False
             stub_pattern = []
             for check_col in range(cell.col - 1, -1, -1):
@@ -267,7 +267,9 @@ class FieldNameGenerator:
                 if left_cell and left_cell.text.strip():
                     if left_cell.nc_name and (left_cell.nc_name.startswith('stub_') or
                                                left_cell.nc_name.startswith('gstub_')):
-                        stub_pattern.append(left_cell.nc_name)
+                        # gstub의 경우 시작 행으로 정규화된 키 사용
+                        stub_key = (left_cell.nc_name, left_cell.row, left_cell.col)
+                        stub_pattern.append(stub_key)
                     else:
                         has_text_left = True
                         break
@@ -275,14 +277,19 @@ class FieldNameGenerator:
             if header_cell and not has_text_left:
                 group_key = (header_cell.text.strip(), cell.col, cell.col_span, tuple(stub_pattern))
 
+                self.log.info(f"    group_key: header='{header_cell.text.strip()[:20]}', col={cell.col}, stub_pattern={stub_pattern}")
+
                 if group_key in group_map:
                     cell.nc_name = group_map[group_key]
+                    self.log.info(f"    → 기존 그룹 사용: {cell.nc_name}")
                 else:
                     nc_name = f"input_{self._generate_id()}"
                     group_map[group_key] = nc_name
                     cell.nc_name = nc_name
+                    self.log.info(f"    → 새 그룹 생성: {cell.nc_name}")
             else:
                 cell.nc_name = f"input_{self._generate_id()}"
+                self.log.info(f"    → 그룹화 불가 (header={header_cell is not None}, has_text_left={has_text_left})")
 
             self.log.info(f"  ({cell.row},{cell.col}) → {cell.nc_name}")
 

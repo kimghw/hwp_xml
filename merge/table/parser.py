@@ -13,7 +13,6 @@ from pathlib import Path
 from io import BytesIO
 
 from .models import CellInfo, TableInfo
-from .field_name_generator import FieldNameGenerator, CellForNaming
 
 
 # XML 네임스페이스
@@ -148,6 +147,9 @@ class TableParser:
 
     def _generate_field_names(self, table: TableInfo):
         """필드명이 없는 셀에 자동으로 nc_name 생성"""
+        # 지연 import (순환 참조 방지)
+        from merge.field.auto_insert_field_template import FieldNameGenerator, CellForNaming
+
         # CellInfo -> CellForNaming 변환 (모든 셀 포함, 그룹화를 위해)
         cells_for_naming = []
         cell_mapping = {}  # CellForNaming -> CellInfo

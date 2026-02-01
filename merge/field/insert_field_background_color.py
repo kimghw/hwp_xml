@@ -330,7 +330,7 @@ def colorize_by_field(
     Returns:
         출력 파일 경로
     """
-    from .auto_field import insert_auto_fields
+    from .auto_insert_field_template import insert_auto_fields
 
     hwpx_path = Path(hwpx_path)
     if output_path:
