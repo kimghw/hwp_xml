@@ -330,7 +330,7 @@ def auto_field_and_colorize(
 
     Args:
         hwpx_path: 입력 HWPX 파일 경로
-        output_path: 출력 HWPX 파일 경로 (없으면 입력 파일 덮어쓰기)
+        output_path: 출력 HWPX 파일 경로 (없으면 파일명_autofield_colored.hwpx)
         regenerate: True면 기존 필드명 무시하고 재생성
 
     Returns:
@@ -339,7 +339,11 @@ def auto_field_and_colorize(
     from .auto_field import insert_auto_fields
 
     hwpx_path = Path(hwpx_path)
-    output_path = Path(output_path) if output_path else hwpx_path
+    if output_path:
+        output_path = Path(output_path)
+    else:
+        # 기본 출력 파일명: 원본파일명_autofield_colored.hwpx
+        output_path = hwpx_path.parent / f"{hwpx_path.stem}_autofield_colored.hwpx"
 
     # 1. 자동 필드명 생성
     print("=== 1단계: 자동 필드명 생성 ===")
