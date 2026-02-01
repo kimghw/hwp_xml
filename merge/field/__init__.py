@@ -38,7 +38,7 @@ from .visualizer import (
     insert_field_text,
 )
 
-from .colorizer import (
+from .insert_field_background_color import (
     FieldColorizer,
     colorize_by_field,
     auto_field_and_colorize,
