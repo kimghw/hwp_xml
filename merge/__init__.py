@@ -53,9 +53,6 @@ from .format_validator import (
     print_validation_result,
 )
 
-# 개요 추출
-from .get_outline import GetOutline, get_outlines, OutlineItem, OutlineStyle
-
 # 내용 양식 변환
 from .content_formatter import ContentFormatter, OutlineContentFormatter
 
@@ -82,13 +79,10 @@ __all__ = [
     'HeaderConfig',
     'RowAddPlan',
     'TableInfo',
-    'OutlineItem',
-    'OutlineStyle',
 
     # 파서
     'HwpxParser',
     'TableParser',
-    'GetOutline',
 
     # 개요 트리 함수
     'build_outline_tree',
@@ -103,7 +97,6 @@ __all__ = [
     'TableMerger',
     'get_outline_structure',
     'merge_hwpx_files',
-    'get_outlines',
 
     # 검증 및 수정
     'FormatValidator',
