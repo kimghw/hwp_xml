@@ -404,12 +404,22 @@ class TableMerger:
 
             if field_name and field_name.startswith('gstub_'):
                 # gstub 처리
+                # 추가 파일에 gstub가 없으면 stub로 대체, stub도 없으면 input처럼 처리
                 last_cell = self.base_table.get_cell(last_row, col)
-                new_value = gstub_values.get(field_name, "")
-                if last_cell and last_cell.text == new_value:
-                    col_actions[col] = ('extend', last_cell, None)
+
+                if field_name in gstub_values:
+                    # gstub 값이 있음 - 기존 로직
+                    new_value = gstub_values[field_name]
+                    if last_cell and last_cell.text == new_value:
+                        col_actions[col] = ('extend', last_cell, None)
+                    else:
+                        col_actions[col] = ('new', ref_cell, new_value)
+                elif stub_values:
+                    # gstub 없고 stub 있음 - stub처럼 새 셀 생성
+                    col_actions[col] = ('new', ref_cell, "")
                 else:
-                    col_actions[col] = ('new', ref_cell, new_value)
+                    # gstub도 stub도 없음 - input처럼 데이터 셀로 처리 (개별 행)
+                    col_actions[col] = ('data', ref_cell, "")
 
             elif field_name and field_name.startswith('stub_'):
                 # stub는 항상 새 셀
@@ -422,9 +432,9 @@ class TableMerger:
                 col_actions[col] = ('data', ref_cell, new_value)
 
             elif field_name and field_name.startswith('header_'):
-                # header는 확장 - 하지만 새 데이터 행에는 input 스타일 사용
-                # header 열에 대응하는 input 셀이 있으면 data로 처리
-                col_actions[col] = ('extend', ref_cell, None)
+                # header는 유지 (변경 없음) - 새 행에 셀 생성 안 함
+                # header 영역은 이미 rowspan으로 전체 행을 커버하고 있어야 함
+                continue
 
             elif field_name and field_name.startswith('data_'):
                 # data는 빈 셀로 생성
