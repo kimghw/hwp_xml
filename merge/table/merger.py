@@ -529,8 +529,9 @@ class TableMerger:
 
             elif action == 'data':
                 # 데이터 셀 생성
+                # input_ 셀이 rowspan으로 병합되어 있어도 개별 셀(rowspan=1)로 생성
                 colspan = ref_cell.col_span if ref_cell else 1
-                tc = self._create_cell_element(row_idx, col, value or "", colspan=colspan)
+                tc = self._create_cell_element(row_idx, col, value or "", rowspan=1, colspan=colspan)
                 if tc is not None:
                     new_tr.append(tc)
 
