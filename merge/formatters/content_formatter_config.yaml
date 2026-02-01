@@ -1,0 +1,139 @@
+# 포맷터 설정 파일 (YAML)
+# BulletFormatter, CaptionFormatter 옵션을 설정합니다.
+
+# ============================================================
+# 글머리 기호 설정 (BulletFormatter)
+# ============================================================
+bullet:
+  # 스타일 선택 (아래 styles에서 선택)
+  style: default
+
+  # 자동 레벨 감지 여부
+  auto_detect: true
+
+  # --------------------------------------------------------
+  # 미리 정의된 스타일
+  # --------------------------------------------------------
+  styles:
+    # 기본 스타일 (빈 네모 → 빈 원 → 대시)
+    default:
+      0: { symbol: "□ ", indent: " " }
+      1: { symbol: "○", indent: "   " }
+      2: { symbol: "- ", indent: "    " }
+
+    # 채움 스타일 (채운 네모 → 채운 원 → 대시)
+    filled:
+      0: { symbol: "■ ", indent: " " }
+      1: { symbol: "● ", indent: "   " }
+      2: { symbol: "- ", indent: "    " }
+
+    # 숫자 스타일
+    numbered:
+      0: { symbol: "1. ", indent: " " }
+      1: { symbol: "1) ", indent: "   " }
+      2: { symbol: "- ", indent: "    " }
+
+    # 화살표 스타일
+    arrow:
+      0: { symbol: "▶ ", indent: "" }
+      1: { symbol: "▷ ", indent: "  " }
+      2: { symbol: "- ", indent: "    " }
+
+
+# ============================================================
+# 캡션 설정 (CaptionFormatter 공통)
+# ============================================================
+caption:
+  # 캡션 형식 선택 (아래 formats에서 선택)
+  format: standard
+
+  # 캡션 위치: TOP, BOTTOM, LEFT, RIGHT
+  position: TOP
+
+  # 번호 재정렬 여부
+  renumber: true
+
+  # 유형별 따로 번호 매김 (그림 1,2... 표 1,2...)
+  renumber_by_type: true
+
+  # 시작 번호
+  start_number: 1
+
+  # 구분자 (번호와 제목 사이, standard 형식에서 사용)
+  separator: ". "
+
+  # autoNum(자동 번호) 유지 여부
+  # true: "<자동번호>" 태그 유지, false: 번호를 텍스트로 변환
+  keep_auto_num: false
+
+  # --------------------------------------------------------
+  # 캡션 형식 프리셋
+  # --------------------------------------------------------
+  formats:
+    # 제목만 (유형, 번호 제거)
+    # "표 1. 연구결과" → "[연구결과]"
+    title_only:
+      pattern: "[{title}]"
+      include_type: false
+      include_number: false
+
+    # 유형 + 제목 (번호 제거)
+    # "표 1. 연구결과" → "[표 연구결과]"
+    type_title:
+      pattern: "[{type} {title}]"
+      include_type: true
+      include_number: false
+
+    # 유형 + 번호 + 제목
+    # "표 1. 연구결과" → "[표 1 연구결과]"
+    type_num_title:
+      pattern: "[{type} {number} {title}]"
+      include_type: true
+      include_number: true
+
+    # 표준 형식
+    # "표 1. 연구결과"
+    standard:
+      pattern: "{type} {number}{separator}{title}"
+      include_type: true
+      include_number: true
+
+    # 괄호 번호
+    # "표 (1) 연구결과"
+    parenthesis:
+      pattern: "{type} ({number}) {title}"
+      include_type: true
+      include_number: true
+
+    # 대괄호 번호
+    # "[표 1] 연구결과"
+    bracket_num:
+      pattern: "[{type} {number}] {title}"
+      include_type: true
+      include_number: true
+
+# ============================================================
+# 테이블 캡션 설정 (테이블 전용)
+# ============================================================
+table_caption:
+  format: standard
+  position: TOP  # 테이블은 캡션이 위로
+  renumber: true
+  renumber_by_type: true
+  start_number: 1
+  separator: ". "
+  keep_auto_num: false
+  type_prefix: "표"  # 유형 접두어 (또는 "Table")
+
+# ============================================================
+# 이미지 캡션 설정 (이미지 전용)
+# ============================================================
+image_caption:
+  format: standard
+  position: BOTTOM  # 이미지는 캡션이 아래로
+  renumber: true
+  renumber_by_type: true
+  start_number: 1
+  separator: ". "
+  keep_auto_num: false
+  type_prefix: "그림"  # 유형 접두어 (또는 "Figure")

@@ -1,0 +1,72 @@
+# 테이블 병합 시 add_ 필드 포맷터 설정
+# nc.name별로 적용할 포맷터와 옵션을 설정합니다.
+
+# ============================================================
+# 기본 설정
+# ============================================================
+default:
+  # 기본 포맷터: none, bullet, caption
+  formatter: none
+
+  # add_ 필드 구분자 (기존 내용과 새 내용 사이)
+  separator: " "
+
+# ============================================================
+# 필드별 설정 (nc.name 패턴 매칭)
+# ============================================================
+# 패턴: 정규식 또는 정확한 필드명
+# 우선순위: 정확한 필드명 > 패턴 매칭 > 기본값
+
+fields:
+  # add_로 시작하는 필드 기본 설정
+  - pattern: "^add_.*"
+    formatter: bullet
+    options:
+      style: default
+      auto_detect: true
+
+  # 특정 필드에 대한 설정 예시
+  # - name: "add_memo"
+  #   formatter: none
+  #   separator: "\n"
+
+  # - name: "add_findings"
+  #   formatter: bullet
+  #   options:
+  #     style: filled
+
+# ============================================================
+# 글머리 기호 설정 (BulletFormatter)
+# ============================================================
+bullet:
+  style: default
+  auto_detect: true
+
+  styles:
+    default:
+      0: { symbol: "□ ", indent: " " }
+      1: { symbol: "○", indent: "   " }
+      2: { symbol: "- ", indent: "    " }
+
+    filled:
+      0: { symbol: "■ ", indent: " " }
+      1: { symbol: "● ", indent: "   " }
+      2: { symbol: "- ", indent: "    " }
+
+    numbered:
+      0: { symbol: "1. ", indent: " " }
+      1: { symbol: "1) ", indent: "   " }
+      2: { symbol: "- ", indent: "    " }
+
+    arrow:
+      0: { symbol: "▶ ", indent: "" }
+      1: { symbol: "▷ ", indent: "  " }
+      2: { symbol: "- ", indent: "    " }
+
+# ============================================================
+# 캡션 설정 (CaptionFormatter) - 필요시 사용
+# ============================================================
+caption:
+  format: standard
+  position: TOP
+  separator: ". "

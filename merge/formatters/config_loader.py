@@ -113,7 +113,7 @@ class FormatterConfig:
 class ConfigLoader:
     """YAML 설정 로더"""
 
-    DEFAULT_CONFIG_NAME = "formatter_config.yaml"
+    DEFAULT_CONFIG_NAME = "content_formatter_config.yaml"
 
     def __init__(self, config_path: Optional[str] = None):
         self.config_path = Path(config_path) if config_path else None

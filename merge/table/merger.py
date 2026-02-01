@@ -37,6 +37,7 @@ from .models import CellInfo, HeaderConfig, TableInfo
 from .parser import TableParser, NAMESPACES
 from .cell_splitter import GstubCellSplitter
 from .row_builder import RowBuilder
+from .formatter_config import TableFormatterConfigLoader
 from ..format_validator import AddFieldValidator
 
 for prefix, uri in NAMESPACES.items():
@@ -46,11 +47,19 @@ for prefix, uri in NAMESPACES.items():
 class TableMerger:
     """테이블 셀 내용 병합"""
 
-    def __init__(self, validate_format: bool = False, sdk_validator=None):
+    def __init__(
+        self,
+        validate_format: bool = False,
+        sdk_validator=None,
+        formatter_config_path: Optional[str] = None,
+        use_formatter: bool = True
+    ):
         """
         Args:
             validate_format: True면 add_/input_ 필드 병합 전 형식 검증
             sdk_validator: Claude Code SDK 검증 함수 (외부 주입)
+            formatter_config_path: 포맷터 설정 YAML 파일 경로 (기본: table_formatter_config.yaml)
+            use_formatter: True면 add_ 필드에 포맷터 적용
         """
         self.parser = TableParser()
         self.base_table: Optional[TableInfo] = None
@@ -58,6 +67,13 @@ class TableMerger:
         self.hwpx_data: Dict[str, bytes] = {}  # HWPX 파일 내용
         self.validate_format = validate_format
         self.field_validator = AddFieldValidator(sdk_validator) if validate_format else None
+
+        # 포맷터 설정 로드
+        self.use_formatter = use_formatter
+        self.formatter_loader: Optional[TableFormatterConfigLoader] = None
+        if use_formatter:
+            self.formatter_loader = TableFormatterConfigLoader(formatter_config_path)
+            self.formatter_loader.load()
 
     def load_base_table(self, hwpx_path: Union[str, Path], table_index: int = 0):
         """
@@ -463,7 +479,18 @@ class TableMerger:
         field_styles = field_styles or {}
 
         for field_name, value in add_field_data.items():
-            # 형식 검증 (validate_format=True인 경우)
+            # 1. 포맷터 적용 (use_formatter=True인 경우)
+            if self.use_formatter and self.formatter_loader:
+                field_config = self.formatter_loader.get_config_for_field(field_name)
+
+                # 필드별 구분자 사용
+                if field_config.separator:
+                    separator = field_config.separator
+
+                # 포맷터 적용
+                value = self.formatter_loader.format_value(field_name, value)
+
+            # 2. 형식 검증 (validate_format=True인 경우)
             if self.field_validator:
                 style = field_styles.get(field_name, "plain")
                 validation_result = self.field_validator.validate_add_content(
@@ -478,7 +505,7 @@ class TableMerger:
                         print(f"  경고: {warning}")
                 value = validation_result.validated_text
 
-            # 필드명으로 셀 찾기
+            # 3. 필드명으로 셀 찾기
             cells = self.base_table.get_cells_by_field(field_name)
 
             for cell in cells:
