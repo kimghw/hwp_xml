@@ -99,9 +99,9 @@ class FieldColorizer:
             header_path = os.path.join(temp_dir, 'Contents', 'header.xml')
             self._collect_existing_border_fills(header_path)
 
-            # section 파일들 처리 - 필드명 수집
+            # section 파일들 처리 - 필드명 수집 (순서 유지)
             contents_dir = os.path.join(temp_dir, 'Contents')
-            field_names = self._collect_field_names(contents_dir)
+            field_names = self._collect_field_names_ordered(contents_dir)
             print(f"필드명 {len(field_names)}개 수집")
 
             # 필드명별 색상 결정
@@ -145,9 +145,10 @@ class FieldColorizer:
 
         self.next_border_fill_id = max_id + 1
 
-    def _collect_field_names(self, contents_dir: str) -> List[str]:
-        """section 파일들에서 필드명 수집"""
-        field_names = set()
+    def _collect_field_names_ordered(self, contents_dir: str) -> List[str]:
+        """section 파일들에서 필드명을 테이블 내 순서대로 수집"""
+        field_names_ordered = []  # 순서 유지
+        field_names_set = set()   # 중복 체크
 
         section_files = sorted([
             f for f in os.listdir(contents_dir)
@@ -162,37 +163,30 @@ class FieldColorizer:
             for elem in root.iter():
                 if elem.tag.endswith('}tc'):
                     name = elem.get('name', '')
-                    if name:
-                        field_names.add(name)
+                    if name and name not in field_names_set:
+                        field_names_ordered.append(name)
+                        field_names_set.add(name)
 
-        return list(field_names)
+        return field_names_ordered
 
     def _assign_colors(self, field_names: List[str]) -> Dict[str, str]:
-        """필드명별 색상 할당"""
+        """필드명별 색상 할당 (인접한 필드끼리 다른 색상)"""
         field_colors = {}
+        used_colors = []  # 최근 사용된 색상 추적
 
         for name in field_names:
-            if self.use_prefix_colors:
-                # 접두사별 기본 색상
-                for prefix, color in PREFIX_COLORS.items():
-                    if name.startswith(prefix):
-                        if self.use_unique_colors:
-                            # 같은 nc_name은 같은 색상 (접두사 색상 기반 변형)
-                            base_color = color
-                            # 해시 기반 색상 변형
-                            idx = _hash_to_color_index(name)
-                            field_colors[name] = COLOR_PALETTE[idx]
-                        else:
-                            field_colors[name] = color
-                        break
-                else:
-                    # 접두사 매칭 안 되면 팔레트에서 선택
-                    idx = _hash_to_color_index(name)
-                    field_colors[name] = COLOR_PALETTE[idx]
-            else:
-                # 접두사 무관하게 팔레트에서 선택
-                idx = _hash_to_color_index(name)
-                field_colors[name] = COLOR_PALETTE[idx]
+            # 인접한 셀과 다른 색상 선택
+            available_colors = [c for c in COLOR_PALETTE if c not in used_colors[-5:]]
+            if not available_colors:
+                available_colors = COLOR_PALETTE.copy()
+
+            # 해시 기반으로 available 중에서 선택
+            h = hashlib.md5(name.encode()).hexdigest()
+            idx = int(h[:8], 16) % len(available_colors)
+            color = available_colors[idx]
+
+            field_colors[name] = color
+            used_colors.append(color)
 
         return field_colors
 
