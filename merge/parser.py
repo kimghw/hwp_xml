@@ -38,9 +38,11 @@ class HwpxParser:
         data = HwpxData(path=str(hwpx_path))
 
         with zipfile.ZipFile(hwpx_path, 'r') as zf:
-            # 모든 파일 읽기
-            for name in zf.namelist():
+            # 모든 파일 읽기 (ZipInfo 보존)
+            for info in zf.infolist():
+                name = info.filename
                 content = zf.read(name)
+                data.zip_infos[name] = info  # ZipInfo 보존
 
                 if name == 'Contents/header.xml':
                     data.header_xml = content

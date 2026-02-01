@@ -381,50 +381,62 @@ class TableMerger:
         last_row = self.base_table.row_count - 1
         new_row = self.base_table.row_count
 
+        # 각 열별 input_ 셀 찾기 (새 행 템플릿으로 사용)
+        input_cells_by_col: Dict[int, CellInfo] = {}
+        for (r, c), cell in self.base_table.cells.items():
+            if cell.field_name and cell.field_name.startswith('input_'):
+                if c not in input_cells_by_col:
+                    input_cells_by_col[c] = cell
+
         # 각 열의 처리 방법 결정
         col_actions = {}  # col -> ('extend'|'new'|'data', cell, value)
 
         for col in range(self.base_table.col_count):
-            cell = self.base_table.get_cell(last_row, col)
-            if cell is None:
+            # input_ 셀을 우선 참조 (새 행은 input 스타일이어야 함)
+            ref_cell = input_cells_by_col.get(col)
+            if ref_cell is None:
+                ref_cell = self.base_table.get_cell(last_row, col)
+            if ref_cell is None:
                 continue
 
-            field_name = cell.field_name
+            # field_name은 input_ 셀 기준으로 찾기
+            field_name = ref_cell.field_name
 
             if field_name and field_name.startswith('gstub_'):
                 # gstub 처리
+                last_cell = self.base_table.get_cell(last_row, col)
                 new_value = gstub_values.get(field_name, "")
-                if cell.text == new_value:
-                    # 같은 값 → rowspan 확장
-                    col_actions[col] = ('extend', cell, None)
+                if last_cell and last_cell.text == new_value:
+                    col_actions[col] = ('extend', last_cell, None)
                 else:
-                    # 다른 값 → 새 셀 생성
-                    col_actions[col] = ('new', cell, new_value)
+                    col_actions[col] = ('new', ref_cell, new_value)
 
             elif field_name and field_name.startswith('stub_'):
                 # stub는 항상 새 셀
-                new_value = stub_values.get(field_name, cell.text)
-                col_actions[col] = ('new', cell, new_value)
+                new_value = stub_values.get(field_name, ref_cell.text)
+                col_actions[col] = ('new', ref_cell, new_value)
 
             elif field_name and field_name.startswith('input_'):
                 # input 데이터
                 new_value = input_values.get(field_name, "")
-                col_actions[col] = ('data', cell, new_value)
+                col_actions[col] = ('data', ref_cell, new_value)
 
             elif field_name and field_name.startswith('header_'):
-                # header는 확장
-                col_actions[col] = ('extend', cell, None)
+                # header는 확장 - 하지만 새 데이터 행에는 input 스타일 사용
+                # header 열에 대응하는 input 셀이 있으면 data로 처리
+                col_actions[col] = ('extend', ref_cell, None)
 
             elif field_name and field_name.startswith('data_'):
                 # data는 빈 셀로 생성
-                col_actions[col] = ('data', cell, "")
+                col_actions[col] = ('data', ref_cell, "")
 
             else:
                 # 기타 - rowspan 확장
-                if cell.row < last_row:
-                    col_actions[col] = ('extend', cell, None)
+                last_cell = self.base_table.get_cell(last_row, col)
+                if last_cell and last_cell.row < last_row:
+                    col_actions[col] = ('extend', last_cell, None)
                 else:
-                    col_actions[col] = ('data', cell, "")
+                    col_actions[col] = ('data', ref_cell, "")
 
         # rowspan 확장 처리
         extended_cells = set()
@@ -438,6 +450,9 @@ class TableMerger:
         # 새 행 생성
         self._create_row_with_actions(new_row, col_actions)
         self.base_table.row_count += 1
+
+        # tbl 요소의 rowCnt 속성 업데이트
+        self.base_table.element.set('rowCnt', str(self.base_table.row_count))
 
     def _create_row_with_actions(
         self,
@@ -1046,19 +1061,36 @@ class TableMerger:
         if self.base_table is None:
             return None
 
-        # 템플릿 셀 찾기 (같은 열의 기존 셀)
+        # 템플릿 셀 찾기 (같은 열의 input_ 셀 우선)
         template_cell = None
+        fallback_cell = None
+
         for (r, c), cell in self.base_table.cells.items():
             if c == col and cell.element is not None:
-                template_cell = cell
-                break
-
-        if template_cell is None:
-            # 아무 셀이나 템플릿으로 사용
-            for cell in self.base_table.cells.values():
-                if cell.element is not None:
+                # input_ 셀을 우선 사용 (데이터 행 스타일)
+                if cell.field_name and cell.field_name.startswith('input_'):
                     template_cell = cell
                     break
+                # 다른 셀은 fallback으로 저장
+                if fallback_cell is None:
+                    fallback_cell = cell
+
+        if template_cell is None:
+            template_cell = fallback_cell
+
+        if template_cell is None:
+            # 아무 input_ 셀이나 템플릿으로 사용
+            for cell in self.base_table.cells.values():
+                if cell.element is not None:
+                    if cell.field_name and cell.field_name.startswith('input_'):
+                        template_cell = cell
+                        break
+            # 그래도 없으면 아무 셀이나
+            if template_cell is None:
+                for cell in self.base_table.cells.values():
+                    if cell.element is not None:
+                        template_cell = cell
+                        break
 
         if template_cell is None:
             return None
@@ -1149,15 +1181,20 @@ class TableMerger:
                     if p.tag.endswith('}p'):
                         for run in p:
                             if run.tag.endswith('}run'):
+                                # 기존 t 요소 찾기
                                 for t in run:
                                     if t.tag.endswith('}t'):
                                         t.text = text
                                         cell.text = text
                                         return
 
-                        # t 요소가 없으면 생성
-                        # (실제 구현에서는 run과 t 요소를 생성해야 함)
-                        break
+                                # t 요소가 없으면 생성
+                                ns = run.tag.split('}')[0] + '}' if '}' in run.tag else ''
+                                t_elem = ET.Element(f'{ns}t')
+                                t_elem.text = text
+                                run.append(t_elem)
+                                cell.text = text
+                                return
 
     def _add_row_with_data(self, data: Dict[str, str]):
         """
@@ -1238,6 +1275,10 @@ class TableMerger:
         self._create_new_row(new_row_idx, cols_with_data, col_status)
 
         self.base_table.row_count += 1
+
+        # tbl 요소의 rowCnt 속성 업데이트
+        if self.base_table.element is not None:
+            self.base_table.element.set('rowCnt', str(self.base_table.row_count))
 
     def _create_new_row(
         self,

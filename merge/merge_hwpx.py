@@ -175,7 +175,7 @@ class HwpxMerger:
         merged_section_xml = self._create_merged_section(merged_paragraphs, template_data, bin_id_map)
 
         # 6. header.xml 병합 (스타일 병합)
-        merged_header_xml = self._merge_headers()
+        merged_header_xml = self._merge_headers(merged_section_xml)
 
         # 7. HWPX 파일 생성
         self._write_hwpx(output_path, template_data, merged_section_xml, merged_header_xml, merged_bin_data)
@@ -219,11 +219,85 @@ class HwpxMerger:
 
         return merged, bin_id_map
 
-    def _merge_headers(self) -> bytes:
-        """header.xml 병합 (첫 번째 파일 기준, 필요 시 스타일 추가)"""
-        # 현재는 첫 번째 파일의 header 사용
-        # TODO: 스타일 충돌 시 ID 재매핑 필요
-        return self.hwpx_data_list[0].header_xml
+    def _merge_headers(self, merged_section_xml: bytes) -> bytes:
+        """
+        header.xml 병합
+
+        - 템플릿(첫 번째 파일)을 기본으로 사용
+        - 병합된 section에서 참조하는 스타일 ID가 템플릿에 없으면
+          다른 입력 파일의 정의를 가져와 추가한다.
+        """
+        template_header_xml = self.hwpx_data_list[0].header_xml
+        header_root = ET.fromstring(template_header_xml)
+
+        ns = {'hh': NAMESPACES['hh']}
+
+        # section에서 필요한 ID 수집
+        sec_root = ET.fromstring(merged_section_xml)
+        needed = {
+            'charPr': set(),
+            'paraPr': set(),
+            'tabPr': set(),
+            'borderFill': set(),
+        }
+        for elem in sec_root.iter():
+            for attr, key in (
+                ('charPrIDRef', 'charPr'),
+                ('paraPrIDRef', 'paraPr'),
+                ('tabPrIDRef', 'tabPr'),
+                ('borderFillIDRef', 'borderFill'),
+            ):
+                ref = elem.attrib.get(attr)
+                if ref:
+                    needed[key].add(ref)
+
+        # 템플릿에 이미 있는 ID 집합
+        existing = {
+            'charPr': {e.get('id') for e in header_root.findall('.//hh:charPr', ns)},
+            'paraPr': {e.get('id') for e in header_root.findall('.//hh:paraPr', ns)},
+            'tabPr': {e.get('id') for e in header_root.findall('.//hh:tabPr', ns)},
+            'borderFill': {e.get('id') for e in header_root.findall('.//hh:borderFill', ns)},
+        }
+
+        # 모든 입력 파일에서 정의 수집 (id -> Element)
+        defs = {'charPr': {}, 'paraPr': {}, 'tabPr': {}, 'borderFill': {}}
+        for data in self.hwpx_data_list:
+            root = ET.fromstring(data.header_xml)
+            for key, xpath in (
+                ('charPr', './/hh:charPr'),
+                ('paraPr', './/hh:paraPr'),
+                ('tabPr', './/hh:tabPr'),
+                ('borderFill', './/hh:borderFill'),
+            ):
+                for elem in root.findall(xpath, ns):
+                    _id = elem.get('id')
+                    if _id and _id not in defs[key]:
+                        defs[key][_id] = copy.deepcopy(elem)
+
+        # 필요한데 템플릿에 없는 정의 추가
+        targets = {
+            'charPr': header_root.find('.//hh:charProperties', ns),
+            'paraPr': header_root.find('.//hh:paraProperties', ns),
+            'tabPr': header_root.find('.//hh:tabProperties', ns),
+            'borderFill': header_root.find('.//hh:borderFills', ns),
+        }
+
+        for key in ['charPr', 'paraPr', 'tabPr', 'borderFill']:
+            target = targets.get(key)
+            if target is None:
+                continue
+            missing_ids = needed[key] - existing[key]
+            for _id in sorted(missing_ids, key=lambda x: int(x) if x.isdigit() else x):
+                if _id in defs[key]:
+                    target.append(copy.deepcopy(defs[key][_id]))
+                    existing[key].add(_id)
+
+            # itemCnt 업데이트
+            if 'itemCnt' in target.attrib:
+                count = len(target.findall(f'hh:{key}', ns))
+                target.set('itemCnt', str(count))
+
+        return ET.tostring(header_root, encoding='utf-8', xml_declaration=True)
 
     def _is_from_template(self, source_file: str) -> bool:
         """문단이 템플릿 파일에서 왔는지 확인"""
@@ -357,6 +431,12 @@ class HwpxMerger:
 
         root = ET.parse(BytesIO(template_section)).getroot()
 
+        # 원본 루트 태그 저장 (네임스페이스 복원용)
+        template_str = template_section.decode('utf-8')
+        xml_decl_end = template_str.find('?>') + 2
+        root_end = template_str.find('>', xml_decl_end) + 1
+        self._original_root_tag = template_str[xml_decl_end:root_end].strip()
+
         # 기존 문단 제거 (sec > p 요소들)
         p_elements = []
         for child in list(root):
@@ -368,9 +448,6 @@ class HwpxMerger:
 
         # 테이블 머지 상태 추적: {table_idx: 머지할 데이터}
         table_merge_data: Dict[int, List[Dict[str, str]]] = {}
-
-        # 템플릿 테이블 요소 위치 추적: {table_idx: paragraph_elem}
-        template_table_paragraphs: Dict[int, Any] = {}
 
         # 문단 순서 인덱스 → 요소 매핑 (글머리 기호 적용 후 참조용)
         # para.index는 원본 파일 내 인덱스라 중복될 수 있으므로 순차 인덱스 사용
@@ -395,22 +472,13 @@ class HwpxMerger:
 
             # 테이블이 있는 문단 처리
             if para.has_table:
-                # 템플릿 파일의 문단인 경우 테이블 위치 기록
+                # 템플릿 파일의 문단인 경우: 그대로 추가
                 if self._is_from_template(para.source_file):
-                    for tbl in elem.iter():
-                        if tbl.tag.endswith('}tbl'):
-                            fields = self._get_table_fields_from_element(tbl)
-                            if fields:
-                                table_idx = self._find_matching_template_table(fields)
-                                if table_idx is not None:
-                                    template_table_paragraphs[table_idx] = elem
                     root.append(elem)
 
                 # 추가(addition) 파일의 문단인 경우
                 else:
-                    tables_to_merge = []
-                    tables_to_copy = []
-
+                    # 테이블 데이터만 수집 (2단계에서 처리)
                     for tbl in list(elem.iter()):
                         if not tbl.tag.endswith('}tbl'):
                             continue
@@ -419,28 +487,15 @@ class HwpxMerger:
                         matching_table_idx = self._find_matching_template_table(fields)
 
                         if matching_table_idx is not None:
-                            # 필드가 일치하는 테이블 → 머지
-                            tables_to_merge.append((tbl, matching_table_idx, fields))
+                            # 필드 일치 → 데이터만 수집 (문단은 추가 안 함)
+                            table_data = self._extract_addition_table_data(tbl, fields)
+                            if matching_table_idx not in table_merge_data:
+                                table_merge_data[matching_table_idx] = []
+                            table_merge_data[matching_table_idx].extend(table_data)
                         else:
-                            # 필드 없음 → 복사
-                            tables_to_copy.append(tbl)
-
-                    # 테이블 머지 처리
-                    for tbl, table_idx, fields in tables_to_merge:
-                        table_data = self._extract_addition_table_data(tbl, fields)
-                        if table_idx not in table_merge_data:
-                            table_merge_data[table_idx] = []
-                        table_merge_data[table_idx].extend(table_data)
-
-                    # 테이블 복사 처리 (필드 없는 테이블은 문단 그대로 추가)
-                    if tables_to_copy and not tables_to_merge:
-                        root.append(elem)
-                    elif tables_to_copy:
-                        # 머지할 테이블과 복사할 테이블이 섞여있는 경우
-                        # 복사할 테이블만 있는 문단 새로 생성
-                        for tbl in tables_to_copy:
-                            new_para = self._create_paragraph_with_table(elem, tbl)
-                            root.append(new_para)
+                            # 필드 없음 → 테이블 문단 그대로 복사
+                            root.append(elem)
+                            break  # 문단 추가했으면 루프 종료
             else:
                 root.append(elem)
 
@@ -452,17 +507,56 @@ class HwpxMerger:
             self._apply_bullet_format_by_outline(root, paragraphs, para_elements, para_seq_map)
 
         # XML 직렬화
-        return ET.tostring(root, encoding='UTF-8', xml_declaration=True)
+        xml_str = ET.tostring(root, encoding='unicode')
+
+        # ElementTree가 생성한 루트 태그를 원본으로 교체 (네임스페이스 유지)
+        # 실제로 사용되는 네임스페이스만 원본 태그에 추가
+        if hasattr(self, '_original_root_tag'):
+            new_root_end = xml_str.find('>')
+            body_str = xml_str[new_root_end + 1:]
+
+            # 원본 루트 태그에 없는 네임스페이스 프리픽스 찾기
+            orig_ns = set(re.findall(r'xmlns:(\w+)=', self._original_root_tag))
+
+            # 본문에서 사용되는 프리픽스 찾기 (태그만, 속성 제외)
+            used_prefixes = set(re.findall(r'<(\w+):', body_str))
+
+            # 누락된 네임스페이스 추가
+            missing_prefixes = used_prefixes - orig_ns
+            extra_ns = ''
+            for prefix in missing_prefixes:
+                if prefix in NAMESPACES:
+                    extra_ns += f' xmlns:{prefix}="{NAMESPACES[prefix]}"'
+
+            if extra_ns:
+                fixed_root = self._original_root_tag[:-1] + extra_ns + '>'
+            else:
+                fixed_root = self._original_root_tag
+
+            xml_str = fixed_root + body_str
+
+        xml_header = "<?xml version='1.0' encoding='utf-8'?>\n"
+        return (xml_header + xml_str).encode('utf-8')
 
     def _extract_addition_table_data(self, tbl_elem, fields: Set[str]) -> List[Dict[str, str]]:
-        """추가(addition) 테이블에서 필드명-값 데이터 추출"""
-        data = {}
+        """추가(addition) 테이블에서 필드명-값 데이터를 행별로 추출"""
+        # 행별 데이터 수집: {row_idx: {field_name: text}}
+        row_data: Dict[int, Dict[str, str]] = {}
 
         for tc in tbl_elem.iter():
             if not tc.tag.endswith('}tc'):
                 continue
 
             field_name = tc.get('name', '')
+            if not field_name or field_name not in fields:
+                continue
+
+            # 셀 주소에서 행 인덱스 추출
+            row_idx = 0
+            for child in tc:
+                if child.tag.endswith('}cellAddr'):
+                    row_idx = int(child.get('rowAddr', 0))
+                    break
 
             # subList에서 텍스트 추출
             text = ""
@@ -476,39 +570,24 @@ class HwpxMerger:
                                         if t.tag.endswith('}t') and t.text:
                                             text += t.text
 
-            if field_name and field_name in fields:
-                data[field_name] = text
+            # 행별로 데이터 저장
+            if row_idx not in row_data:
+                row_data[row_idx] = {}
+            row_data[row_idx][field_name] = text
 
-        return [data] if data else []
+        # 행 순서대로 리스트 반환 (헤더 행 제외 - row 0은 보통 헤더)
+        result = []
+        for row_idx in sorted(row_data.keys()):
+            if row_idx == 0:  # 헤더 행 스킵
+                continue
+            if row_data[row_idx]:  # 빈 행 스킵
+                result.append(row_data[row_idx])
 
-    def _create_paragraph_with_table(self, original_para, tbl_elem) -> Any:
-        """테이블을 포함하는 새 문단 요소 생성"""
-        new_para = copy.deepcopy(original_para)
-
-        # 기존 테이블 제거
-        for run in list(new_para):
-            if run.tag.endswith('}run'):
-                for child in list(run):
-                    if child.tag.endswith('}tbl'):
-                        run.remove(child)
-
-        # 새 테이블 추가 (첫 번째 run에)
-        for run in new_para:
-            if run.tag.endswith('}run'):
-                run.append(copy.deepcopy(tbl_elem))
-                break
-
-        return new_para
+        return result
 
     def _apply_table_merges(self, root, template_data: HwpxData, table_merge_data: Dict[int, List[Dict[str, str]]]):
         """수집된 추가 데이터를 템플릿 테이블에 머지"""
         if not table_merge_data:
-            return
-
-        # 템플릿 파일에서 테이블 파싱
-        try:
-            template_tables = self.table_parser.parse_tables(template_data.path)
-        except Exception:
             return
 
         # root에서 테이블 요소 찾기
@@ -519,16 +598,17 @@ class HwpxMerger:
 
         # 각 테이블에 머지 적용
         for table_idx, addition_data_list in table_merge_data.items():
-            if table_idx >= len(template_tables) or table_idx >= len(table_elements):
+            if table_idx >= len(table_elements):
                 continue
 
-            template_table = template_tables[table_idx]
             tbl_elem = table_elements[table_idx]
+
+            # tbl_elem을 직접 파싱하여 TableInfo 생성 (element 참조 일치)
+            table_info = self.table_parser._parse_table(tbl_elem)
 
             # TableMerger를 사용하여 머지
             merger = TableMerger()
-            merger.base_table = template_table
-            merger.base_table.element = tbl_elem
+            merger.base_table = table_info
 
             # stub/gstub/input 기반 머지
             merger.merge_with_stub(addition_data_list)
@@ -718,33 +798,54 @@ class HwpxMerger:
 
     def _write_hwpx(self, output_path: Path, template_data: HwpxData,
                     section_xml: bytes, header_xml: bytes, bin_data: Dict[str, bytes]):
-        """HWPX 파일 생성"""
+        """HWPX 파일 생성 (원본 ZipInfo 속성 보존)"""
         with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+            # 원본 ZipInfo를 기반으로 새 ZipInfo 생성
+            def make_zip_info(name: str, compress_type: int = zipfile.ZIP_DEFLATED) -> zipfile.ZipInfo:
+                if name in template_data.zip_infos:
+                    orig = template_data.zip_infos[name]
+                    info = zipfile.ZipInfo(name)
+                    info.compress_type = compress_type
+                    info.external_attr = orig.external_attr
+                    info.date_time = orig.date_time
+                    return info
+                else:
+                    info = zipfile.ZipInfo(name)
+                    info.compress_type = compress_type
+                    # 기본 external_attr (Windows에서 생성된 것처럼)
+                    info.external_attr = 0x81A40000  # 2175008768
+                    return info
+
             # mimetype (압축 안 함)
             if 'mimetype' in template_data.other_files:
-                zf.writestr('mimetype', template_data.other_files['mimetype'], compress_type=zipfile.ZIP_STORED)
+                info = make_zip_info('mimetype', zipfile.ZIP_STORED)
+                zf.writestr(info, template_data.other_files['mimetype'])
 
             # header.xml
-            zf.writestr('Contents/header.xml', header_xml)
+            info = make_zip_info('Contents/header.xml')
+            zf.writestr(info, header_xml)
 
             # section0.xml (병합된 것)
-            zf.writestr('Contents/section0.xml', section_xml)
+            info = make_zip_info('Contents/section0.xml')
+            zf.writestr(info, section_xml)
 
             # BinData
             for name, content in bin_data.items():
-                zf.writestr(name, content)
+                info = make_zip_info(name)
+                zf.writestr(info, content)
 
             # 기타 파일 (mimetype 제외, content.hpf는 별도 처리)
             for name, content in template_data.other_files.items():
                 if name == 'mimetype' or name.startswith('BinData/'):
                     continue
 
+                info = make_zip_info(name)
                 if name == 'Contents/content.hpf':
                     # content.hpf에 이미지 항목 추가
                     updated_content = self._update_content_hpf(content, bin_data)
-                    zf.writestr(name, updated_content)
+                    zf.writestr(info, updated_content)
                 else:
-                    zf.writestr(name, content)
+                    zf.writestr(info, content)
 
 
 def get_outline_structure(hwpx_path: Union[str, Path]) -> List[OutlineNode]:
@@ -800,95 +901,3 @@ def merge_hwpx_files(
 
     return merger.merge(output_path)
 
-
-if __name__ == "__main__":
-    import sys
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="HWPX 파일 개요 기준 병합",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-예제:
-  # 파일 구조 확인
-  python -m merge.merge_hwpx file1.hwpx file2.hwpx
-
-  # 개요 목록 출력 (제외할 개요 선택용)
-  python -m merge.merge_hwpx --list-outlines file1.hwpx file2.hwpx
-
-  # 기본 병합
-  python -m merge.merge_hwpx -o output.hwpx file1.hwpx file2.hwpx
-
-  # 특정 개요 제외하여 병합
-  python -m merge.merge_hwpx -o output.hwpx --exclude "1. 서론" "3. 결론" file1.hwpx file2.hwpx
-
-  # 접두사로 제외 (3으로 시작하는 모든 개요 제외)
-  python -m merge.merge_hwpx -o output.hwpx --exclude "3." file1.hwpx file2.hwpx
-"""
-    )
-
-    parser.add_argument("files", nargs="+", help="병합할 HWPX 파일들")
-    parser.add_argument("-o", "--output", help="출력 파일 경로")
-    parser.add_argument("--exclude", nargs="*", help="제외할 개요 이름 (복수 가능)")
-    parser.add_argument("--list-outlines", action="store_true", help="개요 목록만 출력")
-
-    args = parser.parse_args()
-
-    # 개요 목록 출력
-    if args.list_outlines:
-        print("=" * 60)
-        print("개요 목록 (제외할 개요 선택 참고)")
-        print("=" * 60)
-
-        merger = HwpxMerger()
-        for path in args.files:
-            merger.add_file(path)
-
-        outlines = merger.get_outline_list()
-        for i, (display, name) in enumerate(outlines, 1):
-            print(f"  {i:3d}. {display}")
-            print(f"       → 제외 시: --exclude \"{name}\"")
-
-        print("\n접두사로 제외하려면:")
-        print("  --exclude \"1.\"  → '1.'로 시작하는 모든 개요 제외")
-        print("  --exclude \"2\"   → '2.'로 시작하는 모든 개요 제외")
-        sys.exit(0)
-
-    # 병합
-    if args.output:
-        exclude_set = set(args.exclude) if args.exclude else None
-
-        print(f"병합 파일: {args.files}")
-        print(f"출력 파일: {args.output}")
-        if exclude_set:
-            print(f"제외 개요: {exclude_set}")
-        print("=" * 60)
-
-        # 각 파일 구조 출력
-        for i, path in enumerate(args.files):
-            print(f"\n[파일 {i+1}] {path}")
-            print("-" * 40)
-            tree = get_outline_structure(path)
-            print_outline_tree(tree)
-
-        # 병합
-        result = merge_hwpx_files(args.files, args.output, exclude_set)
-        print("\n" + "=" * 60)
-        print(f"병합 완료: {result}")
-
-        # 결과 구조 출력
-        print("\n[병합 결과]")
-        print("-" * 40)
-        merged_tree = get_outline_structure(result)
-        print_outline_tree(merged_tree)
-
-    else:
-        # 구조 확인만
-        print(f"파일 수: {len(args.files)}")
-        print("=" * 60)
-
-        for i, path in enumerate(args.files):
-            print(f"\n[파일 {i+1}] {path}")
-            print("-" * 40)
-            tree = get_outline_structure(path)
-            print_outline_tree(tree)

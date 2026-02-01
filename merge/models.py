@@ -72,3 +72,6 @@ class HwpxData:
     # 스타일 정의
     outline_para_ids: Set[str] = field(default_factory=set)
     outline_levels: Dict[str, int] = field(default_factory=dict)
+
+    # ZIP 파일 정보 (external_attr 등 보존용)
+    zip_infos: Dict[str, Any] = field(default_factory=dict)
