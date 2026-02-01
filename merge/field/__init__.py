@@ -38,6 +38,12 @@ from .visualizer import (
     insert_field_text,
 )
 
+from .colorizer import (
+    FieldColorizer,
+    colorize_by_field,
+    auto_field_and_colorize,
+)
+
 __all__ = [
     # 자동 필드 생성
     'AutoFieldInserter',
@@ -54,4 +60,9 @@ __all__ = [
     'FieldVisualizer',
     'highlight_empty_fields',
     'insert_field_text',
+
+    # 색상 설정
+    'FieldColorizer',
+    'colorize_by_field',
+    'auto_field_and_colorize',
 ]
