@@ -594,13 +594,27 @@ class HwpxMerger:
                 if field_name not in row_data[r]:
                     row_data[r][field_name] = text
 
-        # 행 순서대로 리스트 반환 (헤더 행 제외 - row 0은 보통 헤더)
+        # 행 순서대로 리스트 반환 (헤더 행, data_ 행, 빈 input 행 제외)
         result = []
         for row_idx in sorted(row_data.keys()):
             if row_idx == 0:  # 헤더 행 스킵
                 continue
-            if row_data[row_idx]:  # 빈 행 스킵
-                result.append(row_data[row_idx])
+
+            data = row_data[row_idx]
+            if not data:  # 빈 행 스킵
+                continue
+
+            # data_ 필드만 있는 행 스킵 (데이터 행)
+            non_data_fields = [k for k in data.keys() if not k.startswith('data_')]
+            if not non_data_fields:
+                continue
+
+            # input_ 값이 모두 비어있으면 스킵 (gstub/stub만 있는 빈 행)
+            input_values = [v for k, v in data.items() if k.startswith('input_')]
+            if input_values and all(not v for v in input_values):
+                continue
+
+            result.append(data)
 
         return result
 
