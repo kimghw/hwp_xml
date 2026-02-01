@@ -381,38 +381,63 @@ class TableMerger:
         last_row = self.base_table.row_count - 1
         new_row = self.base_table.row_count
 
-        # 각 열별 input_ 셀 찾기 (새 행 템플릿으로 사용)
+        # 각 열별 셀 타입 분류
         input_cells_by_col: Dict[int, CellInfo] = {}
+        gstub_cells_by_col: Dict[int, CellInfo] = {}
+        stub_cells_by_col: Dict[int, CellInfo] = {}
+
         for (r, c), cell in self.base_table.cells.items():
-            if cell.field_name and cell.field_name.startswith('input_'):
-                if c not in input_cells_by_col:
-                    input_cells_by_col[c] = cell
+            if cell.field_name:
+                if cell.field_name.startswith('input_'):
+                    if c not in input_cells_by_col:
+                        input_cells_by_col[c] = cell
+                elif cell.field_name.startswith('gstub_'):
+                    # gstub는 end_row가 가장 큰 셀 저장
+                    if c not in gstub_cells_by_col or cell.end_row > gstub_cells_by_col[c].end_row:
+                        gstub_cells_by_col[c] = cell
+                elif cell.field_name.startswith('stub_'):
+                    if c not in stub_cells_by_col:
+                        stub_cells_by_col[c] = cell
 
         # 각 열의 처리 방법 결정
         col_actions = {}  # col -> ('extend'|'new'|'data', cell, value)
 
         for col in range(self.base_table.col_count):
-            # input_ 셀을 우선 참조 (새 행은 input 스타일이어야 함)
-            ref_cell = input_cells_by_col.get(col)
-            if ref_cell is None:
+            # 열 타입 결정: gstub > stub > input > 기타
+            if col in gstub_cells_by_col:
+                ref_cell = gstub_cells_by_col[col]
+                field_name = ref_cell.field_name
+            elif col in stub_cells_by_col:
+                ref_cell = stub_cells_by_col[col]
+                field_name = ref_cell.field_name
+            elif col in input_cells_by_col:
+                ref_cell = input_cells_by_col[col]
+                field_name = ref_cell.field_name
+            else:
                 ref_cell = self.base_table.get_cell(last_row, col)
-            if ref_cell is None:
-                continue
-
-            # field_name은 input_ 셀 기준으로 찾기
-            field_name = ref_cell.field_name
+                if ref_cell is None:
+                    continue
+                field_name = ref_cell.field_name
 
             if field_name and field_name.startswith('gstub_'):
                 # gstub 처리
                 # 추가 파일에 gstub가 없으면 stub로 대체, stub도 없으면 input처럼 처리
-                last_cell = self.base_table.get_cell(last_row, col)
+
+                # 해당 열의 gstub 셀 중 가장 마지막(end_row가 큰) 것 찾기
+                gstub_cell = None
+                for (r, c), cell in self.base_table.cells.items():
+                    if c == col and cell.field_name == field_name:
+                        if gstub_cell is None or cell.end_row > gstub_cell.end_row:
+                            gstub_cell = cell
 
                 if field_name in gstub_values:
                     # gstub 값이 있음 - 기존 로직
                     new_value = gstub_values[field_name]
-                    if last_cell and last_cell.text == new_value:
-                        col_actions[col] = ('extend', last_cell, None)
+                    if gstub_cell and gstub_cell.text == new_value:
+                        # 같은 값 → gstub 셀의 rowspan 확장
+                        col_actions[col] = ('extend', gstub_cell, None)
                     else:
+                        # 다른 값 → 새 gstub 셀 생성
                         col_actions[col] = ('new', ref_cell, new_value)
                 elif stub_values:
                     # gstub 없고 stub 있음 - stub처럼 새 셀 생성

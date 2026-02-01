@@ -543,20 +543,25 @@ class HwpxMerger:
         # 행별 데이터 수집: {row_idx: {field_name: text}}
         row_data: Dict[int, Dict[str, str]] = {}
 
+        # gstub/stub 셀 정보 수집: (start_row, end_row, field_name, text)
+        gstub_cells = []
+
         for tc in tbl_elem.iter():
             if not tc.tag.endswith('}tc'):
                 continue
 
             field_name = tc.get('name', '')
-            if not field_name or field_name not in fields:
+            if not field_name:
                 continue
 
-            # 셀 주소에서 행 인덱스 추출
+            # 셀 주소와 span 정보 추출
             row_idx = 0
+            row_span = 1
             for child in tc:
                 if child.tag.endswith('}cellAddr'):
                     row_idx = int(child.get('rowAddr', 0))
-                    break
+                elif child.tag.endswith('}cellSpan'):
+                    row_span = int(child.get('rowSpan', 1))
 
             # subList에서 텍스트 추출
             text = ""
@@ -570,10 +575,24 @@ class HwpxMerger:
                                         if t.tag.endswith('}t') and t.text:
                                             text += t.text
 
-            # 행별로 데이터 저장
-            if row_idx not in row_data:
-                row_data[row_idx] = {}
-            row_data[row_idx][field_name] = text
+            # gstub/stub 셀은 rowspan 정보와 함께 저장
+            if field_name.startswith('gstub_') or field_name.startswith('stub_'):
+                end_row = row_idx + row_span - 1
+                gstub_cells.append((row_idx, end_row, field_name, text))
+
+            # 매칭되는 필드만 저장 (input_, gstub_, stub_ 등)
+            if field_name in fields or field_name.startswith('gstub_') or field_name.startswith('stub_'):
+                if row_idx not in row_data:
+                    row_data[row_idx] = {}
+                row_data[row_idx][field_name] = text
+
+        # gstub/stub 값을 해당 rowspan 범위의 모든 행에 전파
+        for start_row, end_row, field_name, text in gstub_cells:
+            for r in range(start_row, end_row + 1):
+                if r not in row_data:
+                    row_data[r] = {}
+                if field_name not in row_data[r]:
+                    row_data[r][field_name] = text
 
         # 행 순서대로 리스트 반환 (헤더 행 제외 - row 0은 보통 헤더)
         result = []
