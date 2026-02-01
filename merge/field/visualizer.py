@@ -46,7 +46,12 @@ class FieldVisualizer:
             처리 결과 {'tables': 테이블 수, 'cells_highlighted': 강조된 셀 수}
         """
         hwpx_path = Path(hwpx_path)
-        output_path = Path(output_path) if output_path else hwpx_path.with_stem(hwpx_path.stem + "_visual")
+        if output_path:
+            output_path = Path(output_path)
+        else:
+            output_dir = hwpx_path.parent / 'output'
+            output_dir.mkdir(exist_ok=True)
+            output_path = output_dir / f"{hwpx_path.stem}_visual{hwpx_path.suffix}"
 
         result = {'tables': 0, 'cells_highlighted': 0}
 
@@ -105,7 +110,12 @@ class FieldVisualizer:
             처리된 테이블 정보 목록
         """
         hwpx_path = Path(hwpx_path)
-        output_path = Path(output_path) if output_path else hwpx_path.with_stem(hwpx_path.stem + "_visual")
+        if output_path:
+            output_path = Path(output_path)
+        else:
+            output_dir = hwpx_path.parent / 'output'
+            output_dir.mkdir(exist_ok=True)
+            output_path = output_dir / f"{hwpx_path.stem}_visual{hwpx_path.suffix}"
 
         tables = self.parser.parse_tables(hwpx_path)
         print(f"테이블 {len(tables)}개 파싱 완료")
