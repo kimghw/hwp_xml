@@ -1,41 +1,65 @@
 # hwp_xml
 
-HWPX 파일 파싱 및 Excel 변환 도구
+HWPX 파일 파싱, Excel 변환, 데이터 병합 도구
+
+## 프로젝트 개요
+
+- HWPX(한글 XML) 파일 파싱 및 속성 추출
+- HWPX → Excel 변환 (테이블, 북마크 기반)
+- Excel/JSON 데이터를 HWPX 템플릿에 병합
+- Windows 한글 COM API 연동 (WSL 지원)
 
 ## 폴더 구조
 
-### excel/
-HWPX → Excel 변환 모듈
-- `hwpx_to_excel.py`: 테이블 변환 (HWPUNIT 단위 변환)
-- `cell_info_sheet.py`: 셀 상세 정보 시트 생성
-
-### hwpxml/
-HWPX 파일 파싱 모듈
-- `get_table_property.py`: 테이블/셀 속성 추출
-- `get_cell_detail.py`: 셀 스타일 정보, 중첩 테이블 분리 파싱
-- `extract_cell_index.py`: `[index:##숫자]` 패턴 매핑
-- `get_page_property.py`: 페이지 속성, 단위 변환
-- `set_field_by_header.py`: 필드명을 헤더 기준으로 설정
+```
+hwp_xml/
+├── core/           # 공통 유틸리티 (단위 변환, 파일 대화상자)
+├── hwpxml/         # HWPX 파싱 (테이블/셀/페이지 속성 추출)
+├── excel/          # HWPX → Excel 변환
+├── merge/          # 데이터 병합 (HWPX + Excel/JSON)
+│   ├── field/      # 필드명 자동 삽입/관리
+│   ├── formatters/ # 콘텐츠 포맷터 (캡션, 불릿 등)
+│   └── table/      # 테이블 병합 로직
+├── win32/          # Windows 한글 COM API
+├── workflow/       # 통합 워크플로우
+├── agent/          # AI 에이전트 포맷터
+├── reference/      # 참고 문서
+└── data/           # 테스트 데이터
+```
 
 ### core/
-공통 유틸리티 모듈
 - `unit.py`: HWPUNIT 단위 변환
-- `file_dialog.py`: Windows 파일 탐색기 대화상자 (WSL↔Windows 경로 변환)
+- `file_dialog.py`: Windows 파일 탐색기 대화상자
+
+### hwpxml/
+- `get_table_property.py`: 테이블/셀 속성 추출
+- `get_cell_detail.py`: 셀 스타일, 중첩 테이블 파싱
+- `set_field_by_header.py`: 헤더 기준 필드명 설정
+
+### excel/
+- `hwpx_to_excel.py`: HWPX → Excel 변환
+- `bookmark.py`: 북마크 기반 변환
+- `nested_table.py`: 중첩 테이블 처리
+
+### merge/
+- `merge_hwpx.py`: HWPX 병합 메인 로직
+- `run_merge.py`: 병합 실행 스크립트
+- `field/`: 필드명 자동 삽입, 빈 필드 채우기
+- `formatters/`: 캡션/불릿 포맷터
+- `table/`: 테이블 행 병합, 셀 분할
 
 ### win32/
-Windows 한글 COM API 연동 (WSL에서 cmd.exe로 실행)
-- `hwp_file_manager.py`: 공통 유틸리티 (인스턴스 연결, 파일 대화상자, 저장)
+- `hwp_file_manager.py`: COM API 유틸리티
 - `convert_hwp.py`: HWP↔HWPX 변환
-- `insert_ctrl_id.py`: 테이블에 ctrl_id 메타데이터 삽입
-- `insert_table_field.py`: 테이블 셀에 필드명 설정
-- `insert_field_within_redcells.py`: 빨간색 배경 빈 셀에 필드명 자동 설정
-- `get_para_style.py`: 문단 스타일 추출 → YAML
-- `get_table_property.py`: COM API로 테이블 속성 추출
-- `extract_field.py`: 기존 필드명 추출/제거
+- `insert_table_field.py`: 테이블 셀 필드명 설정
+- `extract_field.py`: 필드명 추출/제거
 
 ### workflow/
-통합 워크플로우
-- `workflow5_integrated.py`: 북마크 기반 HWP→Excel 변환 파이프라인
+- `workflow5_integrated.py`: 북마크 기반 HWP→Excel 파이프라인
+
+### agent/
+- `bullet_formatter.py`: AI 기반 불릿 포맷터
+- `caption_formatter.py`: AI 기반 캡션 포맷터
 
 ## WSL에서 Windows Python 실행
 
