@@ -479,13 +479,16 @@ class TableMerger:
         field_styles = field_styles or {}
 
         for field_name, value in add_field_data.items():
+            # 필드별 구분자 초기화 (기본값으로 리셋)
+            field_separator = separator
+
             # 1. 포맷터 적용 (use_formatter=True인 경우)
             if self.use_formatter and self.formatter_loader:
                 field_config = self.formatter_loader.get_config_for_field(field_name)
 
                 # 필드별 구분자 사용
                 if field_config.separator:
-                    separator = field_config.separator
+                    field_separator = field_config.separator
 
                 # 포맷터 적용
                 value = self.formatter_loader.format_value(field_name, value)
@@ -496,7 +499,7 @@ class TableMerger:
                 validation_result = self.field_validator.validate_add_content(
                     value,
                     base_cell_style=style,
-                    separator=separator
+                    separator=field_separator
                 )
                 if validation_result.changes_made:
                     print(f"  {field_name}: {', '.join(validation_result.changes_made)}")
@@ -511,7 +514,7 @@ class TableMerger:
             for cell in cells:
                 # 기존 내용에 새 내용 추가 (같은 문단 = 빈칸 1개 구분)
                 if cell.text:
-                    new_text = f"{cell.text}{separator}{value}"
+                    new_text = f"{cell.text}{field_separator}{value}"
                 else:
                     new_text = value
 
@@ -799,6 +802,28 @@ class TableMerger:
         return output_path
 
     def _rebuild_section_xml(self, section_name: str, original_content: bytes) -> bytes:
-        """section XML 재구성"""
+        """section XML 재구성 - 수정된 테이블 요소 반영"""
         root = ET.parse(BytesIO(original_content)).getroot()
+
+        # 원본 테이블 요소들을 찾아서 수정된 테이블로 교체
+        if self.base_table and self.base_table.element is not None:
+            table_elements = [elem for elem in root.iter() if elem.tag.endswith('}tbl')]
+
+            for i, tbl_elem in enumerate(table_elements):
+                # base_table의 element와 동일한 table_id를 가진 테이블 찾기
+                if tbl_elem.get('id') == self.base_table.table_id:
+                    # 부모 요소 찾기
+                    parent = None
+                    for p in root.iter():
+                        if tbl_elem in list(p):
+                            parent = p
+                            break
+
+                    if parent is not None:
+                        # 기존 테이블 위치에 수정된 테이블 삽입
+                        idx = list(parent).index(tbl_elem)
+                        parent.remove(tbl_elem)
+                        parent.insert(idx, self.base_table.element)
+                    break
+
         return ET.tostring(root, encoding='UTF-8', xml_declaration=True)

@@ -115,14 +115,19 @@ class TableParser:
             element=tbl_elem
         )
 
-        # 열 너비 파싱
+        # 열 너비 파싱 (colSpan 고려)
         for child in tbl_elem:
             if child.tag.endswith('}tr'):
-                # 첫 번째 행에서 열 개수 확인
+                # 첫 번째 행에서 열 개수 확인 (colSpan 합산)
                 col_count = 0
                 for tc in child:
                     if tc.tag.endswith('}tc'):
-                        col_count += 1
+                        col_span = 1
+                        for tc_child in tc:
+                            if tc_child.tag.endswith('}cellSpan'):
+                                col_span = int(tc_child.get('colSpan', 1))
+                                break
+                        col_count += col_span
                 table.col_count = max(table.col_count, col_count)
 
         # 행 파싱

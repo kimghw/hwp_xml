@@ -51,8 +51,8 @@ class HwpxMerger:
         self.parser = HwpxParser()
         self.table_parser = TableParser()
         self.exclude_outlines: Set[str] = set()
-        # 템플릿 파일의 테이블 필드명 캐시: {field_name: table_index}
-        self._template_table_fields: Dict[str, int] = {}
+        # 템플릿 파일의 테이블 필드명 캐시: {field_name: [table_index, ...]}
+        self._template_table_fields: Dict[str, List[int]] = {}
         self._template_path: Optional[Path] = None  # 템플릿 파일 경로 (정규화)
         self.format_content = format_content
         self.use_sdk_for_levels = use_sdk_for_levels
@@ -314,7 +314,11 @@ class HwpxMerger:
             for table_idx, table in enumerate(tables):
                 for cell in table.cells.values():
                     if cell.field_name:
-                        self._template_table_fields[cell.field_name] = table_idx
+                        # 동일 필드명이 여러 테이블에 있을 수 있으므로 리스트로 저장
+                        if cell.field_name not in self._template_table_fields:
+                            self._template_table_fields[cell.field_name] = []
+                        if table_idx not in self._template_table_fields[cell.field_name]:
+                            self._template_table_fields[cell.field_name].append(table_idx)
         except Exception:
             # 테이블 파싱 실패 시 빈 상태로 유지
             pass
@@ -413,8 +417,9 @@ class HwpxMerger:
 
         for field_name in addition_table_fields:
             if field_name in self._template_table_fields:
-                table_idx = self._template_table_fields[field_name]
-                matching_tables[table_idx] = matching_tables.get(table_idx, 0) + 1
+                # 필드명이 여러 테이블에 있을 수 있음
+                for table_idx in self._template_table_fields[field_name]:
+                    matching_tables[table_idx] = matching_tables.get(table_idx, 0) + 1
 
         if not matching_tables:
             return None
@@ -861,6 +866,12 @@ class HwpxMerger:
             # section0.xml (병합된 것)
             info = make_zip_info('Contents/section0.xml')
             zf.writestr(info, section_xml)
+
+            # 추가 섹션들 (section1.xml, section2.xml 등) - 템플릿에서 그대로 복사
+            for section_name, section_content in template_data.section_xmls.items():
+                if section_name != 'Contents/section0.xml':
+                    info = make_zip_info(section_name)
+                    zf.writestr(info, section_content)
 
             # BinData
             for name, content in bin_data.items():
