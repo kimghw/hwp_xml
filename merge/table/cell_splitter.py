@@ -159,15 +159,19 @@ class GstubCellSplitter:
         if not matching_gstub_cells:
             return False  # 같은 값의 gstub 없음 - 새 gstub 생성 필요
 
-        # 가장 큰 end_row 기준으로 삽입 위치 결정
-        max_end_row = max(cell.end_row for cell in matching_gstub_cells.values())
-        insert_row_idx = max_end_row + 1
+        # 모든 gstub의 공통 범위에서 삽입 위치 결정
+        # 공통 범위 = 모든 gstub가 커버하는 행의 교집합
+        # 삽입 위치 = 가장 작은 end_row + 1 (가장 좁은 gstub 범위 바로 다음)
+        min_end_row = min(cell.end_row for cell in matching_gstub_cells.values())
+        insert_row_idx = min_end_row + 1
 
         # 삽입 위치 이후의 행들을 밀어냄
         self._shift_rows_down(insert_row_idx)
 
-        # 모든 gstub 셀의 rowspan 확장
+        # 삽입 위치가 범위 안에 있는 gstub 셀만 rowspan 확장
+        # (end_row >= insert_row_idx - 1인 셀들)
         for cell in matching_gstub_cells.values():
+            # 모든 매칭 gstub는 확장 필요 (새 행이 범위 안에 들어가므로)
             extend_rowspan_callback(cell)
 
         # 테이블 행 수 증가

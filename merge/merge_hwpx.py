@@ -568,25 +568,28 @@ class HwpxMerger:
                 elif child.tag.endswith('}cellSpan'):
                     row_span = int(child.get('rowSpan', 1))
 
-            # subList에서 텍스트 추출
-            text = ""
+            # subList에서 텍스트 추출 (여러 문단은 줄바꿈으로 구분)
+            paragraphs_text = []
             for sublist in tc:
                 if sublist.tag.endswith('}subList'):
                     for p in sublist:
                         if p.tag.endswith('}p'):
+                            p_text = ""
                             for run in p:
                                 if run.tag.endswith('}run'):
                                     for t in run:
                                         if t.tag.endswith('}t') and t.text:
-                                            text += t.text
+                                            p_text += t.text
+                            paragraphs_text.append(p_text)
+            text = '\n'.join(paragraphs_text)
 
             # gstub/stub 셀은 rowspan 정보와 함께 저장
             if field_name.startswith('gstub_') or field_name.startswith('stub_'):
                 end_row = row_idx + row_span - 1
                 gstub_cells.append((row_idx, end_row, field_name, text))
 
-            # 매칭되는 필드만 저장 (input_, gstub_, stub_ 등)
-            if field_name in fields or field_name.startswith('gstub_') or field_name.startswith('stub_'):
+            # 매칭되는 필드만 저장 (input_, gstub_, stub_, add_ 등)
+            if field_name in fields or field_name.startswith('gstub_') or field_name.startswith('stub_') or field_name.startswith('add_'):
                 if row_idx not in row_data:
                     row_data[row_idx] = {}
                 row_data[row_idx][field_name] = text
@@ -600,26 +603,46 @@ class HwpxMerger:
                     row_data[r][field_name] = text
 
         # 행 순서대로 리스트 반환 (헤더 행, data_ 행, 빈 input 행 제외)
+        # 단, add_ 필드는 헤더 행에 있어도 추출함
         result = []
+
+        # add_ 필드는 모든 행에서 추출 (헤더 행 포함)
+        add_fields_data = {}
         for row_idx in sorted(row_data.keys()):
-            if row_idx == 0:  # 헤더 행 스킵
+            data = row_data[row_idx]
+            for field_name, value in data.items():
+                if field_name.startswith('add_') and value:
+                    if field_name not in add_fields_data:
+                        add_fields_data[field_name] = value
+
+        # add_ 필드가 있으면 별도 행으로 추가
+        if add_fields_data:
+            result.append(add_fields_data)
+
+        for row_idx in sorted(row_data.keys()):
+            if row_idx == 0:  # 헤더 행 스킵 (add_ 필드는 이미 처리됨)
                 continue
 
             data = row_data[row_idx]
             if not data:  # 빈 행 스킵
                 continue
 
+            # add_ 필드 제외 (이미 처리됨)
+            data_without_add = {k: v for k, v in data.items() if not k.startswith('add_')}
+            if not data_without_add:  # add_ 필드만 있는 행은 스킵
+                continue
+
             # data_ 필드만 있는 행 스킵 (데이터 행)
-            non_data_fields = [k for k in data.keys() if not k.startswith('data_')]
+            non_data_fields = [k for k in data_without_add.keys() if not k.startswith('data_')]
             if not non_data_fields:
                 continue
 
             # input_ 값이 모두 비어있으면 스킵 (gstub/stub만 있는 빈 행)
-            input_values = [v for k, v in data.items() if k.startswith('input_')]
+            input_values = [v for k, v in data_without_add.items() if k.startswith('input_')]
             if input_values and all(not v for v in input_values):
                 continue
 
-            result.append(data)
+            result.append(data_without_add)
 
         return result
 
@@ -645,7 +668,10 @@ class HwpxMerger:
             table_info = self.table_parser._parse_table(tbl_elem)
 
             # TableMerger를 사용하여 머지
-            merger = TableMerger()
+            merger = TableMerger(
+                format_add_content=self.format_content,
+                use_sdk_for_levels=self.use_sdk_for_levels,
+            )
             merger.base_table = table_info
 
             # stub/gstub/input 기반 머지

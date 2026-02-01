@@ -39,6 +39,7 @@ from .cell_splitter import GstubCellSplitter
 from .row_builder import RowBuilder
 from .formatter_config import TableFormatterConfigLoader
 from ..format_validator import AddFieldValidator
+from ..content_formatter import ContentFormatter
 
 for prefix, uri in NAMESPACES.items():
     ET.register_namespace(prefix, uri)
@@ -52,7 +53,9 @@ class TableMerger:
         validate_format: bool = False,
         sdk_validator=None,
         formatter_config_path: Optional[str] = None,
-        use_formatter: bool = True
+        use_formatter: bool = True,
+        format_add_content: bool = True,
+        use_sdk_for_levels: bool = True,
     ):
         """
         Args:
@@ -60,6 +63,8 @@ class TableMerger:
             sdk_validator: Claude Code SDK 검증 함수 (외부 주입)
             formatter_config_path: 포맷터 설정 YAML 파일 경로 (기본: table_formatter_config.yaml)
             use_formatter: True면 add_ 필드에 포맷터 적용
+            format_add_content: True면 add_ 필드에 글머리 기호 포맷팅 적용
+            use_sdk_for_levels: True면 SDK로 레벨 분석 (format_add_content=True일 때)
         """
         self.parser = TableParser()
         self.base_table: Optional[TableInfo] = None
@@ -74,6 +79,13 @@ class TableMerger:
         if use_formatter:
             self.formatter_loader = TableFormatterConfigLoader(formatter_config_path)
             self.formatter_loader.load()
+
+        # add_ 필드 글머리 포맷터
+        self.format_add_content = format_add_content
+        self.use_sdk_for_levels = use_sdk_for_levels
+        self.content_formatter: Optional[ContentFormatter] = None
+        if format_add_content:
+            self.content_formatter = ContentFormatter(style="default", use_sdk=use_sdk_for_levels)
 
     def load_base_table(self, hwpx_path: Union[str, Path], table_index: int = 0):
         """
@@ -340,35 +352,43 @@ class TableMerger:
         if self.base_table is None:
             return False
 
-        # 같은 gstub/stub 패턴의 빈 행 찾기
-        for row in range(self.base_table.row_count):
-            # 이 행의 모든 input 셀이 비어있는지 확인
-            row_empty = True
-            matching_gstub = True
-            matching_stub = True
+        # 모든 gstub 값이 매칭되는 공통 행 범위 계산
+        valid_rows = set(range(self.base_table.row_count))
 
-            # gstub 매칭 확인
-            for field_name, expected_value in gstub_values.items():
-                cells = self.base_table.get_cells_by_field(field_name)
-                for cell in cells:
-                    if cell.row <= row <= cell.end_row:
-                        if cell.text != expected_value:
-                            matching_gstub = False
-                        break
+        for field_name, expected_value in gstub_values.items():
+            cells = self.base_table.get_cells_by_field(field_name)
+            gstub_rows = set()
+            for cell in cells:
+                if cell.text == expected_value:
+                    # 이 gstub가 커버하는 행들
+                    gstub_rows.update(range(cell.row, cell.end_row + 1))
+            # 공통 범위로 축소
+            valid_rows &= gstub_rows
 
+        if not valid_rows:
+            return False  # 매칭되는 gstub 범위 없음
+
+        # 유효한 행들 중에서 빈 셀 찾기
+        for row in sorted(valid_rows):
             # stub 매칭 확인
+            matching_stub = True
             for field_name, expected_value in stub_values.items():
                 cells = self.base_table.get_cells_by_field(field_name)
+                found = False
                 for cell in cells:
                     if cell.row == row:
+                        found = True
                         if cell.text != expected_value:
                             matching_stub = False
                         break
+                if not found:
+                    matching_stub = False
 
-            if not matching_gstub or not matching_stub:
+            if not matching_stub:
                 continue
 
             # input 셀 빈 여부 확인
+            row_empty = True
             cells_to_fill = []
             for field_name in input_values:
                 cells = self.base_table.get_cells_by_field(field_name)
@@ -482,7 +502,21 @@ class TableMerger:
             # 필드별 구분자 초기화 (기본값으로 리셋)
             field_separator = separator
 
-            # 1. 포맷터 적용 (use_formatter=True인 경우)
+            # 1. 글머리 기호 포맷팅 적용 (format_add_content=True인 경우)
+            # SDK가 글머리 제거 + 레벨 분석 + 글머리 재적용을 담당
+            sdk_formatted = False
+            if self.format_add_content and self.content_formatter:
+                if self.use_sdk_for_levels:
+                    result = self.content_formatter.format_with_analyzed_levels(value)
+                else:
+                    result = self.content_formatter.auto_format(value, use_sdk_for_levels=False)
+
+                if result.success and result.formatted_text:
+                    value = result.formatted_text
+                    sdk_formatted = True
+
+            # 2. 포맷터 적용 (use_formatter=True인 경우)
+            # SDK가 이미 글머리 포맷팅을 했으면 구분자만 적용
             if self.use_formatter and self.formatter_loader:
                 field_config = self.formatter_loader.get_config_for_field(field_name)
 
@@ -490,10 +524,11 @@ class TableMerger:
                 if field_config.separator:
                     field_separator = field_config.separator
 
-                # 포맷터 적용
-                value = self.formatter_loader.format_value(field_name, value)
+                # SDK가 포맷팅하지 않은 경우에만 포맷터 적용
+                if not sdk_formatted:
+                    value = self.formatter_loader.format_value(field_name, value)
 
-            # 2. 형식 검증 (validate_format=True인 경우)
+            # 3. 형식 검증 (validate_format=True인 경우)
             if self.field_validator:
                 style = field_styles.get(field_name, "plain")
                 validation_result = self.field_validator.validate_add_content(
@@ -508,7 +543,7 @@ class TableMerger:
                         print(f"  경고: {warning}")
                 value = validation_result.validated_text
 
-            # 3. 필드명으로 셀 찾기
+            # 4. 필드명으로 셀 찾기
             cells = self.base_table.get_cells_by_field(field_name)
 
             for cell in cells:
@@ -742,31 +777,59 @@ class TableMerger:
                 builder._add_row_with_data(data)
 
     def _set_cell_text(self, cell: CellInfo, text: str):
-        """셀에 텍스트 설정"""
+        """셀에 텍스트 설정 (여러 줄이면 여러 문단으로)"""
         if cell.element is None:
             return
 
-        # subList > p > run > t 구조에서 텍스트 설정
+        lines = text.split('\n') if '\n' in text else [text]
+
+        # subList 찾기
         for child in cell.element:
             if child.tag.endswith('}subList'):
-                for p in child:
-                    if p.tag.endswith('}p'):
-                        for run in p:
-                            if run.tag.endswith('}run'):
-                                # 기존 t 요소 찾기
-                                for t in run:
-                                    if t.tag.endswith('}t'):
-                                        t.text = text
-                                        cell.text = text
-                                        return
+                # 기존 문단들 수집
+                existing_p = [p for p in child if p.tag.endswith('}p')]
 
-                                # t 요소가 없으면 생성
+                if not existing_p:
+                    # 문단이 없으면 첫 줄만 설정하고 종료
+                    cell.text = text
+                    return
+
+                # 첫 번째 문단을 템플릿으로 사용
+                template_p = existing_p[0]
+
+                # 기존 문단 모두 제거
+                for p in existing_p:
+                    child.remove(p)
+
+                # 각 줄마다 문단 생성
+                for i, line in enumerate(lines):
+                    new_p = copy.deepcopy(template_p)
+
+                    # 문단 내 텍스트 설정
+                    text_set = False
+                    for run in new_p:
+                        if run.tag.endswith('}run'):
+                            for t in run:
+                                if t.tag.endswith('}t'):
+                                    t.text = line
+                                    text_set = True
+                                    break
+                            if text_set:
+                                break
+
+                            # t 요소가 없으면 생성
+                            if not text_set:
                                 ns = run.tag.split('}')[0] + '}' if '}' in run.tag else ''
                                 t_elem = ET.Element(f'{ns}t')
-                                t_elem.text = text
+                                t_elem.text = line
                                 run.append(t_elem)
-                                cell.text = text
-                                return
+                                text_set = True
+                                break
+
+                    child.append(new_p)
+
+                cell.text = text
+                return
 
     def _extend_rowspan(self, cell: CellInfo):
         """셀의 rowspan 확장"""

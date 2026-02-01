@@ -133,11 +133,10 @@ class ContentFormatter:
 
     def format_with_analyzed_levels(self, text: str, existing_format: Optional[str] = None) -> FormatResult:
         """
-        SDK로 레벨을 분석한 후 정규식으로 글머리 기호 적용
+        SDK로 레벨 분석 + 글머리 제거 후 정규식으로 글머리 기호 적용
 
-        개요로 선택되지 않은 내용 문단들에 대해:
-        1. SDK로 의미적 계층 구조 분석 (기존 포맷 참고)
-        2. 분석된 레벨에 따라 글머리 기호 적용
+        1. SDK로 레벨 분석 및 기존 글머리 제거
+        2. 순수 텍스트에 분석된 레벨로 글머리 기호 적용
 
         Args:
             text: 변환할 텍스트
@@ -154,10 +153,20 @@ class ContentFormatter:
                 changes=[]
             )
 
-        # SDK로 레벨 분석 (기존 포맷 참고)
-        levels = self.analyze_levels_with_sdk(text, existing_format)
+        # SDK로 레벨 분석 + 글머리 제거
+        if self._sdk_formatter and hasattr(self._sdk_formatter, 'analyze_and_strip'):
+            levels, stripped_texts = self._sdk_formatter.analyze_and_strip(text, existing_format)
+            if stripped_texts:
+                # 글머리 제거된 텍스트를 줄바꿈으로 합침
+                clean_text = '\n'.join(stripped_texts)
+                # 정규식으로 글머리 기호 적용
+                result = self._regex_formatter.format_text(clean_text, levels=levels, auto_detect=False)
+                if result.success:
+                    result.changes = ["SDK로 레벨 분석 및 글머리 제거 후 재적용"]
+                return result
 
-        # 정규식으로 글머리 기호 적용
+        # SDK 없으면 기존 방식 (레벨만 분석)
+        levels = self.analyze_levels_with_sdk(text, existing_format)
         result = self._regex_formatter.format_text(text, levels=levels, auto_detect=False)
 
         if result.success:

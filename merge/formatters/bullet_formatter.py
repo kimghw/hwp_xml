@@ -196,20 +196,13 @@ class BulletFormatter:
         return -1
 
     def _remove_existing_bullet(self, line: str) -> Tuple[str, bool]:
-        """기존 글머리 기호 제거"""
-        patterns = [
-            r'^[\s]*[□■◆◇○●◎•\-–—·∙]\s*',  # 기호 글머리
-            r'^[\s]*\d+(?:\.\d+)+\s+',        # 계층 번호 (1.1, 1.2.3 등) - 먼저 체크
-            r'^[\s]*\d+[.)]\s*',              # 숫자 글머리 (1. 또는 1))
-            r'^[\s]*[a-zA-Z][.)]\s*',         # 알파벳 글머리
-            r'^[\s]*[가-힣][.)]\s*',          # 한글 번호 (가., 나.)
-        ]
+        """
+        기존 글머리 기호 제거 (SDK에서 처리됨)
 
-        for pattern in patterns:
-            match = re.match(pattern, line)
-            if match:
-                return line[match.end():], True
-
+        Note: 글머리 제거는 SDK(agent.BulletFormatter.analyze_and_strip)에서 처리합니다.
+        이 메서드는 SDK가 없을 때 fallback으로만 사용됩니다.
+        """
+        # SDK에서 처리하므로 여기서는 제거하지 않음
         return line, False
 
     def _get_bullet_for_level(self, level: int) -> Tuple[str, str]:

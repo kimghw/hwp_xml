@@ -263,16 +263,18 @@ class TableParser:
             col_idx += 1
 
     def _extract_text(self, sublist_elem) -> str:
-        """subList에서 텍스트 추출"""
-        texts = []
+        """subList에서 텍스트 추출 (여러 문단은 줄바꿈으로 구분)"""
+        paragraphs = []
         for p in sublist_elem:
             if p.tag.endswith('}p'):
+                p_texts = []
                 for run in p:
                     if run.tag.endswith('}run'):
                         for t in run:
                             if t.tag.endswith('}t') and t.text:
-                                texts.append(t.text)
-        return ''.join(texts)
+                                p_texts.append(t.text)
+                paragraphs.append(''.join(p_texts))
+        return '\n'.join(paragraphs)
 
     def _extract_field_name(self, sublist_elem) -> str:
         """subList에서 필드명(nc.name) 추출"""
