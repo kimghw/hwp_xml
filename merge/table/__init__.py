@@ -11,6 +11,7 @@
 from .models import CellInfo, TableInfo, HeaderConfig, RowAddPlan
 from .parser import TableParser
 from .merger import TableMerger
+from .row_extractor import RowExtractor, extract_table_rows
 from .formatter_config import (
     TableFormatterConfigLoader,
     TableFormatterConfig,
@@ -26,6 +27,9 @@ __all__ = [
     'RowAddPlan',
     'TableParser',
     'TableMerger',
+    # 행 추출
+    'RowExtractor',
+    'extract_table_rows',
     # 포맷터 설정
     'TableFormatterConfigLoader',
     'TableFormatterConfig',

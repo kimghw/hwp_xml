@@ -281,7 +281,7 @@ class BulletFormatter:
             levels = self._regex_formatter._detect_levels(lines)
             stripped_texts = []
             for line in lines:
-                _, clean_text = self._regex_formatter._remove_existing_bullet(line)
+                clean_text, _ = self._regex_formatter._remove_existing_bullet(line)
                 stripped_texts.append(clean_text.strip())
             return levels, stripped_texts
 

@@ -176,35 +176,24 @@ class FieldNameGenerator:
     def _identify_add_cells(self, cells: List[CellForNaming],
                             grid: Dict[Tuple[int, int], CellForNaming],
                             row_count: int, col_count: int):
-        """add_ 식별"""
-        if row_count == 1 and col_count == 1 and len(cells) == 1:
-            cell = cells[0]
-            if not cell.nc_name and not cell.has_bg_color:
-                cell.nc_name = f"add_{self._generate_id()}"
-                self.log.info(f"  ({cell.row},{cell.col}) → {cell.nc_name} [1x1 단일셀]")
-                return
+        """add_ 식별: 단일 셀 또는 같은 행에 header_/stub_/gstub_ 없는 셀"""
+        is_single_cell = (row_count == 1 and col_count == 1 and len(cells) == 1)
 
-        first_data_row = 0
-        for row in range(row_count):
-            has_header = False
+        def has_excluded_prefix_in_row(row_idx: int) -> bool:
+            excluded_prefixes = ('header_', 'stub_', 'gstub_')
             for col in range(col_count):
-                cell = self._get_cell(grid, row, col)
-                if cell and cell.nc_name and cell.nc_name.startswith('header_'):
-                    has_header = True
-                    break
-            if not has_header:
-                first_data_row = row
-                break
+                c = self._get_cell(grid, row_idx, col)
+                if c and c.nc_name and c.nc_name.startswith(excluded_prefixes):
+                    return True
+            return False
 
         for cell in cells:
             if cell.nc_name:
                 continue
 
-            if (cell.row == first_data_row and
-                len(cell.text.strip()) >= self.text_length_threshold and
-                not cell.has_bg_color):
+            if is_single_cell or not has_excluded_prefix_in_row(cell.row):
                 cell.nc_name = f"add_{self._generate_id()}"
-                self.log.info(f"  ({cell.row},{cell.col}) → {cell.nc_name} [30자 이상]")
+                self.log.info(f"  ({cell.row},{cell.col}) → {cell.nc_name}")
 
     def _identify_stubs(self, cells: List[CellForNaming],
                         grid: Dict[Tuple[int, int], CellForNaming],

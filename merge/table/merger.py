@@ -35,7 +35,7 @@ import copy
 
 from .models import CellInfo, HeaderConfig, TableInfo
 from .parser import TableParser, NAMESPACES
-from .cell_splitter import GstubCellSplitter
+from .gstub_cell_splitter import GstubCellSplitter
 from .row_builder import RowBuilder
 from .formatter_config import TableFormatterConfigLoader
 from ..format_validator import AddFieldValidator

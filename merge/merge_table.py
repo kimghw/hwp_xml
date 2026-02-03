@@ -14,6 +14,7 @@ from typing import Dict, List, Optional, Set, Any
 from pathlib import Path
 
 from .table import TableParser, TableMerger
+from .table.row_extractor import RowExtractor
 from .models import HwpxData
 
 
@@ -27,6 +28,7 @@ class TableMergeHandler:
             use_sdk_for_levels: SDK로 레벨 분석 여부
         """
         self.table_parser = TableParser()
+        self.row_extractor = RowExtractor()
         self.format_content = format_content
         self.use_sdk_for_levels = use_sdk_for_levels
 
@@ -110,118 +112,6 @@ class TableMergeHandler:
 
         # 가장 많이 일치하는 테이블 반환
         return max(matching_tables, key=matching_tables.get)
-
-    def extract_table_data(self, tbl_elem, fields: Set[str]) -> List[Dict[str, str]]:
-        """
-        추가(addition) 테이블에서 필드명-값 데이터를 행별로 추출
-
-        Args:
-            tbl_elem: 테이블 XML 요소
-            fields: 추출할 필드명 집합
-
-        Returns:
-            행별 데이터 리스트 [{field_name: value}, ...]
-        """
-        # 행별 데이터 수집: {row_idx: {field_name: text}}
-        row_data: Dict[int, Dict[str, str]] = {}
-
-        # gstub/stub 셀 정보 수집: (start_row, end_row, field_name, text)
-        gstub_cells = []
-
-        for tc in tbl_elem.iter():
-            if not tc.tag.endswith('}tc'):
-                continue
-
-            field_name = tc.get('name', '')
-            if not field_name:
-                continue
-
-            # 셀 주소와 span 정보 추출
-            row_idx = 0
-            row_span = 1
-            for child in tc:
-                if child.tag.endswith('}cellAddr'):
-                    row_idx = int(child.get('rowAddr', 0))
-                elif child.tag.endswith('}cellSpan'):
-                    row_span = int(child.get('rowSpan', 1))
-
-            # subList에서 텍스트 추출 (여러 문단은 줄바꿈으로 구분)
-            paragraphs_text = []
-            for sublist in tc:
-                if sublist.tag.endswith('}subList'):
-                    for p in sublist:
-                        if p.tag.endswith('}p'):
-                            p_text = ""
-                            for run in p:
-                                if run.tag.endswith('}run'):
-                                    for t in run:
-                                        if t.tag.endswith('}t') and t.text:
-                                            p_text += t.text
-                            paragraphs_text.append(p_text)
-            text = '\n'.join(paragraphs_text)
-
-            # gstub/stub 셀은 rowspan 정보와 함께 저장
-            if field_name.startswith('gstub_') or field_name.startswith('stub_'):
-                end_row = row_idx + row_span - 1
-                gstub_cells.append((row_idx, end_row, field_name, text))
-
-            # 매칭되는 필드만 저장 (input_, gstub_, stub_, add_ 등)
-            if field_name in fields or field_name.startswith('gstub_') or field_name.startswith('stub_') or field_name.startswith('add_'):
-                if row_idx not in row_data:
-                    row_data[row_idx] = {}
-                row_data[row_idx][field_name] = text
-
-        # gstub/stub 값을 해당 rowspan 범위의 모든 행에 전파
-        for start_row, end_row, field_name, text in gstub_cells:
-            for r in range(start_row, end_row + 1):
-                if r not in row_data:
-                    row_data[r] = {}
-                if field_name not in row_data[r]:
-                    row_data[r][field_name] = text
-
-        # 행 순서대로 리스트 반환 (헤더 행, data_ 행, 빈 input 행 제외)
-        # 단, add_ 필드는 헤더 행에 있어도 추출함
-        result = []
-
-        # add_ 필드는 모든 행에서 추출 (헤더 행 포함)
-        add_fields_data = {}
-        for row_idx in sorted(row_data.keys()):
-            data = row_data[row_idx]
-            for field_name, value in data.items():
-                if field_name.startswith('add_') and value:
-                    if field_name not in add_fields_data:
-                        add_fields_data[field_name] = value
-
-        # add_ 필드가 있으면 별도 행으로 추가
-        if add_fields_data:
-            result.append(add_fields_data)
-
-        for row_idx in sorted(row_data.keys()):
-            if row_idx == 0:  # 헤더 행 스킵 (add_ 필드는 이미 처리됨)
-                continue
-
-            data = row_data[row_idx]
-            if not data:  # 빈 행 스킵
-                continue
-
-            # add_ 필드 제외 (이미 처리됨)
-            data_without_add = {k: v for k, v in data.items() if not k.startswith('add_')}
-            if not data_without_add:  # add_ 필드만 있는 행은 스킵
-                continue
-
-            # data_ 필드만 있는 행 스킵 (데이터 행)
-            non_data_fields = [k for k in data_without_add.keys() if not k.startswith('data_')]
-            if not non_data_fields:
-                continue
-
-            # input_ 값이 모두 비어있으면 스킵 (gstub/stub만 있는 빈 행)
-            input_values = [v for k, v in data_without_add.items() if k.startswith('input_')]
-            if input_values and all(not v for v in input_values):
-                continue
-
-            result.append(data_without_add)
-
-        return result
 
     def apply_merges(self, root, table_merge_data: Dict[int, List[Dict[str, str]]]):
         """
