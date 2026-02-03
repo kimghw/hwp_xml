@@ -30,7 +30,7 @@ from .outline import (
     get_all_outline_names,
     print_outline_tree,
 )
-from .table import TableParser, TableMerger
+from .merge_table import TableMergeHandler
 from .content_formatter import ContentFormatter
 
 # 네임스페이스 등록
@@ -49,16 +49,15 @@ class HwpxMerger:
         """
         self.hwpx_data_list: List[HwpxData] = []
         self.parser = HwpxParser()
-        self.table_parser = TableParser()
         self.exclude_outlines: Set[str] = set()
-        # 템플릿 파일의 테이블 필드명 캐시: {field_name: [table_index, ...]}
-        self._template_table_fields: Dict[str, List[int]] = {}
         self._template_path: Optional[Path] = None  # 템플릿 파일 경로 (정규화)
         self.format_content = format_content
         self.use_sdk_for_levels = use_sdk_for_levels
         self.content_formatter = ContentFormatter(style="default", use_sdk=use_sdk_for_levels) if format_content else None
         # 템플릿의 기존 글머리 포맷 예시 (SDK 참고용)
         self._existing_format: Optional[str] = None
+        # 테이블 병합 처리기
+        self.table_handler = TableMergeHandler(format_content, use_sdk_for_levels)
 
     def add_file(self, hwpx_path: Union[str, Path]):
         """병합할 파일 추가"""
@@ -165,7 +164,7 @@ class HwpxMerger:
         merged_bin_data, bin_id_map = self._merge_bin_data()
 
         # 4.5 템플릿 테이블 필드명 수집
-        self._collect_template_table_fields(template_data)
+        self.table_handler.collect_template_fields(template_data)
 
         # 4.6 템플릿의 기존 글머리 포맷 수집 (SDK 참고용)
         if self.format_content and self.use_sdk_for_levels:
@@ -305,24 +304,6 @@ class HwpxMerger:
             return False
         return Path(source_file).resolve() == self._template_path
 
-    def _collect_template_table_fields(self, template_data: HwpxData):
-        """템플릿 파일의 테이블 필드명 수집"""
-        self._template_table_fields.clear()
-
-        try:
-            tables = self.table_parser.parse_tables(template_data.path)
-            for table_idx, table in enumerate(tables):
-                for cell in table.cells.values():
-                    if cell.field_name:
-                        # 동일 필드명이 여러 테이블에 있을 수 있으므로 리스트로 저장
-                        if cell.field_name not in self._template_table_fields:
-                            self._template_table_fields[cell.field_name] = []
-                        if table_idx not in self._template_table_fields[cell.field_name]:
-                            self._template_table_fields[cell.field_name].append(table_idx)
-        except Exception:
-            # 테이블 파싱 실패 시 빈 상태로 유지
-            pass
-
     def _collect_existing_format(self, paragraphs: List[Paragraph]):
         """
         병합 대상 파일들에서 기존 글머리 포맷 수집 (SDK 참고용)
@@ -378,54 +359,6 @@ class HwpxMerger:
 
         if format_examples:
             self._existing_format = '\n'.join(format_examples)
-
-    def _get_table_fields_from_element(self, tbl_elem) -> Set[str]:
-        """테이블 요소에서 필드명 추출"""
-        fields = set()
-
-        for tc in tbl_elem.iter():
-            if tc.tag.endswith('}tc'):
-                # tc의 name 속성
-                tc_name = tc.get('name', '')
-                if tc_name:
-                    fields.add(tc_name)
-
-                # subList 내 fieldBegin의 name
-                for child in tc.iter():
-                    if child.tag.endswith('}fieldBegin'):
-                        name = child.get('name', '')
-                        if name:
-                            fields.add(name)
-
-        return fields
-
-    def _find_matching_template_table(self, addition_table_fields: Set[str]) -> Optional[int]:
-        """
-        추가 테이블의 필드명과 일치하는 템플릿 테이블 인덱스 반환
-
-        Args:
-            addition_table_fields: 추가 파일 테이블의 필드명 집합
-
-        Returns:
-            일치하는 테이블 인덱스, 없으면 None
-        """
-        if not addition_table_fields:
-            return None
-
-        # 필드명이 템플릿 테이블에 있는지 확인
-        matching_tables = {}  # table_idx -> match_count
-
-        for field_name in addition_table_fields:
-            if field_name in self._template_table_fields:
-                # 필드명이 여러 테이블에 있을 수 있음
-                for table_idx in self._template_table_fields[field_name]:
-                    matching_tables[table_idx] = matching_tables.get(table_idx, 0) + 1
-
-        if not matching_tables:
-            return None
-
-        # 가장 많이 일치하는 테이블 반환
-        return max(matching_tables, key=matching_tables.get)
 
     def _create_merged_section(self, paragraphs: List[Paragraph], template_data: HwpxData,
                                 bin_id_map: Dict[str, Dict[str, str]]) -> bytes:
@@ -488,12 +421,12 @@ class HwpxMerger:
                         if not tbl.tag.endswith('}tbl'):
                             continue
 
-                        fields = self._get_table_fields_from_element(tbl)
-                        matching_table_idx = self._find_matching_template_table(fields)
+                        fields = self.table_handler.get_fields_from_element(tbl)
+                        matching_table_idx = self.table_handler.find_matching_table(fields)
 
                         if matching_table_idx is not None:
                             # 필드 일치 → 데이터만 수집 (문단은 추가 안 함)
-                            table_data = self._extract_addition_table_data(tbl, fields)
+                            table_data = self.table_handler.extract_table_data(tbl, fields)
                             if matching_table_idx not in table_merge_data:
                                 table_merge_data[matching_table_idx] = []
                             table_merge_data[matching_table_idx].extend(table_data)
@@ -505,7 +438,7 @@ class HwpxMerger:
                 root.append(elem)
 
         # 테이블 머지 적용
-        self._apply_table_merges(root, template_data, table_merge_data)
+        self.table_handler.apply_merges(root, table_merge_data)
 
         # 글머리 기호 양식 적용 (개요 단위로 내용 문단 모아서 처리)
         if self.format_content and self.content_formatter:
@@ -542,140 +475,6 @@ class HwpxMerger:
 
         xml_header = "<?xml version='1.0' encoding='utf-8'?>\n"
         return (xml_header + xml_str).encode('utf-8')
-
-    def _extract_addition_table_data(self, tbl_elem, fields: Set[str]) -> List[Dict[str, str]]:
-        """추가(addition) 테이블에서 필드명-값 데이터를 행별로 추출"""
-        # 행별 데이터 수집: {row_idx: {field_name: text}}
-        row_data: Dict[int, Dict[str, str]] = {}
-
-        # gstub/stub 셀 정보 수집: (start_row, end_row, field_name, text)
-        gstub_cells = []
-
-        for tc in tbl_elem.iter():
-            if not tc.tag.endswith('}tc'):
-                continue
-
-            field_name = tc.get('name', '')
-            if not field_name:
-                continue
-
-            # 셀 주소와 span 정보 추출
-            row_idx = 0
-            row_span = 1
-            for child in tc:
-                if child.tag.endswith('}cellAddr'):
-                    row_idx = int(child.get('rowAddr', 0))
-                elif child.tag.endswith('}cellSpan'):
-                    row_span = int(child.get('rowSpan', 1))
-
-            # subList에서 텍스트 추출 (여러 문단은 줄바꿈으로 구분)
-            paragraphs_text = []
-            for sublist in tc:
-                if sublist.tag.endswith('}subList'):
-                    for p in sublist:
-                        if p.tag.endswith('}p'):
-                            p_text = ""
-                            for run in p:
-                                if run.tag.endswith('}run'):
-                                    for t in run:
-                                        if t.tag.endswith('}t') and t.text:
-                                            p_text += t.text
-                            paragraphs_text.append(p_text)
-            text = '\n'.join(paragraphs_text)
-
-            # gstub/stub 셀은 rowspan 정보와 함께 저장
-            if field_name.startswith('gstub_') or field_name.startswith('stub_'):
-                end_row = row_idx + row_span - 1
-                gstub_cells.append((row_idx, end_row, field_name, text))
-
-            # 매칭되는 필드만 저장 (input_, gstub_, stub_, add_ 등)
-            if field_name in fields or field_name.startswith('gstub_') or field_name.startswith('stub_') or field_name.startswith('add_'):
-                if row_idx not in row_data:
-                    row_data[row_idx] = {}
-                row_data[row_idx][field_name] = text
-
-        # gstub/stub 값을 해당 rowspan 범위의 모든 행에 전파
-        for start_row, end_row, field_name, text in gstub_cells:
-            for r in range(start_row, end_row + 1):
-                if r not in row_data:
-                    row_data[r] = {}
-                if field_name not in row_data[r]:
-                    row_data[r][field_name] = text
-
-        # 행 순서대로 리스트 반환 (헤더 행, data_ 행, 빈 input 행 제외)
-        # 단, add_ 필드는 헤더 행에 있어도 추출함
-        result = []
-
-        # add_ 필드는 모든 행에서 추출 (헤더 행 포함)
-        add_fields_data = {}
-        for row_idx in sorted(row_data.keys()):
-            data = row_data[row_idx]
-            for field_name, value in data.items():
-                if field_name.startswith('add_') and value:
-                    if field_name not in add_fields_data:
-                        add_fields_data[field_name] = value
-
-        # add_ 필드가 있으면 별도 행으로 추가
-        if add_fields_data:
-            result.append(add_fields_data)
-
-        for row_idx in sorted(row_data.keys()):
-            if row_idx == 0:  # 헤더 행 스킵 (add_ 필드는 이미 처리됨)
-                continue
-
-            data = row_data[row_idx]
-            if not data:  # 빈 행 스킵
-                continue
-
-            # add_ 필드 제외 (이미 처리됨)
-            data_without_add = {k: v for k, v in data.items() if not k.startswith('add_')}
-            if not data_without_add:  # add_ 필드만 있는 행은 스킵
-                continue
-
-            # data_ 필드만 있는 행 스킵 (데이터 행)
-            non_data_fields = [k for k in data_without_add.keys() if not k.startswith('data_')]
-            if not non_data_fields:
-                continue
-
-            # input_ 값이 모두 비어있으면 스킵 (gstub/stub만 있는 빈 행)
-            input_values = [v for k, v in data_without_add.items() if k.startswith('input_')]
-            if input_values and all(not v for v in input_values):
-                continue
-
-            result.append(data_without_add)
-
-        return result
-
-    def _apply_table_merges(self, root, template_data: HwpxData, table_merge_data: Dict[int, List[Dict[str, str]]]):
-        """수집된 추가 데이터를 템플릿 테이블에 머지"""
-        if not table_merge_data:
-            return
-
-        # root에서 테이블 요소 찾기
-        table_elements = []
-        for elem in root.iter():
-            if elem.tag.endswith('}tbl'):
-                table_elements.append(elem)
-
-        # 각 테이블에 머지 적용
-        for table_idx, addition_data_list in table_merge_data.items():
-            if table_idx >= len(table_elements):
-                continue
-
-            tbl_elem = table_elements[table_idx]
-
-            # tbl_elem을 직접 파싱하여 TableInfo 생성 (element 참조 일치)
-            table_info = self.table_parser._parse_table(tbl_elem)
-
-            # TableMerger를 사용하여 머지
-            merger = TableMerger(
-                format_add_content=self.format_content,
-                use_sdk_for_levels=self.use_sdk_for_levels,
-            )
-            merger.base_table = table_info
-
-            # stub/gstub/input 기반 머지
-            merger.merge_with_stub(addition_data_list)
 
     def _apply_bullet_format_by_outline(self, root, paragraphs: List[Paragraph], para_elements: Dict[int, Any], para_seq_map: Dict[int, int]):
         """
