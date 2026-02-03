@@ -164,7 +164,7 @@ class HwpxMerger:
         merged_bin_data, bin_id_map = self._merge_bin_data()
 
         # 4.5 템플릿 테이블 필드명 수집
-        self.table_handler.collect_template_fields(template_data)
+        self.table_handler.get_fields_from_file(template_data)
 
         # 4.6 템플릿의 기존 글머리 포맷 수집 (SDK 참고용)
         if self.format_content and self.use_sdk_for_levels:

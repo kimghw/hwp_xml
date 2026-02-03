@@ -30,28 +30,28 @@ class TableMergeHandler:
         self.format_content = format_content
         self.use_sdk_for_levels = use_sdk_for_levels
 
-        # 템플릿 파일의 테이블 필드명 캐시: {field_name: [table_index, ...]}
-        self._template_table_fields: Dict[str, List[int]] = {}
+        # 기준 파일의 테이블 필드명 캐시: {field_name: [table_index, ...]}
+        self._base_table_fields: Dict[str, List[int]] = {}
 
-    def collect_template_fields(self, template_data: HwpxData):
+    def get_fields_from_file(self, hwpx_data: HwpxData):
         """
-        템플릿 파일의 테이블 필드명 수집
+        HWPX 파일의 테이블 필드명 수집
 
         Args:
-            template_data: 템플릿 파일 데이터
+            hwpx_data: HWPX 파일 데이터
         """
-        self._template_table_fields.clear()
+        self._base_table_fields.clear()
 
         try:
-            tables = self.table_parser.parse_tables(template_data.path)
+            tables = self.table_parser.parse_tables(hwpx_data.path)
             for table_idx, table in enumerate(tables):
-                for cell in table.cells.values():
-                    if cell.field_name:
-                        # 동일 필드명이 여러 테이블에 있을 수 있으므로 리스트로 저장
-                        if cell.field_name not in self._template_table_fields:
-                            self._template_table_fields[cell.field_name] = []
-                        if table_idx not in self._template_table_fields[cell.field_name]:
-                            self._template_table_fields[cell.field_name].append(table_idx)
+                # 테이블 요소에서 필드명 추출
+                fields = self.get_fields_from_element(table.element)
+                for field_name in fields:
+                    if field_name not in self._base_table_fields:
+                        self._base_table_fields[field_name] = []
+                    if table_idx not in self._base_table_fields[field_name]:
+                        self._base_table_fields[field_name].append(table_idx)
         except Exception:
             # 테이블 파싱 실패 시 빈 상태로 유지
             pass
@@ -84,26 +84,25 @@ class TableMergeHandler:
 
         return fields
 
-    def find_matching_table(self, addition_fields: Set[str]) -> Optional[int]:
+    def find_matching_table(self, fields: Set[str]) -> Optional[int]:
         """
-        추가 테이블의 필드명과 일치하는 템플릿 테이블 인덱스 반환
+        필드명과 일치하는 기준 테이블 인덱스 반환
 
         Args:
-            addition_fields: 추가 파일 테이블의 필드명 집합
+            fields: 테이블의 필드명 집합
 
         Returns:
             일치하는 테이블 인덱스, 없으면 None
         """
-        if not addition_fields:
+        if not fields:
             return None
 
-        # 필드명이 템플릿 테이블에 있는지 확인
+        # 필드명이 기준 테이블에 있는지 확인
         matching_tables = {}  # table_idx -> match_count
 
-        for field_name in addition_fields:
-            if field_name in self._template_table_fields:
-                # 필드명이 여러 테이블에 있을 수 있음
-                for table_idx in self._template_table_fields[field_name]:
+        for field_name in fields:
+            if field_name in self._base_table_fields:
+                for table_idx in self._base_table_fields[field_name]:
                     matching_tables[table_idx] = matching_tables.get(table_idx, 0) + 1
 
         if not matching_tables:
