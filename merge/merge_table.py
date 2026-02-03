@@ -10,13 +10,26 @@ HWPX 테이블 병합 모듈
 - 필드명 매칭으로 테이블 병합
 """
 
-from typing import Dict, List, Optional, Set, Any
+from typing import Dict, List, Optional, Set, Any, TYPE_CHECKING
 from pathlib import Path
+from dataclasses import dataclass, field
 
 from .table import TableParser, TableMerger
 from .table.row_extractor import RowExtractor
 from .models import HwpxData
 from .formatters import BaseFormatter
+
+if TYPE_CHECKING:
+    from .models import OutlineNode
+
+
+@dataclass
+class TableMergePlan:
+    """테이블 병합 계획"""
+    table_idx: int = 0  # 템플릿 테이블 인덱스
+    template_fields: List[str] = field(default_factory=list)  # 템플릿 필드명
+    addition_data: List[Dict[str, str]] = field(default_factory=list)  # 추가할 데이터
+    source_file: str = ""  # 데이터 출처 파일
 
 
 class TableMergeHandler:
@@ -120,6 +133,93 @@ class TableMergeHandler:
 
         # 가장 많이 일치하는 테이블 반환
         return max(matching_tables, key=matching_tables.get)
+
+    def collect_table_data(
+        self,
+        hwpx_data_list: List[HwpxData],
+        merged_tree: List['OutlineNode']
+    ) -> List[TableMergePlan]:
+        """
+        병합할 테이블 데이터 수집
+
+        템플릿 테이블의 필드와 Addition 테이블의 필드를 매칭하여
+        병합할 데이터를 수집합니다.
+
+        처리 방식:
+        - 필드 없는 테이블: 본문처럼 그대로 복사 (이 메서드에서 처리 안 함)
+        - 필드 있는 테이블: 데이터만 수집하여 반환
+
+        Args:
+            hwpx_data_list: 파싱된 HWPX 데이터 리스트
+            merged_tree: 병합된 개요 트리
+
+        Returns:
+            테이블 병합 계획 리스트 (필드 매칭된 테이블만)
+        """
+        from .outline import flatten_outline_tree
+
+        plans: List[TableMergePlan] = []
+
+        if len(hwpx_data_list) < 2:
+            return plans
+
+        # 템플릿(첫 번째 파일)의 테이블 필드 수집
+        template_data = hwpx_data_list[0]
+        self.get_fields_from_file(template_data)
+
+        # 템플릿 테이블 필드 정보 저장
+        template_table_fields: Dict[int, List[str]] = {}
+        for field_name, table_indices in self._base_table_fields.items():
+            for table_idx in table_indices:
+                if table_idx not in template_table_fields:
+                    template_table_fields[table_idx] = []
+                template_table_fields[table_idx].append(field_name)
+
+        # 병합된 트리에서 테이블 문단 추출
+        merged_paragraphs = flatten_outline_tree(merged_tree)
+
+        # Addition 파일들의 테이블 데이터 수집
+        template_path = str(Path(template_data.path).resolve())
+
+        for para in merged_paragraphs:
+            if not para.has_table:
+                continue
+
+            # 템플릿 파일은 건너뜀
+            if str(Path(para.source_file).resolve()) == template_path:
+                continue
+
+            # 테이블 요소에서 필드 추출
+            for tbl in para.element.iter():
+                if not tbl.tag.endswith('}tbl'):
+                    continue
+
+                fields = self.get_fields_from_element(tbl)
+                matching_idx = self.find_matching_table(fields)
+
+                if matching_idx is not None:
+                    # 테이블 데이터 추출
+                    table_data = self.extract_table_data(tbl, fields)
+
+                    # 기존 계획에 추가하거나 새 계획 생성
+                    existing_plan = None
+                    for plan in plans:
+                        if plan.table_idx == matching_idx:
+                            existing_plan = plan
+                            break
+
+                    if existing_plan:
+                        existing_plan.addition_data.extend(table_data)
+                    else:
+                        plan = TableMergePlan(
+                            table_idx=matching_idx,
+                            template_fields=template_table_fields.get(matching_idx, []),
+                            addition_data=table_data,
+                            source_file=para.source_file,
+                        )
+                        plans.append(plan)
+
+        return plans
 
     def apply_merges(self, root, table_merge_data: Dict[int, List[Dict[str, str]]]):
         """

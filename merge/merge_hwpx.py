@@ -140,7 +140,12 @@ class HwpxMerger:
         # 내부 메서드 호출
         return self._merge_with_paragraphs(output_path, merged_paragraphs)
 
-    def merge_with_tree(self, output_path: Union[str, Path], merged_tree: List) -> Path:
+    def merge_with_tree(
+        self,
+        output_path: Union[str, Path],
+        merged_tree: List,
+        table_merge_data: Optional[Dict[int, List[Dict[str, str]]]] = None
+    ) -> Path:
         """
         수정된 개요 트리로 병합 파일 생성
 
@@ -149,6 +154,8 @@ class HwpxMerger:
         Args:
             output_path: 출력 파일 경로
             merged_tree: 수정된 개요 트리 (OutlineNode 리스트)
+            table_merge_data: 테이블 병합 계획 {table_idx: [행 데이터 리스트]}
+                              None이면 기존 방식 (내부에서 테이블 매칭)
 
         Returns:
             출력 파일 경로
@@ -161,6 +168,9 @@ class HwpxMerger:
 
         # 병합된 문단 리스트 생성 (수정된 element 사용)
         merged_paragraphs = flatten_outline_tree(merged_tree)
+
+        # 테이블 병합 계획 저장 (5단계에서 사용)
+        self._table_merge_plan = table_merge_data
 
         return self._merge_with_paragraphs(output_path, merged_paragraphs)
 
@@ -395,7 +405,11 @@ class HwpxMerger:
             root.remove(p)
 
         # 테이블 머지 상태 추적: {table_idx: 머지할 데이터}
-        table_merge_data: Dict[int, List[Dict[str, str]]] = {}
+        # _table_merge_plan이 있으면 미리 계획된 데이터 사용, 없으면 빈 dict
+        use_precomputed_plan = hasattr(self, '_table_merge_plan') and self._table_merge_plan is not None
+        table_merge_data: Dict[int, List[Dict[str, str]]] = (
+            dict(self._table_merge_plan) if use_precomputed_plan else {}
+        )
 
         # 문단 순서 인덱스 → 요소 매핑 (글머리 기호 적용 후 참조용)
         # para.index는 원본 파일 내 인덱스라 중복될 수 있으므로 순차 인덱스 사용
@@ -426,24 +440,37 @@ class HwpxMerger:
 
                 # 추가(addition) 파일의 문단인 경우
                 else:
-                    # 테이블 데이터만 수집 (2단계에서 처리)
-                    for tbl in list(elem.iter()):
-                        if not tbl.tag.endswith('}tbl'):
-                            continue
+                    # 미리 계획된 테이블 병합이 있으면 데이터 수집 건너뜀
+                    if use_precomputed_plan:
+                        # 필드 매칭된 테이블 문단은 추가하지 않음 (데이터만 병합)
+                        for tbl in list(elem.iter()):
+                            if not tbl.tag.endswith('}tbl'):
+                                continue
+                            fields = self.table_handler.get_fields_from_element(tbl)
+                            matching_table_idx = self.table_handler.find_matching_table(fields)
+                            if matching_table_idx is None:
+                                # 필드 없음 → 테이블 문단 그대로 복사
+                                root.append(elem)
+                                break
+                    else:
+                        # 기존 방식: 테이블 데이터 수집
+                        for tbl in list(elem.iter()):
+                            if not tbl.tag.endswith('}tbl'):
+                                continue
 
-                        fields = self.table_handler.get_fields_from_element(tbl)
-                        matching_table_idx = self.table_handler.find_matching_table(fields)
+                            fields = self.table_handler.get_fields_from_element(tbl)
+                            matching_table_idx = self.table_handler.find_matching_table(fields)
 
-                        if matching_table_idx is not None:
-                            # 필드 일치 → 데이터만 수집 (문단은 추가 안 함)
-                            table_data = self.table_handler.extract_table_data(tbl, fields)
-                            if matching_table_idx not in table_merge_data:
-                                table_merge_data[matching_table_idx] = []
-                            table_merge_data[matching_table_idx].extend(table_data)
-                        else:
-                            # 필드 없음 → 테이블 문단 그대로 복사
-                            root.append(elem)
-                            break  # 문단 추가했으면 루프 종료
+                            if matching_table_idx is not None:
+                                # 필드 일치 → 데이터만 수집 (문단은 추가 안 함)
+                                table_data = self.table_handler.extract_table_data(tbl, fields)
+                                if matching_table_idx not in table_merge_data:
+                                    table_merge_data[matching_table_idx] = []
+                                table_merge_data[matching_table_idx].extend(table_data)
+                            else:
+                                # 필드 없음 → 테이블 문단 그대로 복사
+                                root.append(elem)
+                                break  # 문단 추가했으면 루프 종료
             else:
                 root.append(elem)
 

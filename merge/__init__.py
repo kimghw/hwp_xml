@@ -53,6 +53,10 @@ from .format_validator import (
     print_validation_result,
 )
 
+# 병합 파이프라인
+from .merge_pipeline import MergePipeline, MergeResult
+from .merge_table import TableMergePlan
+
 # 내용 양식 변환
 from .content_formatter import ContentFormatter, OutlineContentFormatter
 
@@ -95,6 +99,9 @@ __all__ = [
     # 병합 클래스 및 함수
     'HwpxMerger',
     'TableMerger',
+    'MergePipeline',
+    'MergeResult',
+    'TableMergePlan',
     'get_outline_structure',
     'merge_hwpx_files',
 

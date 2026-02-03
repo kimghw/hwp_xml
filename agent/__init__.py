@@ -31,6 +31,10 @@ from .caption_formatter import (
     renumber_captions,
     CAPTION_PROMPTS,
 )
+from .format_review import (
+    FORMAT_REVIEW_PROMPT,
+    merge_with_review_async,
+)
 
 # 공통 데이터 타입 (정규식 모듈에서 가져옴)
 from merge.formatters.bullet_formatter import FormatResult, BulletItem
@@ -54,4 +58,8 @@ __all__ = [
     'renumber_captions',
     'CAPTION_PROMPTS',
     'CAPTION_PATTERNS',
+
+    # 형식 검토 (Agent 기반)
+    'FORMAT_REVIEW_PROMPT',
+    'merge_with_review_async',
 ]

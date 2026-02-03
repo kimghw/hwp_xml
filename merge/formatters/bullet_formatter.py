@@ -278,6 +278,35 @@ class BulletFormatter(BaseFormatter):
         """현재 스타일 이름 반환 (BaseFormatter 구현)"""
         return self.style
 
+    def get_bullet_dict(self) -> dict:
+        """
+        현재 스타일의 글머리 기호를 {level: 'indent+bullet'} 형태로 반환
+
+        Returns:
+            {0: ' ■ ', 1: '   ● ', 2: '    - '} 형태
+        """
+        return {
+            level: symbol_tuple[1] + symbol_tuple[0]
+            for level, symbol_tuple in self.bullet_config.items()
+        }
+
+    @staticmethod
+    def get_bullet_dict_by_name(style_name: str) -> dict:
+        """
+        스타일 이름으로 글머리 기호 딕셔너리 반환
+
+        Args:
+            style_name: 스타일 이름 ("default", "filled", "numbered", "arrow")
+
+        Returns:
+            {0: 'indent+bullet', ...} 형태
+        """
+        style_config = BULLET_STYLES.get(style_name, BULLET_STYLES["default"])
+        return {
+            level: symbol_tuple[1] + symbol_tuple[0]
+            for level, symbol_tuple in style_config.items()
+        }
+
     def parse_items(self, text: str) -> List[BulletItem]:
         """글머리 기호 목록 파싱"""
         items = []
