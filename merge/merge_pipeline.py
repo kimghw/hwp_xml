@@ -146,23 +146,20 @@ class MergePipeline:
         result = MergeResult(output_path=str(output_path))
 
         try:
-            # 1. 파일 열기 + 파싱 (HWPX ZIP → XML → HwpxData)
-            print(f"[1/4] 파일 파싱 중... ({len(hwpx_paths)}개)")
+            # 1. 파일 파싱
+            print(f"[1/5] 파일 파싱 중... ({len(hwpx_paths)}개)")
             hwpx_data_list = []
             for path in hwpx_paths:
                 data = self.parser.parse(path)
                 hwpx_data_list.append(data)
 
-            # 2. 개요 트리 병합 (이름 기준 매칭, Python 객체 레벨)
-            # - 같은 이름 → Template paragraphs 뒤에 Addition paragraphs 추가
-            # - 다른 이름 → 같은 레벨(부모)에 새 노드 추가
-            # - 여기서는 Paragraph 객체 리스트만 병합, 실제 XML 생성은 4단계
-            print("[2/4] 개요 트리 병합 중...")
+            # 2. 개요 트리 병합 (메모리)
+            print("[2/5] 개요 트리 병합 중...")
             trees = [data.outline_tree for data in hwpx_data_list]
             merged_tree = merge_outline_trees(trees)
 
             # 3. 형식 검토 및 수정
-            print("[3/4] 형식 검토 및 수정 중...")
+            print("[3/5] 형식 검토 및 수정 중...")
             if auto_fix:
                 # 글머리 기호 수정 (SDK 레벨 분석 + 정규식 적용)
                 bullet_fixes = self._fixer.fix_bullets_in_tree(merged_tree)
@@ -177,33 +174,22 @@ class MergePipeline:
                     print(f"    - 글머리 기호 수정: {len(bullet_fixes)}건")
                     print(f"    - 캡션 수정: {len(caption_fixes)}건")
 
-            # 4. 병합된 파일 생성
-            print("[4/4] 병합 파일 생성 중...")
+            # 4. 테이블 병합
+            print("[4/5] 테이블 병합 중...")
+            table_merge_plans = self._table_handler.collect_and_merge(hwpx_data_list, merged_tree)
+            result.table_merges = table_merge_plans
+            if table_merge_plans:
+                total_rows = sum(len(p.addition_data) for p in table_merge_plans)
+                print(f"    - {len(table_merge_plans)}개 테이블, {total_rows}행 병합 완료")
+            else:
+                print("    - 병합할 테이블 없음")
+
+            # 5. 파일 생성 (본문만 처리, 테이블은 이미 병합됨)
+            print("[5/5] 파일 생성 중...")
             merger = HwpxMerger(format_content=False, add_formatter=self._add_formatter)
             for data in hwpx_data_list:
                 merger.hwpx_data_list.append(data)
-
-            # 4-1. 본문 병합 (테이블 데이터 수집 포함)
-            #      - 필드 없는 테이블: 본문처럼 그대로 복사
-            #      - 필드 있는 테이블: 데이터만 수집 (문단은 추가 안 함)
-            print("    [4-1] 본문 병합 중...")
-            table_merge_plans = self._table_handler.collect_table_data(hwpx_data_list, merged_tree)
-            result.table_merges = table_merge_plans
-
-            # 4-2. 테이블 병합 (필드 매칭된 테이블만)
-            #      - 템플릿 테이블에 Addition 데이터 행 추가
-            if table_merge_plans:
-                total_rows = sum(len(p.addition_data) for p in table_merge_plans)
-                print(f"    [4-2] 테이블 병합 중... ({len(table_merge_plans)}개 테이블, {total_rows}행)")
-            else:
-                print("    [4-2] 테이블 병합: 없음")
-
-            # 테이블 병합 계획을 Dict 형태로 변환하여 전달
-            table_merge_data = {
-                plan.table_idx: plan.addition_data
-                for plan in table_merge_plans
-            }
-            merger.merge_with_tree(output_path, merged_tree, table_merge_data)
+            merger.merge_with_tree(output_path, merged_tree)
             result.success = True
 
             # 최종 검증

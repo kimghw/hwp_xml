@@ -144,18 +144,15 @@ class HwpxMerger:
         self,
         output_path: Union[str, Path],
         merged_tree: List,
-        table_merge_data: Optional[Dict[int, List[Dict[str, str]]]] = None
     ) -> Path:
         """
         수정된 개요 트리로 병합 파일 생성
 
-        merge_and_review에서 element를 수정한 후 호출합니다.
+        테이블은 이미 병합 완료된 상태로 전달됩니다.
 
         Args:
             output_path: 출력 파일 경로
             merged_tree: 수정된 개요 트리 (OutlineNode 리스트)
-            table_merge_data: 테이블 병합 계획 {table_idx: [행 데이터 리스트]}
-                              None이면 기존 방식 (내부에서 테이블 매칭)
 
         Returns:
             출력 파일 경로
@@ -166,12 +163,7 @@ class HwpxMerger:
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # 병합된 문단 리스트 생성 (수정된 element 사용)
         merged_paragraphs = flatten_outline_tree(merged_tree)
-
-        # 테이블 병합 계획 저장 (5단계에서 사용)
-        self._table_merge_plan = table_merge_data
-
         return self._merge_with_paragraphs(output_path, merged_paragraphs)
 
     def _merge_with_paragraphs(self, output_path: Path, merged_paragraphs: List[Paragraph]) -> Path:
@@ -183,14 +175,11 @@ class HwpxMerger:
         # 4. BinData 병합 (이미지 ID 재매핑)
         merged_bin_data, bin_id_map = self._merge_bin_data()
 
-        # 4.5 템플릿 테이블 필드명 수집
-        self.table_handler.get_fields_from_file(template_data)
-
-        # 4.6 템플릿의 기존 글머리 포맷 수집 (SDK 참고용)
+        # 4.5 템플릿의 기존 글머리 포맷 수집 (SDK 참고용)
         if self.format_content and self.use_sdk_for_levels:
             self._collect_existing_format(merged_paragraphs)
 
-        # 5. section XML 생성 (테이블 머지 포함)
+        # 5. section XML 생성 (테이블은 이미 병합 완료)
         merged_section_xml = self._create_merged_section(merged_paragraphs, template_data, bin_id_map)
 
         # 6. header.xml 병합 (스타일 병합)
@@ -404,19 +393,11 @@ class HwpxMerger:
         for p in p_elements:
             root.remove(p)
 
-        # 테이블 머지 상태 추적: {table_idx: 머지할 데이터}
-        # _table_merge_plan이 있으면 미리 계획된 데이터 사용, 없으면 빈 dict
-        use_precomputed_plan = hasattr(self, '_table_merge_plan') and self._table_merge_plan is not None
-        table_merge_data: Dict[int, List[Dict[str, str]]] = (
-            dict(self._table_merge_plan) if use_precomputed_plan else {}
-        )
-
         # 문단 순서 인덱스 → 요소 매핑 (글머리 기호 적용 후 참조용)
-        # para.index는 원본 파일 내 인덱스라 중복될 수 있으므로 순차 인덱스 사용
         para_elements: Dict[int, Any] = {}
         para_seq_map: Dict[int, int] = {}  # para.id(객체 ID) → seq_idx
 
-        # 병합된 문단 추가
+        # 병합된 문단 추가 (테이블은 이미 병합 완료됨)
         for seq_idx, para in enumerate(paragraphs):
             elem = copy.deepcopy(para.element)
             para_elements[seq_idx] = elem
@@ -434,48 +415,23 @@ class HwpxMerger:
 
             # 테이블이 있는 문단 처리
             if para.has_table:
-                # 템플릿 파일의 문단인 경우: 그대로 추가
+                # 템플릿 파일의 문단: 그대로 추가
                 if self._is_from_template(para.source_file):
                     root.append(elem)
-
-                # 추가(addition) 파일의 문단인 경우
+                # Addition 파일의 문단: 필드 없는 테이블만 복사
                 else:
-                    # 미리 계획된 테이블 병합이 있으면 데이터 수집 건너뜀
-                    if use_precomputed_plan:
-                        # 필드 매칭된 테이블 문단은 추가하지 않음 (데이터만 병합)
-                        for tbl in list(elem.iter()):
-                            if not tbl.tag.endswith('}tbl'):
-                                continue
-                            fields = self.table_handler.get_fields_from_element(tbl)
-                            matching_table_idx = self.table_handler.find_matching_table(fields)
-                            if matching_table_idx is None:
-                                # 필드 없음 → 테이블 문단 그대로 복사
-                                root.append(elem)
-                                break
-                    else:
-                        # 기존 방식: 테이블 데이터 수집
-                        for tbl in list(elem.iter()):
-                            if not tbl.tag.endswith('}tbl'):
-                                continue
-
-                            fields = self.table_handler.get_fields_from_element(tbl)
-                            matching_table_idx = self.table_handler.find_matching_table(fields)
-
-                            if matching_table_idx is not None:
-                                # 필드 일치 → 데이터만 수집 (문단은 추가 안 함)
-                                table_data = self.table_handler.extract_table_data(tbl, fields)
-                                if matching_table_idx not in table_merge_data:
-                                    table_merge_data[matching_table_idx] = []
-                                table_merge_data[matching_table_idx].extend(table_data)
-                            else:
-                                # 필드 없음 → 테이블 문단 그대로 복사
-                                root.append(elem)
-                                break  # 문단 추가했으면 루프 종료
+                    has_field_table = False
+                    for tbl in elem.iter():
+                        if not tbl.tag.endswith('}tbl'):
+                            continue
+                        fields = self.table_handler.get_fields_from_element(tbl)
+                        if self.table_handler.find_matching_table(fields) is not None:
+                            has_field_table = True
+                            break
+                    if not has_field_table:
+                        root.append(elem)
             else:
                 root.append(elem)
-
-        # 테이블 머지 적용
-        self.table_handler.apply_merges(root, table_merge_data)
 
         # 글머리 기호 양식 적용 (개요 단위로 내용 문단 모아서 처리)
         if self.format_content and self.content_formatter:

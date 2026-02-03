@@ -134,27 +134,24 @@ class TableMergeHandler:
         # 가장 많이 일치하는 테이블 반환
         return max(matching_tables, key=matching_tables.get)
 
-    def collect_table_data(
+    def collect_and_merge(
         self,
         hwpx_data_list: List[HwpxData],
         merged_tree: List['OutlineNode']
     ) -> List[TableMergePlan]:
         """
-        병합할 테이블 데이터 수집
-
-        템플릿 테이블의 필드와 Addition 테이블의 필드를 매칭하여
-        병합할 데이터를 수집합니다.
+        테이블 데이터 수집 + 템플릿 테이블에 병합 (파일 생성 전 완료)
 
         처리 방식:
         - 필드 없는 테이블: 본문처럼 그대로 복사 (이 메서드에서 처리 안 함)
-        - 필드 있는 테이블: 데이터만 수집하여 반환
+        - 필드 있는 테이블: 데이터 수집 → 템플릿 테이블 요소에 직접 병합
 
         Args:
             hwpx_data_list: 파싱된 HWPX 데이터 리스트
             merged_tree: 병합된 개요 트리
 
         Returns:
-            테이블 병합 계획 리스트 (필드 매칭된 테이블만)
+            테이블 병합 계획 리스트 (병합 완료된 상태)
         """
         from .outline import flatten_outline_tree
 
@@ -219,42 +216,40 @@ class TableMergeHandler:
                         )
                         plans.append(plan)
 
+        # 템플릿 테이블에 병합 적용
+        self._apply_to_template_tables(template_data, plans)
+
         return plans
 
-    def apply_merges(self, root, table_merge_data: Dict[int, List[Dict[str, str]]]):
+    def _apply_to_template_tables(
+        self,
+        template_data: HwpxData,
+        plans: List[TableMergePlan]
+    ):
         """
-        수집된 추가 데이터를 템플릿 테이블에 머지
+        템플릿 테이블 요소에 직접 병합
 
         Args:
-            root: section XML 루트 요소
-            table_merge_data: {table_idx: [행 데이터 리스트]}
+            template_data: 템플릿 HWPX 데이터
+            plans: 테이블 병합 계획 리스트
         """
-        if not table_merge_data:
+        if not plans:
             return
 
-        # root에서 테이블 요소 찾기
-        table_elements = []
-        for elem in root.iter():
-            if elem.tag.endswith('}tbl'):
-                table_elements.append(elem)
+        # 템플릿의 테이블 파싱
+        tables = self.table_parser.parse_tables(template_data.path)
 
-        # 각 테이블에 머지 적용
-        for table_idx, addition_data_list in table_merge_data.items():
-            if table_idx >= len(table_elements):
+        for plan in plans:
+            if plan.table_idx >= len(tables):
                 continue
 
-            tbl_elem = table_elements[table_idx]
+            table_info = tables[plan.table_idx]
 
-            # tbl_elem을 직접 파싱하여 TableInfo 생성 (element 참조 일치)
-            table_info = self.table_parser._parse_table(tbl_elem)
-
-            # TableMerger를 사용하여 머지
+            # TableMerger로 병합
             merger = TableMerger(
                 format_add_content=self.format_content,
                 use_sdk_for_levels=self.use_sdk_for_levels,
                 add_formatter=self.add_formatter,
             )
             merger.base_table = table_info
-
-            # stub/gstub/input 기반 머지
-            merger.merge_with_stub(addition_data_list)
+            merger.merge_with_stub(plan.addition_data)
