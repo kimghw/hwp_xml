@@ -47,45 +47,15 @@ from .format_validator import (
     validate_and_fix, print_validation_result
 )
 
-# formatters 모듈 (YAML 설정 기반 포맷터)
+# formatters 모듈 (통합)
 from .formatters import (
     BaseFormatter,
-    BulletFormatter as RegexBulletFormatter,
-    CaptionFormatter as RegexCaptionFormatter,
+    BulletFormatter,
+    CaptionFormatter,
     BULLET_STYLES,
+    load_config,
+    FormatterConfig,
 )
-
-# SDK 기반 포맷터 (핵심)
-try:
-    from agent import (
-        BulletFormatter as SDKBulletFormatter,
-        CaptionFormatter as SDKCaptionFormatter,
-    )
-    HAS_SDK_FORMATTERS = True
-except ImportError:
-    HAS_SDK_FORMATTERS = False
-    SDKBulletFormatter = None
-    SDKCaptionFormatter = None
-
-# formatters 모듈 (YAML 설정)
-try:
-    from .formatters import (
-        load_config,
-        FormatterConfig,
-        BULLET_STYLES as FORMATTER_BULLET_STYLES,
-    )
-    HAS_FORMATTERS = True
-except ImportError:
-    HAS_FORMATTERS = False
-    FormatterConfig = None
-
-
-# 글머리 기호 순서 정의
-BULLET_ORDER = {
-    0: "■",  # 1단계: 네모
-    1: "●",  # 2단계: 원
-    2: "-",  # 3단계: 대시
-}
 
 
 @dataclass
@@ -100,31 +70,24 @@ class MergeReviewResult:
 
 
 class MergeReviewPipeline:
-    """병합 + 검토 파이프라인 (SDK 기반)"""
+    """병합 + 검토 파이프라인"""
 
     def __init__(
         self,
-        bullet_styles: Dict[int, str] = None,
-        caption_styles: Dict[str, str] = None,
-        config: 'FormatterConfig' = None,
-        use_sdk: bool = True,
+        config: Optional[FormatterConfig] = None,
         outline_formatter: Optional[BaseFormatter] = None,
         add_formatter: Optional[BaseFormatter] = None,
     ):
         """
         Args:
-            bullet_styles: 글머리 스타일 {level: symbol}
-            caption_styles: 캡션 스타일 {type: format}
             config: FormatterConfig 객체 (YAML 설정 사용 시)
-            use_sdk: SDK 포맷터 사용 여부 (기본: True)
             outline_formatter: 개요 본문용 포맷터 (BaseFormatter 상속)
             add_formatter: add_ 필드용 포맷터 (BaseFormatter 상속)
         """
-        self.use_sdk = use_sdk and HAS_SDK_FORMATTERS
         self.config = config
 
-        # YAML 설정에서 스타일 추출
-        if config is not None and HAS_FORMATTERS:
+        # 스타일 설정 (YAML 설정 또는 기본값)
+        if config is not None:
             self.bullet_style_name = config.bullet.style
             self.bullet_styles = self._extract_bullet_styles_from_config(config)
             self.caption_styles = {
@@ -133,27 +96,22 @@ class MergeReviewPipeline:
             }
         else:
             self.bullet_style_name = "filled"
-            self.bullet_styles = bullet_styles or BULLET_ORDER
-            self.caption_styles = caption_styles or {
+            self.bullet_styles = self._extract_bullet_styles_from_name("filled")
+            self.caption_styles = {
                 "table": "표 {num}. {title}",
                 "figure": "그림 {num}. {title}",
             }
 
-        # 포맷터 생성 (SDK 우선, fallback으로 정규식)
-        if self.use_sdk:
-            default_formatter = SDKBulletFormatter(style=self.bullet_style_name)
-            self._caption_formatter = SDKCaptionFormatter()
-            print(f"    [SDK] BulletFormatter 활성화 (style: {self.bullet_style_name})")
-        else:
-            default_formatter = RegexBulletFormatter(style=self.bullet_style_name)
-            self._caption_formatter = RegexCaptionFormatter()
-            print(f"    [정규식] BulletFormatter 활성화 (style: {self.bullet_style_name})")
+        # 포맷터 생성 (formatters 모듈 사용)
+        default_formatter = BulletFormatter(style=self.bullet_style_name)
+        self._caption_formatter = CaptionFormatter()
 
         # 개요/add_ 별도 포맷터 (지정 안하면 기본 포맷터 사용)
         self._outline_formatter = outline_formatter or default_formatter
         self._add_formatter = add_formatter or default_formatter
         self._bullet_formatter = default_formatter  # 기존 호환성 유지
 
+        print(f"    [BulletFormatter] style: {self.bullet_style_name}")
         if outline_formatter:
             print(f"    [개요용] {outline_formatter.get_style_name()} 포맷터")
         if add_formatter:
@@ -162,23 +120,26 @@ class MergeReviewPipeline:
         self.parser = HwpxParser()
         self.validator = FormatValidator(self.caption_styles, self.bullet_styles)
 
-    def _extract_bullet_styles_from_config(self, config: 'FormatterConfig') -> Dict[int, str]:
-        """FormatterConfig에서 글머리 스타일 추출"""
-        bullet_style = config.bullet.style
-        if bullet_style in BULLET_STYLES:
-            style_config = BULLET_STYLES[bullet_style]
+    def _extract_bullet_styles_from_name(self, style_name: str) -> Dict[int, str]:
+        """스타일 이름에서 글머리 스타일 추출"""
+        if style_name in BULLET_STYLES:
+            style_config = BULLET_STYLES[style_name]
             # symbol_tuple = (symbol, indent) → indent + symbol 형태로 반환
             return {
                 level: symbol_tuple[1] + symbol_tuple[0]
                 for level, symbol_tuple in style_config.items()
             }
-        return BULLET_ORDER
+        # 기본값: filled 스타일
+        return self._extract_bullet_styles_from_name("filled")
+
+    def _extract_bullet_styles_from_config(self, config: FormatterConfig) -> Dict[int, str]:
+        """FormatterConfig에서 글머리 스타일 추출"""
+        return self._extract_bullet_styles_from_name(config.bullet.style)
 
     @classmethod
     def from_config(
         cls,
-        config: 'FormatterConfig',
-        use_sdk: bool = True,
+        config: FormatterConfig,
         outline_formatter: Optional[BaseFormatter] = None,
         add_formatter: Optional[BaseFormatter] = None,
     ) -> 'MergeReviewPipeline':
@@ -187,7 +148,6 @@ class MergeReviewPipeline:
 
         Args:
             config: FormatterConfig 객체
-            use_sdk: SDK 포맷터 사용 여부 (기본: True)
             outline_formatter: 개요 본문용 포맷터 (BaseFormatter 상속)
             add_formatter: add_ 필드용 포맷터 (BaseFormatter 상속)
 
@@ -207,27 +167,23 @@ class MergeReviewPipeline:
         """
         return cls(
             config=config,
-            use_sdk=use_sdk,
             outline_formatter=outline_formatter,
             add_formatter=add_formatter,
         )
 
     @classmethod
-    def from_config_file(cls, config_path: Union[str, Path], use_sdk: bool = True) -> 'MergeReviewPipeline':
+    def from_config_file(cls, config_path: Union[str, Path]) -> 'MergeReviewPipeline':
         """
         YAML 설정 파일에서 파이프라인 생성
 
         Args:
             config_path: YAML 설정 파일 경로
-            use_sdk: SDK 포맷터 사용 여부 (기본: True)
 
         Returns:
             MergeReviewPipeline 인스턴스
         """
-        if not HAS_FORMATTERS:
-            raise ImportError("formatters 모듈을 import할 수 없습니다.")
         config = load_config(str(config_path))
-        return cls.from_config(config, use_sdk=use_sdk)
+        return cls.from_config(config)
 
     def _fix_bullets_in_tree(self, outline_tree, parent_level: int = -1) -> List[Dict]:
         """
@@ -279,21 +235,22 @@ class MergeReviewPipeline:
                     # SDK 분석 필요
                     paras_needing_analysis.append((i, para))
 
-            # 2. SDK로 레벨 분석 + 글머리 제거 (분석 필요한 문단만)
-            if paras_needing_analysis and self.use_sdk:
+            # 2. 레벨 분석 (자동 감지 사용)
+            if paras_needing_analysis:
                 texts_to_analyze = [para.text for _, para in paras_needing_analysis]
-                combined_text = '\n'.join(texts_to_analyze)
-
-                try:
-                    # SDK가 레벨과 글머리 제거된 텍스트를 함께 반환
-                    analyzed_levels, stripped_texts = self._bullet_formatter.analyze_and_strip(combined_text)
-                except Exception as e:
-                    print(f"    [SDK 오류] 분석 실패: {e}")
-                    analyzed_levels = [relative_depth] * len(texts_to_analyze)
-                    stripped_texts = [t.strip() for t in texts_to_analyze]
+                # 레벨 자동 감지
+                analyzed_levels = [
+                    self._bullet_formatter._detect_bullet_level(t.strip())
+                    if hasattr(self._bullet_formatter, '_detect_bullet_level')
+                    else relative_depth
+                    for t in texts_to_analyze
+                ]
+                # 감지 실패(-1)인 경우 기본값 사용
+                analyzed_levels = [l if l >= 0 else relative_depth for l in analyzed_levels]
+                stripped_texts = [t.strip() for t in texts_to_analyze]
             else:
-                analyzed_levels = [relative_depth] * len(paras_needing_analysis)
-                stripped_texts = [para.text.strip() for _, para in paras_needing_analysis]
+                analyzed_levels = []
+                stripped_texts = []
 
             # 3. 분석된 레벨에 맞는 글머리 적용 (outline_formatter 사용)
             if stripped_texts and analyzed_levels:
@@ -330,7 +287,6 @@ class MergeReviewPipeline:
                         'level': fix_level,
                         'original_text': para.text,
                         'new_text': new_text,
-                        'sdk_analyzed': self.use_sdk,
                         'formatter': self._outline_formatter.get_style_name(),
                     })
                     para.text = new_text
