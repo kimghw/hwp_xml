@@ -39,7 +39,7 @@ from .gstub_cell_splitter import GstubCellSplitter
 from .row_builder import RowBuilder
 from .formatter_config import TableFormatterConfigLoader
 from ..format_validator import AddFieldValidator
-from ..content_formatter import ContentFormatter
+from ..formatters import BaseFormatter, BulletFormatter
 
 for prefix, uri in NAMESPACES.items():
     ET.register_namespace(prefix, uri)
@@ -56,6 +56,7 @@ class TableMerger:
         use_formatter: bool = True,
         format_add_content: bool = True,
         use_sdk_for_levels: bool = True,
+        add_formatter: Optional[BaseFormatter] = None,
     ):
         """
         Args:
@@ -65,6 +66,7 @@ class TableMerger:
             use_formatter: True면 add_ 필드에 포맷터 적용
             format_add_content: True면 add_ 필드에 글머리 기호 포맷팅 적용
             use_sdk_for_levels: True면 SDK로 레벨 분석 (format_add_content=True일 때)
+            add_formatter: add_ 필드용 포맷터 (BaseFormatter 상속, 지정 시 format_add_content 무시)
         """
         self.parser = TableParser()
         self.base_table: Optional[TableInfo] = None
@@ -83,9 +85,14 @@ class TableMerger:
         # add_ 필드 글머리 포맷터
         self.format_add_content = format_add_content
         self.use_sdk_for_levels = use_sdk_for_levels
-        self.content_formatter: Optional[ContentFormatter] = None
-        if format_add_content:
-            self.content_formatter = ContentFormatter(style="default", use_sdk=use_sdk_for_levels)
+
+        # BaseFormatter 주입 시 우선 사용
+        if add_formatter:
+            self.add_formatter: Optional[BaseFormatter] = add_formatter
+        elif format_add_content:
+            self.add_formatter = BulletFormatter(style="default")
+        else:
+            self.add_formatter = None
 
     def load_base_table(self, hwpx_path: Union[str, Path], table_index: int = 0):
         """
@@ -502,18 +509,15 @@ class TableMerger:
             # 필드별 구분자 초기화 (기본값으로 리셋)
             field_separator = separator
 
-            # 1. 글머리 기호 포맷팅 적용 (format_add_content=True인 경우)
-            # SDK가 글머리 제거 + 레벨 분석 + 글머리 재적용을 담당
-            sdk_formatted = False
-            if self.format_add_content and self.content_formatter:
-                if self.use_sdk_for_levels:
-                    result = self.content_formatter.format_with_analyzed_levels(value)
-                else:
-                    result = self.content_formatter.auto_format(value, use_sdk_for_levels=False)
-
+            # 1. 글머리 기호 포맷팅 적용 (add_formatter가 있는 경우)
+            # BaseFormatter.format_text로 포맷팅 수행
+            formatter_applied = False
+            if self.add_formatter:
+                # 줄 단위로 분리하여 레벨 자동 감지 후 포맷팅
+                result = self.add_formatter.format_text(value, auto_detect=True)
                 if result.success and result.formatted_text:
                     value = result.formatted_text
-                    sdk_formatted = True
+                    formatter_applied = True
 
             # 2. 포맷터 적용 (use_formatter=True인 경우)
             # SDK가 이미 글머리 포맷팅을 했으면 구분자만 적용
@@ -524,8 +528,8 @@ class TableMerger:
                 if field_config.separator:
                     field_separator = field_config.separator
 
-                # SDK가 포맷팅하지 않은 경우에만 포맷터 적용
-                if not sdk_formatted:
+                # add_formatter가 포맷팅하지 않은 경우에만 포맷터 적용
+                if not formatter_applied:
                     value = self.formatter_loader.format_value(field_name, value)
 
             # 3. 형식 검증 (validate_format=True인 경우)

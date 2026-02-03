@@ -16,21 +16,29 @@ from pathlib import Path
 from .table import TableParser, TableMerger
 from .table.row_extractor import RowExtractor
 from .models import HwpxData
+from .formatters import BaseFormatter
 
 
 class TableMergeHandler:
     """테이블 병합 처리기"""
 
-    def __init__(self, format_content: bool = True, use_sdk_for_levels: bool = True):
+    def __init__(
+        self,
+        format_content: bool = True,
+        use_sdk_for_levels: bool = True,
+        add_formatter: Optional[BaseFormatter] = None,
+    ):
         """
         Args:
             format_content: add_ 필드에 글머리 기호 포맷팅 적용 여부
             use_sdk_for_levels: SDK로 레벨 분석 여부
+            add_formatter: add_ 필드용 포맷터 (BaseFormatter 상속)
         """
         self.table_parser = TableParser()
         self.row_extractor = RowExtractor()
         self.format_content = format_content
         self.use_sdk_for_levels = use_sdk_for_levels
+        self.add_formatter = add_formatter
 
         # 기준 파일의 테이블 필드명 캐시: {field_name: [table_index, ...]}
         self._base_table_fields: Dict[str, List[int]] = {}
@@ -144,6 +152,7 @@ class TableMergeHandler:
             merger = TableMerger(
                 format_add_content=self.format_content,
                 use_sdk_for_levels=self.use_sdk_for_levels,
+                add_formatter=self.add_formatter,
             )
             merger.base_table = table_info
 

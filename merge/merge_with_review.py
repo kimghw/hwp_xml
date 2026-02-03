@@ -49,6 +49,7 @@ from .format_validator import (
 
 # formatters 모듈 (YAML 설정 기반 포맷터)
 from .formatters import (
+    BaseFormatter,
     BulletFormatter as RegexBulletFormatter,
     CaptionFormatter as RegexCaptionFormatter,
     BULLET_STYLES,
@@ -106,7 +107,9 @@ class MergeReviewPipeline:
         bullet_styles: Dict[int, str] = None,
         caption_styles: Dict[str, str] = None,
         config: 'FormatterConfig' = None,
-        use_sdk: bool = True
+        use_sdk: bool = True,
+        outline_formatter: Optional[BaseFormatter] = None,
+        add_formatter: Optional[BaseFormatter] = None,
     ):
         """
         Args:
@@ -114,6 +117,8 @@ class MergeReviewPipeline:
             caption_styles: 캡션 스타일 {type: format}
             config: FormatterConfig 객체 (YAML 설정 사용 시)
             use_sdk: SDK 포맷터 사용 여부 (기본: True)
+            outline_formatter: 개요 본문용 포맷터 (BaseFormatter 상속)
+            add_formatter: add_ 필드용 포맷터 (BaseFormatter 상속)
         """
         self.use_sdk = use_sdk and HAS_SDK_FORMATTERS
         self.config = config
@@ -136,13 +141,23 @@ class MergeReviewPipeline:
 
         # 포맷터 생성 (SDK 우선, fallback으로 정규식)
         if self.use_sdk:
-            self._bullet_formatter = SDKBulletFormatter(style=self.bullet_style_name)
+            default_formatter = SDKBulletFormatter(style=self.bullet_style_name)
             self._caption_formatter = SDKCaptionFormatter()
             print(f"    [SDK] BulletFormatter 활성화 (style: {self.bullet_style_name})")
         else:
-            self._bullet_formatter = RegexBulletFormatter(style=self.bullet_style_name)
+            default_formatter = RegexBulletFormatter(style=self.bullet_style_name)
             self._caption_formatter = RegexCaptionFormatter()
             print(f"    [정규식] BulletFormatter 활성화 (style: {self.bullet_style_name})")
+
+        # 개요/add_ 별도 포맷터 (지정 안하면 기본 포맷터 사용)
+        self._outline_formatter = outline_formatter or default_formatter
+        self._add_formatter = add_formatter or default_formatter
+        self._bullet_formatter = default_formatter  # 기존 호환성 유지
+
+        if outline_formatter:
+            print(f"    [개요용] {outline_formatter.get_style_name()} 포맷터")
+        if add_formatter:
+            print(f"    [add_용] {add_formatter.get_style_name()} 포맷터")
 
         self.parser = HwpxParser()
         self.validator = FormatValidator(self.caption_styles, self.bullet_styles)
@@ -160,23 +175,42 @@ class MergeReviewPipeline:
         return BULLET_ORDER
 
     @classmethod
-    def from_config(cls, config: 'FormatterConfig', use_sdk: bool = True) -> 'MergeReviewPipeline':
+    def from_config(
+        cls,
+        config: 'FormatterConfig',
+        use_sdk: bool = True,
+        outline_formatter: Optional[BaseFormatter] = None,
+        add_formatter: Optional[BaseFormatter] = None,
+    ) -> 'MergeReviewPipeline':
         """
         YAML 설정에서 파이프라인 생성
 
         Args:
             config: FormatterConfig 객체
             use_sdk: SDK 포맷터 사용 여부 (기본: True)
+            outline_formatter: 개요 본문용 포맷터 (BaseFormatter 상속)
+            add_formatter: add_ 필드용 포맷터 (BaseFormatter 상속)
 
         Returns:
             MergeReviewPipeline 인스턴스
 
         사용 예:
-            from merge.formatters import load_config
+            from merge.formatters import load_config, BulletFormatter
             config = load_config("formatter_config.yaml")
-            pipeline = MergeReviewPipeline.from_config(config)
+
+            # 개요와 add_에 다른 스타일 적용
+            pipeline = MergeReviewPipeline.from_config(
+                config,
+                outline_formatter=BulletFormatter(style="default"),
+                add_formatter=BulletFormatter(style="filled"),
+            )
         """
-        return cls(config=config, use_sdk=use_sdk)
+        return cls(
+            config=config,
+            use_sdk=use_sdk,
+            outline_formatter=outline_formatter,
+            add_formatter=add_formatter,
+        )
 
     @classmethod
     def from_config_file(cls, config_path: Union[str, Path], use_sdk: bool = True) -> 'MergeReviewPipeline':
@@ -261,35 +295,43 @@ class MergeReviewPipeline:
                 analyzed_levels = [relative_depth] * len(paras_needing_analysis)
                 stripped_texts = [para.text.strip() for _, para in paras_needing_analysis]
 
-            # 3. 분석된 레벨에 맞는 글머리 적용
+            # 3. 분석된 레벨에 맞는 글머리 적용 (outline_formatter 사용)
+            if stripped_texts and analyzed_levels:
+                # outline_formatter.format_with_levels 사용
+                format_result = self._outline_formatter.format_with_levels(
+                    stripped_texts, analyzed_levels
+                )
+                formatted_lines = format_result.formatted_text.split('\n') if format_result.success else []
+            else:
+                formatted_lines = []
+
             for idx, (para_idx, para) in enumerate(paras_needing_analysis):
-                if idx < len(analyzed_levels):
-                    level = analyzed_levels[idx]
+                if idx < len(formatted_lines) and formatted_lines[idx]:
+                    new_text = formatted_lines[idx]
                 else:
-                    level = relative_depth
-
-                level = max(0, min(level, 2))
-                expected_bullet = self.bullet_styles.get(level, '- ')
-
-                # SDK에서 받은 글머리 제거된 텍스트 사용
-                if idx < len(stripped_texts) and stripped_texts[idx]:
-                    clean_text = stripped_texts[idx]
-                else:
-                    # SDK 실패 시 원본 텍스트 사용
-                    clean_text = para.text.strip()
-
-                new_text = expected_bullet + clean_text
+                    # fallback: 기존 방식
+                    if idx < len(analyzed_levels):
+                        level = analyzed_levels[idx]
+                    else:
+                        level = relative_depth
+                    level = max(0, min(level, 2))
+                    expected_bullet = self.bullet_styles.get(level, '- ')
+                    clean_text = stripped_texts[idx] if idx < len(stripped_texts) else para.text.strip()
+                    new_text = expected_bullet + clean_text
 
                 # 원본과 다르면 수정 기록
                 if para.text.strip() != new_text.strip():
+                    # 레벨 정보 추출
+                    fix_level = analyzed_levels[idx] if idx < len(analyzed_levels) else relative_depth
+                    fix_level = max(0, min(fix_level, 2))
                     fixes.append({
                         'type': 'bullet_fix',
                         'para_index': para.index,
-                        'new_bullet': expected_bullet,
-                        'level': level,
+                        'level': fix_level,
                         'original_text': para.text,
                         'new_text': new_text,
                         'sdk_analyzed': self.use_sdk,
+                        'formatter': self._outline_formatter.get_style_name(),
                     })
                     para.text = new_text
                     self._update_element_text(para.element, new_text)
@@ -419,7 +461,8 @@ class MergeReviewPipeline:
             # 4. 병합된 파일 생성 (수정된 트리 사용)
             print("[4/4] 병합 파일 생성 중...")
             # format_content=False: 이미 _fix_bullets_in_tree에서 글머리 적용했으므로 중복 방지
-            merger = HwpxMerger(format_content=False)
+            # add_formatter: 테이블 add_ 필드용 포맷터 전달
+            merger = HwpxMerger(format_content=False, add_formatter=self._add_formatter)
             for data in hwpx_data_list:
                 merger.hwpx_data_list.append(data)
 

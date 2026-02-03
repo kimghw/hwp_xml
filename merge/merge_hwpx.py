@@ -32,6 +32,7 @@ from .outline import (
 )
 from .merge_table import TableMergeHandler
 from .content_formatter import ContentFormatter
+from .formatters import BaseFormatter
 
 # 네임스페이스 등록
 for prefix, uri in NAMESPACES.items():
@@ -41,11 +42,17 @@ for prefix, uri in NAMESPACES.items():
 class HwpxMerger:
     """HWPX 파일 병합"""
 
-    def __init__(self, format_content: bool = True, use_sdk_for_levels: bool = True):
+    def __init__(
+        self,
+        format_content: bool = True,
+        use_sdk_for_levels: bool = True,
+        add_formatter: Optional[BaseFormatter] = None,
+    ):
         """
         Args:
             format_content: 내용 문단에 글머리 기호 양식 적용 여부
             use_sdk_for_levels: SDK로 계층 레벨 분석 여부 (True: SDK 사용, False: 정규식만)
+            add_formatter: add_ 필드용 포맷터 (BaseFormatter 상속)
         """
         self.hwpx_data_list: List[HwpxData] = []
         self.parser = HwpxParser()
@@ -53,11 +60,14 @@ class HwpxMerger:
         self._template_path: Optional[Path] = None  # 템플릿 파일 경로 (정규화)
         self.format_content = format_content
         self.use_sdk_for_levels = use_sdk_for_levels
+        self.add_formatter = add_formatter
         self.content_formatter = ContentFormatter(style="default", use_sdk=use_sdk_for_levels) if format_content else None
         # 템플릿의 기존 글머리 포맷 예시 (SDK 참고용)
         self._existing_format: Optional[str] = None
-        # 테이블 병합 처리기
-        self.table_handler = TableMergeHandler(format_content, use_sdk_for_levels)
+        # 테이블 병합 처리기 (add_formatter 전달)
+        self.table_handler = TableMergeHandler(
+            format_content, use_sdk_for_levels, add_formatter=add_formatter
+        )
 
     def add_file(self, hwpx_path: Union[str, Path]):
         """병합할 파일 추가"""

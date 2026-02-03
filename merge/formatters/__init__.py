@@ -5,6 +5,13 @@
 글머리 기호, 캡션 등의 양식 변환을 정규식으로 처리합니다.
 SDK 사용이 필요한 경우 agent 모듈을 사용하세요.
 
+포맷터 구조:
+    BaseFormatter (추상 인터페이스)
+        ├── BulletFormatter (글머리 기호)
+        └── (확장 가능: NumberedFormatter, CustomFormatter 등)
+
+    개요(outline)와 본문(add_)에 각각 다른 formatter를 적용할 수 있습니다.
+
 YAML 설정 파일 기반 포맷팅:
     from merge.formatters import load_config, BulletFormatter, CaptionFormatter
 
@@ -18,10 +25,13 @@ YAML 설정 파일 기반 포맷팅:
     caption_fmt = CaptionFormatter()
 """
 
+from .base_formatter import (
+    BaseFormatter,
+    FormatResult,
+)
 from .bullet_formatter import (
     BulletFormatter,
     BulletItem,
-    FormatResult,
     BULLET_STYLES,
 )
 from .caption_formatter import (
@@ -46,10 +56,13 @@ from .config_loader import (
 )
 
 __all__ = [
+    # 기본 인터페이스
+    'BaseFormatter',
+    'FormatResult',
+
     # 글머리 기호 변환
     'BulletFormatter',
     'BulletItem',
-    'FormatResult',
     'BULLET_STYLES',
 
     # 캡션 변환

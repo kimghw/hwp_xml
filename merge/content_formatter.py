@@ -1,18 +1,20 @@
 # -*- coding: utf-8 -*-
 """
-개요 내용 양식 변환 모듈
+개요 내용 양식 변환 모듈 (SDK 레벨 분석 래퍼)
 
-글머리 기호 양식 변환 기능을 제공합니다.
-- 정규식만 사용: merge.formatters.BulletFormatter
-- SDK 사용: agent.BulletFormatter
+이 모듈은 SDK 기반 레벨 분석 기능을 제공합니다.
+- 기본 포맷팅: formatters/bullet_formatter.py (BaseFormatter 상속)
+- SDK 레벨 분석: agent.BulletFormatter
 
-예: " □ 안녕하세요. 삼\n   ○안녕하세요. 이\n    - 안녕하세요.일"
+SDK 없이 포맷팅만 필요하면 formatters.BulletFormatter를 직접 사용하세요:
+    from merge.formatters import BulletFormatter
+    formatter = BulletFormatter(style="default")
+    result = formatter.format_text(text)
 
-사용 예:
+SDK 레벨 분석이 필요하면 이 모듈을 사용:
     from merge.content_formatter import ContentFormatter
-
-    formatter = ContentFormatter()
-    formatted = formatter.format_as_bullet_list("항목1\n항목2\n항목3", levels=[0, 1, 2])
+    formatter = ContentFormatter(use_sdk=True)
+    result = formatter.format_with_analyzed_levels(text)
 """
 
 import re

@@ -12,6 +12,8 @@ import re
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
+from .base_formatter import BaseFormatter, FormatResult
+
 
 # 글머리 기호 스타일 정의
 BULLET_STYLES = {
@@ -42,14 +44,7 @@ BULLET_STYLES = {
 }
 
 
-@dataclass
-class FormatResult:
-    """형식 변환 결과"""
-    success: bool = True
-    original_text: str = ""
-    formatted_text: str = ""
-    changes: List[str] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
+# FormatResult는 base_formatter에서 import
 
 
 @dataclass
@@ -61,11 +56,12 @@ class BulletItem:
     indent: str = ""
 
 
-class BulletFormatter:
+class BulletFormatter(BaseFormatter):
     """
     글머리 기호 양식 변환기 (정규식 기반)
 
     정규식을 사용하여 내용을 글머리 양식으로 변환합니다.
+    BaseFormatter를 상속하여 개요/본문에 다른 스타일 적용 가능.
     """
 
     def __init__(self, style: str = "default"):
@@ -75,6 +71,52 @@ class BulletFormatter:
         """
         self.style = style
         self.bullet_config = BULLET_STYLES.get(style, BULLET_STYLES["default"])
+
+    def format_with_levels(
+        self,
+        texts: List[str],
+        levels: List[int]
+    ) -> FormatResult:
+        """
+        레벨이 지정된 텍스트에 글머리 기호 적용
+
+        SDK에서 분석한 레벨과 텍스트를 받아서 글머리 기호를 적용합니다.
+
+        Args:
+            texts: 각 줄의 텍스트 리스트 (글머리 제거된 순수 텍스트)
+            levels: 각 줄의 레벨 리스트 [0, 1, 2, ...]
+
+        Returns:
+            FormatResult: 변환 결과
+        """
+        if not texts:
+            return FormatResult(success=True, formatted_text="", changes=[])
+
+        original_text = '\n'.join(texts)
+        formatted_lines = []
+        changes = []
+
+        # 레벨 개수 맞추기
+        while len(levels) < len(texts):
+            levels.append(levels[-1] if levels else 0)
+
+        for i, (text, level) in enumerate(zip(texts, levels)):
+            text = text.strip()
+            if not text:
+                formatted_lines.append("")
+                continue
+
+            bullet, indent = self._get_bullet_for_level(level)
+            formatted_line = f"{indent}{bullet}{text}"
+            formatted_lines.append(formatted_line)
+            changes.append(f"줄 {i+1}: 레벨 {level} 글머리 적용")
+
+        return FormatResult(
+            success=True,
+            original_text=original_text,
+            formatted_text='\n'.join(formatted_lines),
+            changes=changes
+        )
 
     def format_text(
         self,
@@ -227,6 +269,14 @@ class BulletFormatter:
             return True
 
         return False
+
+    def has_format(self, text: str) -> bool:
+        """텍스트에 이미 글머리 포맷이 적용되어 있는지 확인 (BaseFormatter 구현)"""
+        return self.has_bullet(text)
+
+    def get_style_name(self) -> str:
+        """현재 스타일 이름 반환 (BaseFormatter 구현)"""
+        return self.style
 
     def parse_items(self, text: str) -> List[BulletItem]:
         """글머리 기호 목록 파싱"""
