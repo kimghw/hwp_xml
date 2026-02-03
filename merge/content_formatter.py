@@ -311,19 +311,7 @@ class OutlineContentFormatter:
 
     def _has_bullet(self, text: str) -> bool:
         """텍스트에 글머리 기호가 있는지 확인"""
-        text = text.strip()
-        if not text:
-            return False
-
-        bullet_chars = '□■◆◇○●◎•-–—·∙'
-        first_char = text[0] if text else ''
-        if first_char in bullet_chars:
-            return True
-
-        if re.match(r'^\d+[.)]\s', text):
-            return True
-
-        return False
+        return self.formatter._regex_formatter.has_bullet(text)
 
 
 def format_text_interactive(text: str) -> str:
