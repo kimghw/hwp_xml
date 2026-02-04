@@ -1,0 +1,36 @@
+# -*- coding: utf-8 -*-
+# 캡션 양식 변환 프롬프트
+
+extract_title: |
+  다음 캡션에서 제목(설명)만 추출해주세요.
+
+  규칙:
+  - "그림 1. 테스트 이미지" → "테스트 이미지"
+  - "표 2. 연구 결과" → "연구 결과"
+  - "Figure 3. Sample Data" → "Sample Data"
+  - "Figure3-Sample Data" → "Sample Data"
+  - "Table1:Results" → "Results"
+  - 번호와 유형 키워드(그림, 표, 식, Figure, Table, Equation 등)를 제거
+  - 구분자(., -, :, 공백)도 제거
+  - 제목 부분만 반환
+
+  중요:
+  1. 제목만 반환하세요.
+  2. 설명이나 코멘트를 추가하지 마세요.
+  3. 추출이 불가능하면 빈 문자열을 반환하세요.
+
+analyze_type: |
+  다음 캡션의 유형을 분석해주세요.
+
+  유형:
+  - figure: 그림, Figure, Fig, 이미지, Image
+  - table: 표, Table, Tbl
+  - equation: 식, Equation, Eq, 수식
+
+  반환 형식:
+  figure, table, equation 중 하나만 반환
+
+  캡션:
+  {text}
+
+  유형:

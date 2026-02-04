@@ -371,24 +371,27 @@ class FormatFixer:
         개요 트리에서 글머리 기호 수정 (SDK 레벨 분석 사용)
 
         규칙:
-        - SDK로 텍스트 레벨 분석 후 글머리 기호 적용
-        - 개요 3단계: 네모(■) → 원(●) → 대시(-)
+        - 마지막 개요(자식 없는 노드)의 본문에만 글머리 적용
+        - 개요 문단 자체에는 글머리 적용 안 함
+        - add_ 필드는 테이블 병합에서 별도 처리
         """
         fixes = []
 
         for node in outline_tree:
-            # 현재 노드의 상대적 깊이 계산 (부모 기준)
-            if parent_level < 0:
-                relative_depth = 0
-            else:
-                relative_depth = node.level - parent_level
-            relative_depth = max(0, min(relative_depth, 2))  # 0~2 범위로 제한
+            # 하위 개요가 있으면 먼저 재귀 처리
+            if node.children:
+                child_fixes = self.fix_bullets_in_tree(node.children, node.level)
+                fixes.extend(child_fixes)
+                # 자식이 있는 노드는 본문에 글머리 적용 안 함
+                continue
 
-            # 노드의 문단들 텍스트 수집
-            para_texts = []
-            for para in node.paragraphs:
-                if para.text:
-                    para_texts.append(para.text)
+            # 마지막 개요(leaf node)만 본문에 글머리 적용
+            # 노드의 문단들 텍스트 수집 (개요 문단 제외)
+            content_paras = [p for p in node.paragraphs if not p.is_outline and p.text]
+            if not content_paras:
+                continue
+
+            para_texts = [p.text for p in content_paras]
 
             # SDK로 레벨 분석
             if self.use_sdk and self._bullet_formatter and para_texts:
@@ -397,33 +400,28 @@ class FormatFixer:
                     analyzed_levels = self._bullet_formatter.analyze_levels(combined_text)
                 except Exception as e:
                     print(f"    [SDK 오류] 레벨 분석 실패: {e}")
-                    analyzed_levels = [relative_depth] * len(para_texts)
+                    analyzed_levels = [0] * len(para_texts)
             else:
-                analyzed_levels = [relative_depth] * len(para_texts)
+                analyzed_levels = [0] * len(para_texts)
 
-            # 각 문단에 분석된 레벨 적용
-            for i, para in enumerate(node.paragraphs):
-                if not para.text:
-                    continue
-
-                # SDK 분석 레벨 또는 기본 레벨 사용
-                if i < len(analyzed_levels):
-                    level = analyzed_levels[i]
-                else:
-                    level = relative_depth
-
-                # 레벨 범위 제한 (0~2)
-                level = max(0, min(level, 2))
+            # 각 내용 문단에 분석된 레벨 적용
+            for i, para in enumerate(content_paras):
+                # SDK 분석 레벨 사용
+                level = analyzed_levels[i] if i < len(analyzed_levels) else 0
+                level = max(0, min(level, 2))  # 0~2 범위로 제한
                 expected_bullet = self.bullet_styles.get(level, '-')
 
-                # 기존 글머리 기호 확인
-                first_char = para.text[0] if para.text else ''
-                bullet_chars = ['■', '□', '●', '○', '-', '‑', '–', '◆', '◇', '•', '·']
+                # 기존 글머리 기호 확인 (앞 공백 무시)
+                stripped_text = para.text.lstrip() if para.text else ''
+                first_char = stripped_text[0] if stripped_text else ''
+                bullet_chars = ['■', '□', '●', '○', '-', '‑', '–', '◆', '◇', '•', '·', '▶', '▷']
 
                 if first_char in bullet_chars:
                     # 기존 글머리가 있으면 교체
+                    # 글머리 뒤 공백까지 제거한 순수 텍스트 추출
+                    pure_text = stripped_text[1:].lstrip()
                     if first_char != expected_bullet:
-                        new_text = expected_bullet + para.text[1:]
+                        new_text = expected_bullet + ' ' + pure_text
                         fixes.append({
                             'type': 'bullet_fix',
                             'para_index': para.index,
@@ -438,7 +436,7 @@ class FormatFixer:
                         self._update_element_text(para.element, new_text)
                 else:
                     # 글머리가 없으면 추가
-                    new_text = expected_bullet + ' ' + para.text
+                    new_text = expected_bullet + ' ' + para.text.lstrip()
                     fixes.append({
                         'type': 'bullet_add',
                         'para_index': para.index,
@@ -450,11 +448,6 @@ class FormatFixer:
                     })
                     para.text = new_text
                     self._update_element_text(para.element, new_text)
-
-            # 하위 개요 재귀 처리
-            if node.children:
-                child_fixes = self.fix_bullets_in_tree(node.children, node.level)
-                fixes.extend(child_fixes)
 
         return fixes
 

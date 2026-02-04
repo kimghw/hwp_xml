@@ -159,10 +159,8 @@ class ContentFormatter:
         if self._sdk_formatter and hasattr(self._sdk_formatter, 'analyze_and_strip'):
             levels, stripped_texts = self._sdk_formatter.analyze_and_strip(text, existing_format)
             if stripped_texts:
-                # 글머리 제거된 텍스트를 줄바꿈으로 합침
-                clean_text = '\n'.join(stripped_texts)
-                # 정규식으로 글머리 기호 적용
-                result = self._regex_formatter.format_text(clean_text, levels=levels, auto_detect=False)
+                # 정규식으로 글머리 기호 적용 (format_with_levels 사용)
+                result = self._regex_formatter.format_with_levels(stripped_texts, levels)
                 if result.success:
                     result.changes = ["SDK로 레벨 분석 및 글머리 제거 후 재적용"]
                 return result

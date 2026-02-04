@@ -23,8 +23,17 @@ from .format_validator import (
     FormatValidator, ValidationResult, FormatFixer, print_validation_result
 )
 from .formatters import (
-    BaseFormatter, BulletFormatter, CaptionFormatter, load_config, FormatterConfig
+    BaseFormatter, CaptionFormatter, load_config, FormatterConfig
 )
+from .formatters import BulletFormatter as RegexBulletFormatter
+from .table.formatter_config import TableFormatterConfigLoader
+
+# SDK 기반 BulletFormatter 사용 (fallback: 정규식)
+try:
+    from agent.bullet_formatter import BulletFormatter as SDKBulletFormatter
+    BulletFormatter = SDKBulletFormatter
+except ImportError:
+    BulletFormatter = RegexBulletFormatter
 
 
 @dataclass
@@ -55,31 +64,54 @@ class MergePipeline:
         """
         self.config = config
 
-        # 스타일 설정 (YAML 설정 또는 기본값)
-        if config is not None:
+        # table_formatter_config.yaml 로드 (bullet style 우선)
+        self._table_formatter_loader = TableFormatterConfigLoader()
+        self._table_formatter_loader.load()
+        table_config = self._table_formatter_loader.config
+
+        # 스타일 설정: table_formatter_config.yaml 우선, 없으면 FormatterConfig, 기본값
+        if table_config.bullet_style:
+            self.bullet_style_name = table_config.bullet_style
+        elif config is not None:
             self.bullet_style_name = config.bullet.style
-            self.bullet_styles = BulletFormatter.get_bullet_dict_by_name(config.bullet.style)
+        else:
+            self.bullet_style_name = "default"
+
+        self.bullet_styles = RegexBulletFormatter.get_bullet_dict_by_name(self.bullet_style_name)
+
+        # 캡션 스타일 (FormatterConfig 또는 기본값)
+        if config is not None:
             self.caption_styles = {
                 "table": f"{config.table_caption.type_prefix} {{num}}{config.table_caption.separator}{{title}}",
                 "figure": f"{config.image_caption.type_prefix} {{num}}{config.image_caption.separator}{{title}}",
             }
         else:
-            self.bullet_style_name = "filled"
-            self.bullet_styles = BulletFormatter.get_bullet_dict_by_name("filled")
             self.caption_styles = {
                 "table": "표 {num}. {title}",
                 "figure": "그림 {num}. {title}",
             }
 
-        # 포맷터 생성 (formatters 모듈 사용)
-        default_formatter = BulletFormatter(style=self.bullet_style_name)
+        # 포맷터 생성 (table_formatter_config.yaml의 bullet.style 사용)
+        # YAML에서 로드한 커스텀 스타일 전달
+        # 본문용 포맷터 (context="body")
+        body_formatter = BulletFormatter(
+            style=self.bullet_style_name,
+            custom_styles=table_config.bullet_styles,
+            context="body"
+        )
+        # 테이블용 포맷터 (context="table")
+        table_formatter = BulletFormatter(
+            style=self.bullet_style_name,
+            custom_styles=table_config.bullet_styles,
+            context="table"
+        )
         self._caption_formatter = CaptionFormatter()
 
-        # 개요/add_ 별도 포맷터 (지정 안하면 기본 포맷터 사용)
-        self._outline_formatter = outline_formatter or default_formatter
-        self._add_formatter = add_formatter or default_formatter
+        # 개요용은 본문 포맷터, add_용은 테이블 포맷터 사용
+        self._outline_formatter = outline_formatter or body_formatter
+        self._add_formatter = add_formatter or table_formatter
 
-        print(f"    [BulletFormatter] style: {self.bullet_style_name}")
+        print(f"    [BulletFormatter] style: {self.bullet_style_name} (from table_formatter_config.yaml)")
         if outline_formatter:
             print(f"    [개요용] {outline_formatter.get_style_name()} 포맷터")
         if add_formatter:
@@ -189,6 +221,8 @@ class MergePipeline:
             merger = HwpxMerger(format_content=False, add_formatter=self._add_formatter)
             for data in hwpx_data_list:
                 merger.hwpx_data_list.append(data)
+            # 테이블 필드 정보 공유 (Addition 테이블 문단 제외용)
+            merger.table_handler._base_table_fields = self._table_handler._base_table_fields
             merger.merge_with_tree(output_path, merged_tree)
             result.success = True
 

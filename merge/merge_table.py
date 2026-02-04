@@ -134,6 +134,55 @@ class TableMergeHandler:
         # 가장 많이 일치하는 테이블 반환
         return max(matching_tables, key=matching_tables.get)
 
+    def extract_table_data(self, tbl_elem, fields: Set[str]) -> List[Dict[str, str]]:
+        """
+        테이블 요소에서 행 데이터 추출
+
+        Args:
+            tbl_elem: 테이블 XML 요소
+            fields: 필드명 집합
+
+        Returns:
+            행 데이터 리스트 [{field_name: text}, ...]
+        """
+        row_data = self.row_extractor.extract_raw(tbl_elem)
+
+        # add_ 필드는 별도 수집 (모든 행에서)
+        # 나머지 필드는 행 데이터로 포함
+        result = []
+        add_data_collected = {}  # {field_name: [values]}
+
+        for row_idx in sorted(row_data.keys()):
+            row = row_data[row_idx]
+
+            # add_ 필드 분리
+            add_fields = {k: v for k, v in row.items() if k.startswith('add_') and v}
+            other_fields = {k: v for k, v in row.items() if not k.startswith('add_')}
+
+            # add_ 필드 수집
+            for field_name, value in add_fields.items():
+                if field_name not in add_data_collected:
+                    add_data_collected[field_name] = []
+                add_data_collected[field_name].append(value)
+
+            # Row 0은 add_ 필드만 (다른 필드는 헤더)
+            if row_idx == 0:
+                continue
+
+            # 다른 필드가 있으면 행 데이터로 추가
+            if other_fields:
+                result.append(other_fields)
+
+        # add_ 필드를 결과 맨 앞에 추가 (값들을 합침)
+        if add_data_collected:
+            combined_add = {}
+            for field_name, values in add_data_collected.items():
+                # 여러 행의 값을 하나로 합침 (이미 원본에 포맷 적용됨)
+                combined_add[field_name] = values[0] if len(values) == 1 else '\n'.join(values)
+            result.insert(0, combined_add)
+
+        return result
+
     def collect_and_merge(
         self,
         hwpx_data_list: List[HwpxData],
@@ -174,10 +223,20 @@ class TableMergeHandler:
 
         # 병합된 트리에서 테이블 문단 추출
         merged_paragraphs = flatten_outline_tree(merged_tree)
-
-        # Addition 파일들의 테이블 데이터 수집
         template_path = str(Path(template_data.path).resolve())
 
+        # 템플릿 테이블 요소 수집 (merged_tree 내의 요소 참조)
+        template_tables: List[Any] = []
+        for para in merged_paragraphs:
+            if not para.has_table:
+                continue
+            if str(Path(para.source_file).resolve()) != template_path:
+                continue
+            for tbl in para.element.iter():
+                if tbl.tag.endswith('}tbl'):
+                    template_tables.append(tbl)
+
+        # Addition 파일들의 테이블 데이터 수집
         for para in merged_paragraphs:
             if not para.has_table:
                 continue
@@ -216,36 +275,36 @@ class TableMergeHandler:
                         )
                         plans.append(plan)
 
-        # 템플릿 테이블에 병합 적용
-        self._apply_to_template_tables(template_data, plans)
+        # 템플릿 테이블에 병합 적용 (merged_tree 내의 요소 직접 수정)
+        self._apply_to_template_tables(template_tables, plans)
 
         return plans
 
     def _apply_to_template_tables(
         self,
-        template_data: HwpxData,
+        template_tables: List[Any],
         plans: List[TableMergePlan]
     ):
         """
         템플릿 테이블 요소에 직접 병합
 
         Args:
-            template_data: 템플릿 HWPX 데이터
+            template_tables: 템플릿 테이블 XML 요소 리스트 (merged_tree 내의 요소)
             plans: 테이블 병합 계획 리스트
         """
-        if not plans:
+        if not plans or not template_tables:
             return
 
-        # 템플릿의 테이블 파싱
-        tables = self.table_parser.parse_tables(template_data.path)
-
         for plan in plans:
-            if plan.table_idx >= len(tables):
+            if plan.table_idx >= len(template_tables):
                 continue
 
-            table_info = tables[plan.table_idx]
+            tbl_elem = template_tables[plan.table_idx]
 
-            # TableMerger로 병합
+            # tbl_elem을 직접 파싱하여 TableInfo 생성 (element 참조 유지)
+            table_info = self.table_parser._parse_table(tbl_elem)
+
+            # TableMerger로 병합 (tbl_elem에 직접 행 추가)
             merger = TableMerger(
                 format_add_content=self.format_content,
                 use_sdk_for_levels=self.use_sdk_for_levels,

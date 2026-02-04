@@ -16,33 +16,21 @@ HWPX 문서의 형식(캡션, 글머리 기호)을 Agent를 통해 검토합니�
 
 from pathlib import Path
 from typing import List, Union
+import yaml
 
 
-FORMAT_REVIEW_PROMPT = """당신은 HWPX 문서 형식 검토 전문가입니다.
+# YAML에서 프롬프트 로드
+def _load_prompts() -> dict:
+    """format_review.yaml에서 프롬프트 로드"""
+    yaml_path = Path(__file__).parent / "format_review.yaml"
+    if yaml_path.exists():
+        with open(yaml_path, 'r', encoding='utf-8') as f:
+            return yaml.safe_load(f)
+    return {}
 
-다음 규칙에 따라 문서 형식을 검토하세요:
+_PROMPTS = _load_prompts()
 
-## 캡션 스타일 규칙
-- 테이블: "표 N. 제목" 형식 (예: "표 1. 실험 결과")
-- 그림: "그림 N. 제목" 형식 (예: "그림 1. 시스템 구조도")
-
-## 개요 글머리 기호 규칙 (3단계)
-- 1단계: ■ (검정 네모)
-- 2단계: ● (검정 원)
-- 3단계: - (대시)
-
-## 검토 시 확인할 사항
-1. 모든 캡션이 표준 형식을 따르는지
-2. 글머리 기호가 계층 구조에 맞는지
-3. 번호가 연속적인지
-
-검토 결과를 JSON 형식으로 반환하세요:
-{
-    "is_valid": true/false,
-    "errors": [...],
-    "warnings": [...],
-    "suggestions": [...]
-}"""
+FORMAT_REVIEW_PROMPT = _PROMPTS.get('format_review_prompt', '')
 
 
 async def merge_with_review_async(

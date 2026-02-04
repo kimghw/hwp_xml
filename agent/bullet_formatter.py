@@ -10,6 +10,7 @@ Claude Code SDK를 사용하여 텍스트를 글머리 기호 양식으로 변�
 
 from dataclasses import dataclass, field
 from typing import List, Optional
+import yaml
 
 from .sdk import ClaudeSDK
 
@@ -25,88 +26,23 @@ from merge.formatters.bullet_formatter import (
 )
 
 
-# 기본 프롬프트 - 글머리 양식 변환
-DEFAULT_INSTRUCTION = """다음 내용을 개요 3단계 글머리 기호 양식으로 변환해주세요.
+# YAML에서 프롬프트 로드
+def _load_prompts() -> dict:
+    """bullet_formatter.yaml에서 프롬프트 로드"""
+    yaml_path = Path(__file__).parent / "bullet_formatter.yaml"
+    if yaml_path.exists():
+        with open(yaml_path, 'r', encoding='utf-8') as f:
+            return yaml.safe_load(f)
+    return {}
 
-글머리 기호 규칙:
-- 1단계: " □ " (공백 + 빈 네모 + 공백)
-- 2단계: "   ○" (공백 3개 + 빈 원)
-- 3단계: "    - " (공백 4개 + 대시 + 공백)
+_PROMPTS = _load_prompts()
 
-중요 규칙:
-1. 내용의 계층 구조를 파악하여 적절한 레벨을 지정해주세요.
-2. 변환된 텍스트만 반환하세요.
-3. 설명, 코멘트, 부가 설명을 절대 추가하지 마세요.
-4. 코드 블록(```)이나 백틱(`)을 사용하지 마세요.
-5. 원본 텍스트의 내용만 글머리 기호를 붙여 반환하세요."""
-
-# 레벨 분석 프롬프트
-LEVEL_ANALYSIS_INSTRUCTION = """다음 텍스트의 각 줄에 대해 계층 레벨(0, 1, 2)을 분석해주세요.
-
-레벨 기준:
-- 0: 최상위 항목, 주요 내용, 독립적인 항목
-- 1: 하위 항목, 세부 설명, 부연 설명
-- 2: 가장 하위 항목, 세부 사항, 예시
-
-분석 기준 (우선순위 순):
-1. 번호/구조 패턴 우선:
-   - "1.", "2.", "3." → 레벨 0
-   - "1.1", "1.2", "2.1" → 레벨 1
-   - "1.1.1", "1.2.3" → 레벨 2
-   - "가.", "나.", "다." → 레벨 1
-   - "(1)", "(2)", "(가)" → 레벨 2
-2. 들여쓰기: 들여쓰기가 많을수록 하위 레벨
-3. 기존 글머리 기호: □/■ → 0, ○/● → 1, -/· → 2
-4. 내용 의미: 상위 항목을 설명/보충하는 내용은 하위 레벨
-
-중요: 번호 패턴이 있으면 그 구조를 우선 따르세요.
-
-출력 형식:
-각 줄마다 레벨 번호만 출력 (0, 1, 2 중 하나)
-예시:
-0
-1
-1
-2
-0
-
-텍스트:
-{text}
-
-레벨 (숫자만):"""
-
-# 기존 포맷 참고 레벨 분석 프롬프트
-LEVEL_ANALYSIS_WITH_CONTEXT_INSTRUCTION = """다음 텍스트의 각 줄에 대해 계층 레벨(0, 1, 2)을 분석해주세요.
-
-레벨 기준:
-- 0: 최상위 항목 (□/■ 글머리)
-- 1: 하위 항목 (○/● 글머리)
-- 2: 가장 하위 항목 (-/· 글머리)
-
-**기존 문서의 포맷 예시** (이 패턴을 참고하세요):
-{existing_format}
-
-분석 기준 (우선순위 순):
-1. **기존 포맷 패턴 우선**: 위 예시와 유사한 구조/내용이면 같은 레벨 적용
-2. 번호/구조 패턴:
-   - "1.", "2.", "3." → 레벨 0
-   - "1.1", "1.2", "2.1" → 레벨 1
-   - "1.1.1", "1.2.3" → 레벨 2
-   - "가.", "나.", "다." → 레벨 1
-   - "(1)", "(2)", "(가)" → 레벨 2
-3. 들여쓰기: 들여쓰기가 많을수록 하위 레벨
-4. 기존 글머리 기호: □/■ → 0, ○/● → 1, -/· → 2
-5. 내용 의미: 상위 항목을 설명/보충하는 내용은 하위 레벨
-
-중요: 기존 포맷 예시가 있으면 그 스타일을 우선 따르세요.
-
-출력 형식:
-각 줄마다 레벨 번호만 출력 (0, 1, 2 중 하나)
-
-텍스트:
-{text}
-
-레벨 (숫자만):"""
+# 프롬프트 상수 (YAML에서 로드, fallback 포함)
+DEFAULT_INSTRUCTION = _PROMPTS.get('default_instruction', '')
+LEVEL_ANALYSIS_INSTRUCTION = _PROMPTS.get('level_analysis_instruction', '')
+LEVEL_ANALYSIS_WITH_CONTEXT_INSTRUCTION = _PROMPTS.get('level_analysis_with_context_instruction', '')
+BODY_ANALYZE_STRIP_INSTRUCTION = _PROMPTS.get('body_analyze_strip_instruction', '')
+TABLE_ANALYZE_STRIP_INSTRUCTION = _PROMPTS.get('table_analyze_strip_instruction', '')
 
 
 class BulletFormatter:
@@ -117,24 +53,44 @@ class BulletFormatter:
     SDK 호출 실패 시 정규식 기반 변환으로 fallback합니다.
     """
 
-    def __init__(self, style: str = "default", instruction: Optional[str] = None):
+    def __init__(
+        self,
+        style: str = "default",
+        instruction: Optional[str] = None,
+        custom_styles: Optional[dict] = None,
+        context: str = "body"
+    ):
         """
         Args:
             style: 글머리 스타일 ("default", "filled", "numbered")
             instruction: 커스텀 프롬프트 (None이면 기본 프롬프트 사용)
+            custom_styles: YAML에서 로드한 커스텀 스타일 {style_name: {level: (symbol, indent)}}
+            context: 사용 문맥 ("body": 본문, "table": 테이블 셀)
         """
         self.style = style
         self.instruction = instruction or DEFAULT_INSTRUCTION
+        self.context = context
         self.sdk = ClaudeSDK(timeout=30)
-        # 정규식 기반 포맷터 (fallback용)
-        self._regex_formatter = RegexBulletFormatter(style=style)
+        self._custom_styles = custom_styles
+        # 정규식 기반 포맷터 (fallback용, 커스텀 스타일 전달)
+        self._regex_formatter = RegexBulletFormatter(style=style, custom_styles=custom_styles)
 
-    def format_text(self, text: str) -> FormatResult:
+        # 문맥에 따른 analyze_and_strip 프롬프트 선택
+        if context == "table":
+            self._analyze_strip_instruction = TABLE_ANALYZE_STRIP_INSTRUCTION
+        else:
+            self._analyze_strip_instruction = BODY_ANALYZE_STRIP_INSTRUCTION
+
+    def format_text(self, text: str, auto_detect: bool = True) -> FormatResult:
         """
-        텍스트를 글머리 기호 양식으로 변환 (SDK 사용)
+        텍스트를 글머리 기호 양식으로 변환 (SDK 레벨 분석 + 정규식 적용)
+
+        SDK로 레벨만 분석하고, 글머리 기호는 정규식 포맷터로 적용합니다.
+        이렇게 하면 YAML 설정의 indent가 정확히 적용됩니다.
 
         Args:
             text: 변환할 텍스트 (줄바꿈으로 구분된 항목들)
+            auto_detect: 자동 레벨 감지 (SDK에서는 항상 SDK 기반 분석 사용)
 
         Returns:
             FormatResult: 변환 결과
@@ -147,25 +103,19 @@ class BulletFormatter:
                 changes=[]
             )
 
-        prompt = f"""{self.instruction}
+        # SDK로 레벨 분석 + 기존 글머리 제거
+        levels, stripped_texts = self.analyze_and_strip(text)
 
-변환할 내용:
-{text}
-"""
+        if levels and stripped_texts:
+            # 정규식 포맷터로 글머리 기호 적용 (YAML 설정의 indent 포함)
+            result = self._regex_formatter.format_with_levels(stripped_texts, levels)
+            if result.success:
+                print(f"    [BulletFormatter] SDK 성공")
+                return result
 
-        result = self.sdk.call(prompt)
-
-        if result.success and result.output:
-            cleaned = self._clean_response(result.output)
-            return FormatResult(
-                success=True,
-                original_text=text,
-                formatted_text=cleaned,
-                changes=["Claude SDK를 통한 양식 변환 완료"]
-            )
-        else:
-            # SDK 실패 시 정규식 기반 변환 사용
-            return self.format_basic(text)
+        # SDK 실패 시 정규식 기반 변환 사용
+        print(f"    [BulletFormatter] SDK FALLBACK → 정규식 사용")
+        return self.format_basic(text)
 
     def format_basic(
         self,
@@ -188,7 +138,7 @@ class BulletFormatter:
 
     def _clean_response(self, text: str) -> str:
         """SDK 응답에서 마크다운 코드 블록 및 불필요한 내용 제거"""
-        text = text.strip()
+        text = text.rstrip()  # 앞 공백(indent) 유지
 
         # ```로 시작하고 끝나는 경우 (코드 블록)
         if text.startswith('```') and text.endswith('```'):
@@ -224,7 +174,8 @@ class BulletFormatter:
         if result_lines:
             text = '\n'.join(result_lines)
 
-        return text.strip()
+        # 앞 공백(indent)은 유지, 뒤 공백만 제거
+        return text.rstrip()
 
     def analyze_and_strip(self, text: str, existing_format: Optional[str] = None) -> tuple:
         """
@@ -245,33 +196,8 @@ class BulletFormatter:
         if not lines:
             return [], []
 
-        # SDK에 레벨 분석 + 글머리 제거 요청
-        prompt = f"""NOTE: 글머리/번호만 제거하고 본문은 100% 보존할 것
-
-다음 텍스트의 각 줄을 분석해주세요.
-
-각 줄에 대해:
-1. 계층 레벨 (0, 1, 2) - 글머리/번호 패턴과 들여쓰기 기준
-2. 글머리/번호 제거한 순수 텍스트 (본문 그대로 유지)
-
-레벨 기준:
-- 0: □, ■, ▶, ▷, "1.", "가." 등 최상위
-- 1: ○, ●, "1.1", "1)", "(1)" 등 중간
-- 2: -, ·, "1.1.1", "(가)" 등 하위
-
-출력 형식 (각 줄마다):
-레벨|순수텍스트
-
-예시:
-0|프로젝트 개요
-1|세부 내용 설명
-2|상세 항목
-
-텍스트:
-{text}
-
-분석 결과:"""
-
+        # 문맥에 따른 프롬프트 사용 (본문/테이블)
+        prompt = self._analyze_strip_instruction.format(text=text)
         result = self.sdk.call(prompt)
 
         if result.success and result.output:
@@ -290,7 +216,19 @@ class BulletFormatter:
         levels = []
         stripped_texts = []
 
-        for line in response.strip().split('\n'):
+        # 코드 블록 제거
+        text = response.strip()
+        if '```' in text:
+            # 코드 블록 내용만 추출
+            import re
+            code_match = re.search(r'```\n?(.*?)\n?```', text, re.DOTALL)
+            if code_match:
+                text = code_match.group(1)
+            else:
+                # 코드 블록 마커만 제거
+                text = text.replace('```', '')
+
+        for line in text.split('\n'):
             line = line.strip()
             if '|' in line:
                 parts = line.split('|', 1)
@@ -341,9 +279,11 @@ class BulletFormatter:
 
         if result.success and result.output:
             levels = self._parse_level_response(result.output, len(lines))
+            print(f"    [BulletFormatter] analyze_levels SDK 성공")
             return levels
         else:
             # SDK 실패 시 정규식 기반 분석
+            print(f"    [BulletFormatter] analyze_levels FALLBACK → 정규식 (사유: {result.error})")
             return self._regex_formatter._detect_levels(lines)
 
     def _parse_level_response(self, response: str, expected_count: int) -> List[int]:
@@ -443,3 +383,12 @@ class BulletFormatter:
     def _remove_existing_bullet(self, line: str):
         """기존 글머리 기호 제거"""
         return self._regex_formatter._remove_existing_bullet(line)
+
+    # BaseFormatter 인터페이스 구현
+    def get_style_name(self) -> str:
+        """현재 스타일 이름 반환"""
+        return self.style
+
+    def has_format(self, text: str) -> bool:
+        """텍스트에 이미 글머리 포맷이 적용되어 있는지 확인"""
+        return self.has_bullet(text)

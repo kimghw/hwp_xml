@@ -64,13 +64,20 @@ class BulletFormatter(BaseFormatter):
     BaseFormatter를 상속하여 개요/본문에 다른 스타일 적용 가능.
     """
 
-    def __init__(self, style: str = "default"):
+    def __init__(self, style: str = "default", custom_styles: Optional[dict] = None):
         """
         Args:
             style: 글머리 스타일 ("default", "filled", "numbered")
+            custom_styles: YAML에서 로드한 커스텀 스타일 {style_name: {level: (symbol, indent)}}
         """
         self.style = style
-        self.bullet_config = BULLET_STYLES.get(style, BULLET_STYLES["default"])
+        self._custom_styles = custom_styles
+
+        # 커스텀 스타일 우선, 없으면 하드코딩된 스타일 사용
+        if custom_styles and style in custom_styles:
+            self.bullet_config = custom_styles[style]
+        else:
+            self.bullet_config = BULLET_STYLES.get(style, BULLET_STYLES["default"])
 
     def format_with_levels(
         self,
@@ -145,7 +152,7 @@ class BulletFormatter(BaseFormatter):
 
         original = text
         changes = []
-        lines = text.strip().split('\n')
+        lines = text.rstrip().split('\n')  # 앞 공백 유지, 뒤 공백만 제거
 
         # 레벨 결정
         if levels is None:
@@ -231,9 +238,13 @@ class BulletFormatter(BaseFormatter):
         if line.startswith(('-', '–', '—', '·', '∙')):
             return 2
 
-        # 숫자 글머리
-        if re.match(r'^\d+[.)]', line):
-            return 0
+        # 숫자 글머리 (소수점 개수로 레벨 판단)
+        # 1.2.3 → 레벨 2 (점 2개), 1.1 → 레벨 1 (점 1개), 1 → 레벨 0 (점 0개)
+        num_match = re.match(r'^(\d+(?:\.\d+)*)[.)]?\s*', line)
+        if num_match:
+            num_part = num_match.group(1)
+            dot_count = num_part.count('.')
+            return min(dot_count, 2)  # 최대 레벨 2
 
         return -1
 

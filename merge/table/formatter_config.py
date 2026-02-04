@@ -146,7 +146,12 @@ class TableFormatterConfigLoader:
 
             # 캐시된 포맷터 사용
             if style not in self._formatters:
-                self._formatters[style] = BulletFormatter(style=style)
+                # YAML에서 로드한 커스텀 스타일 전달
+                custom_styles = self._config.bullet_styles
+                self._formatters[style] = BulletFormatter(
+                    style=style,
+                    custom_styles=custom_styles
+                )
 
             return self._formatters[style]
 

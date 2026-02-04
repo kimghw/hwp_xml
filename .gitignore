@@ -34,5 +34,7 @@ extract_table_field_xml.hwpx
 *.hwp
 *.hwpx
 
-# Output YAML files
-*.yaml
+# Output YAML files (except agent prompts)
+/*.yaml
+/merge/**/*.yaml
+!/agent/*.yaml

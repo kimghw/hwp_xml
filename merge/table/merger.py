@@ -90,7 +90,16 @@ class TableMerger:
         if add_formatter:
             self.add_formatter: Optional[BaseFormatter] = add_formatter
         elif format_add_content:
-            self.add_formatter = BulletFormatter(style="default")
+            # YAML 설정 사용 (formatter_loader에서 커스텀 스타일 로드)
+            # context="table"로 테이블 셀용 instruction 사용
+            if self.formatter_loader and self.formatter_loader.config.bullet_styles:
+                self.add_formatter = BulletFormatter(
+                    style="default",
+                    custom_styles=self.formatter_loader.config.bullet_styles,
+                    context="table"
+                )
+            else:
+                self.add_formatter = BulletFormatter(style="default", context="table")
         else:
             self.add_formatter = None
 
@@ -331,8 +340,9 @@ class TableMerger:
             if field_name.startswith('input_'):
                 input_values[field_name] = value
 
-        if not input_values:
-            return  # input 데이터 없으면 스킵
+        # input 데이터 없거나 모두 빈 값이면 스킵
+        if not input_values or all(not v for v in input_values.values()):
+            return
 
         # 1. 빈 셀 먼저 채우기 시도 (gstub 범위 내)
         if fill_empty_first:
@@ -506,33 +516,21 @@ class TableMerger:
         field_styles = field_styles or {}
 
         for field_name, value in add_field_data.items():
-            # 필드별 구분자 초기화 (기본값으로 리셋)
+            # 필드별 구분자 설정
             field_separator = separator
-
-            # 1. 글머리 기호 포맷팅 적용 (add_formatter가 있는 경우)
-            # BaseFormatter.format_text로 포맷팅 수행
-            formatter_applied = False
-            if self.add_formatter:
-                # 줄 단위로 분리하여 레벨 자동 감지 후 포맷팅
-                result = self.add_formatter.format_text(value, auto_detect=True)
-                if result.success and result.formatted_text:
-                    value = result.formatted_text
-                    formatter_applied = True
-
-            # 2. 포맷터 적용 (use_formatter=True인 경우)
-            # SDK가 이미 글머리 포맷팅을 했으면 구분자만 적용
             if self.use_formatter and self.formatter_loader:
                 field_config = self.formatter_loader.get_config_for_field(field_name)
-
-                # 필드별 구분자 사용
                 if field_config.separator:
                     field_separator = field_config.separator
 
-                # add_formatter가 포맷팅하지 않은 경우에만 포맷터 적용
-                if not formatter_applied:
-                    value = self.formatter_loader.format_value(field_name, value)
+            # 글머리 기호 포맷팅 적용 (add_formatter가 있는 경우)
+            # SDK: 레벨 분석 + 기존 글머리 제거 → 정규식: 새 글머리 적용
+            if self.add_formatter:
+                result = self.add_formatter.format_text(value, auto_detect=True)
+                if result.success and result.formatted_text:
+                    value = result.formatted_text
 
-            # 3. 형식 검증 (validate_format=True인 경우)
+            # 형식 검증 (validate_format=True인 경우)
             if self.field_validator:
                 style = field_styles.get(field_name, "plain")
                 validation_result = self.field_validator.validate_add_content(
@@ -663,16 +661,15 @@ class TableMerger:
         if self.base_table is None:
             return None
 
-        # 템플릿 셀 찾기 (같은 열의 input_ 셀 우선)
+        # 템플릿 셀 찾기 (같은 열의 마지막 input_ 셀 우선 - 데이터 행 스타일 유지)
         template_cell = None
         fallback_cell = None
 
-        for (r, c), cell in self.base_table.cells.items():
+        for (r, c), cell in sorted(self.base_table.cells.items(), key=lambda x: x[0][0]):
             if c == col and cell.element is not None:
-                # input_ 셀을 우선 사용 (데이터 행 스타일)
+                # input_ 셀을 우선 사용 (마지막 input_ 셀 = 데이터 행 스타일)
                 if cell.field_name and cell.field_name.startswith('input_'):
-                    template_cell = cell
-                    break
+                    template_cell = cell  # 마지막 input_ 셀로 계속 업데이트
                 # 다른 셀은 fallback으로 저장
                 if fallback_cell is None:
                     fallback_cell = cell
@@ -732,10 +729,20 @@ class TableMerger:
                     if p.tag.endswith('}p'):
                         for run in p:
                             if run.tag.endswith('}run'):
+                                # t 요소 찾기
+                                t_elem = None
                                 for t in run:
                                     if t.tag.endswith('}t'):
-                                        t.text = text
+                                        t_elem = t
                                         break
+
+                                # t 요소가 없으면 생성
+                                if t_elem is None:
+                                    ns = run.tag.split('}')[0] + '}' if '}' in run.tag else ''
+                                    t_elem = ET.Element(f'{ns}t')
+                                    run.append(t_elem)
+
+                                t_elem.text = text
                                 break
                         break
 
