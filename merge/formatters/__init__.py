@@ -42,6 +42,9 @@ from .caption_formatter import (
     print_captions,
     renumber_captions,
 )
+from .object_formatter import (
+    ObjectFormatter,
+)
 from .config_loader import (
     ConfigLoader,
     FormatterConfig,
@@ -72,6 +75,9 @@ __all__ = [
     'get_captions',
     'print_captions',
     'renumber_captions',
+
+    # 객체 서식 설정
+    'ObjectFormatter',
 
     # YAML 설정 로더
     'ConfigLoader',

@@ -23,7 +23,7 @@ from .format_validator import (
     FormatValidator, ValidationResult, FormatFixer, print_validation_result
 )
 from .formatters import (
-    BaseFormatter, CaptionFormatter, load_config, FormatterConfig
+    BaseFormatter, CaptionFormatter, ObjectFormatter, load_config, FormatterConfig
 )
 from .formatters import BulletFormatter as RegexBulletFormatter
 from .table.formatter_config import TableFormatterConfigLoader
@@ -158,6 +158,37 @@ class MergePipeline:
         config = load_config(str(config_path))
         return cls.from_config(config)
 
+    def _apply_object_formatting(self, hwpx_path: str):
+        """
+        테이블/이미지 객체 서식 적용 (글자처럼 취급 + 가운데 정렬)
+
+        Args:
+            hwpx_path: HWPX 파일 경로
+        """
+        formatter = ObjectFormatter()
+        formatter.set_all_as_char_center(hwpx_path, hwpx_path)
+
+    def _apply_object_formatting_step_by_step(self, hwpx_path: str):
+        """
+        테이블/이미지 객체 서식 적용 (2단계로 분리)
+        1단계: 글자처럼 취급
+        2단계: 가운데 정렬 (문단 정렬 포함)
+
+        Args:
+            hwpx_path: HWPX 파일 경로
+        """
+        formatter = ObjectFormatter()
+
+        # 1단계: 글자처럼 취급만 설정 (정렬 없이)
+        print("      [1/2] 글자처럼 취급 설정 중...")
+        formatter.set_treat_as_char(hwpx_path, treat_as_char=True, output_path=hwpx_path,
+                                      element_type=None, h_align=None, v_align=None)
+
+        # 2단계: 가운데 정렬 설정 (treatAsChar는 이미 1로 설정됨)
+        print("      [2/2] 가운데 정렬 설정 중...")
+        formatter.set_alignment_only(hwpx_path, h_align="CENTER", v_align=None,
+                                      element_type=None, output_path=hwpx_path)
+
     def merge(
         self,
         hwpx_paths: List[Union[str, Path]],
@@ -217,13 +248,19 @@ class MergePipeline:
                 print("    - 병합할 테이블 없음")
 
             # 5. 파일 생성 (본문만 처리, 테이블은 이미 병합됨)
-            print("[5/5] 파일 생성 중...")
+            print("[5/6] 파일 생성 중...")
             merger = HwpxMerger(format_content=False, add_formatter=self._add_formatter)
             for data in hwpx_data_list:
                 merger.hwpx_data_list.append(data)
             # 테이블 필드 정보 공유 (Addition 테이블 문단 제외용)
             merger.table_handler._base_table_fields = self._table_handler._base_table_fields
             merger.merge_with_tree(output_path, merged_tree)
+
+            # 6. 객체 서식 적용 (2단계: 글자처럼 취급 → 가운데 정렬)
+            print("[6/7] 객체 서식 적용 중...")
+            self._apply_object_formatting_step_by_step(output_path)
+            print("    - 테이블/이미지 글자처럼 취급 + 가운데 정렬 완료")
+
             result.success = True
 
             # 최종 검증
