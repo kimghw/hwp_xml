@@ -39,7 +39,18 @@ from .gstub_cell_splitter import GstubCellSplitter
 from .row_builder import RowBuilder
 from .formatter_config import TableFormatterConfigLoader
 from ..format_validator import AddFieldValidator
-from ..formatters import BaseFormatter, BulletFormatter
+from ..formatters import BaseFormatter, BulletFormatter as RegexBulletFormatter
+
+# SDK 기반 포맷터 (선택적)
+try:
+    import sys
+    from pathlib import Path as PathLib
+    sys.path.insert(0, str(PathLib(__file__).parent.parent.parent))
+    from agent import BulletFormatter as SDKBulletFormatter
+    SDK_AVAILABLE = True
+except ImportError:
+    SDK_AVAILABLE = False
+    SDKBulletFormatter = None
 
 for prefix, uri in NAMESPACES.items():
     ET.register_namespace(prefix, uri)
@@ -84,22 +95,32 @@ class TableMerger:
 
         # add_ 필드 글머리 포맷터
         self.format_add_content = format_add_content
-        self.use_sdk_for_levels = use_sdk_for_levels
+        self.use_sdk_for_levels = use_sdk_for_levels and SDK_AVAILABLE
 
         # BaseFormatter 주입 시 우선 사용
         if add_formatter:
             self.add_formatter: Optional[BaseFormatter] = add_formatter
         elif format_add_content:
-            # YAML 설정 사용 (formatter_loader에서 커스텀 스타일 로드)
-            # context="table"로 테이블 셀용 instruction 사용
+            # YAML 설정에서 커스텀 스타일 로드
+            custom_styles = None
             if self.formatter_loader and self.formatter_loader.config.bullet_styles:
-                self.add_formatter = BulletFormatter(
+                custom_styles = self.formatter_loader.config.bullet_styles
+
+            # SDK 사용 여부에 따라 포맷터 선택
+            if self.use_sdk_for_levels and SDKBulletFormatter:
+                # SDK 기반 포맷터 (레벨 분석 + 글머리 적용)
+                self.add_formatter = SDKBulletFormatter(
                     style="default",
-                    custom_styles=self.formatter_loader.config.bullet_styles,
+                    custom_styles=custom_styles,
                     context="table"
                 )
             else:
-                self.add_formatter = BulletFormatter(style="default", context="table")
+                # 정규식 기반 포맷터
+                self.add_formatter = RegexBulletFormatter(
+                    style="default",
+                    custom_styles=custom_styles,
+                    context="table"
+                )
         else:
             self.add_formatter = None
 

@@ -64,14 +64,21 @@ class BulletFormatter(BaseFormatter):
     BaseFormatter를 상속하여 개요/본문에 다른 스타일 적용 가능.
     """
 
-    def __init__(self, style: str = "default", custom_styles: Optional[dict] = None):
+    def __init__(
+        self,
+        style: str = "default",
+        custom_styles: Optional[dict] = None,
+        context: str = "body"
+    ):
         """
         Args:
             style: 글머리 스타일 ("default", "filled", "numbered")
             custom_styles: YAML에서 로드한 커스텀 스타일 {style_name: {level: (symbol, indent)}}
+            context: 사용 문맥 ("body": 본문, "table": 테이블 셀) - SDK 포맷터와 인터페이스 통일
         """
         self.style = style
         self._custom_styles = custom_styles
+        self.context = context  # 정규식 포맷터에서는 사용하지 않지만 인터페이스 통일
 
         # 커스텀 스타일 우선, 없으면 하드코딩된 스타일 사용
         if custom_styles and style in custom_styles:

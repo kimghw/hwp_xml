@@ -5,7 +5,7 @@
 # 기본 설정
 # ============================================================
 default:
-  # 기본 포맷터: none, bullet, caption
+  # 기본 포맷터: none, bullet, outline, caption
   formatter: none
 
   # add_ 필드 구분자 (기존 내용과 새 내용 사이)
@@ -70,3 +70,83 @@ caption:
   format: standard
   position: TOP
   separator: ". "
+
+# ============================================================
+# 스타일 설정 (StyleFormatter)
+# ============================================================
+# HWPX 개요/문단/글자 스타일을 적용합니다.
+# paraPrIDRef, charPrIDRef는 템플릿 header.xml 기준입니다.
+
+style:
+  # 기본 스타일 (레벨 미지정 시)
+  default: body
+
+  # SDK 레벨 → 스타일 매핑
+  level_mapping:
+    0: outline_1
+    1: outline_2
+    2: outline_3
+    3: outline_4
+    4: outline_5
+    5: outline_6
+    6: outline_7
+
+  # 스타일 정의
+  # paraPrIDRef: 문단 스타일 (header.xml paraPr id)
+  # charPrIDRef: 글자 스타일 (header.xml charPr id)
+  # strip_numbers: 기존 개요 번호 제거 여부
+  definitions:
+    body:
+      paraPrIDRef: "0"
+      charPrIDRef: "0"
+      strip_numbers: false
+      description: "바탕글"
+
+    outline_1:
+      paraPrIDRef: "2"
+      charPrIDRef: "0"
+      strip_numbers: true
+      description: "개요 1 (제1급)"
+
+    outline_2:
+      paraPrIDRef: "3"
+      charPrIDRef: "0"
+      strip_numbers: true
+      description: "개요 2 (제2급)"
+
+    outline_3:
+      paraPrIDRef: "4"
+      charPrIDRef: "0"
+      strip_numbers: true
+      description: "개요 3 (제3급)"
+
+    outline_4:
+      paraPrIDRef: "5"
+      charPrIDRef: "0"
+      strip_numbers: true
+      description: "개요 4 (제4급)"
+
+    outline_5:
+      paraPrIDRef: "6"
+      charPrIDRef: "0"
+      strip_numbers: true
+      description: "개요 5 (제5급)"
+
+    outline_6:
+      paraPrIDRef: "7"
+      charPrIDRef: "0"
+      strip_numbers: true
+      description: "개요 6 (제6급)"
+
+    outline_7:
+      paraPrIDRef: "8"
+      charPrIDRef: "0"
+      strip_numbers: true
+      description: "개요 7 (제7급)"
+
+    # 커스텀 스타일 예시
+    # title:
+    #   paraPrIDRef: "10"
+    #   charPrIDRef: "5"
+    #   strip_numbers: false
+    #   description: "제목 스타일"

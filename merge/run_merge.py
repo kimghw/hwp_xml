@@ -35,7 +35,8 @@ from typing import List, Optional
 # 로컬 모듈
 from .merge_hwpx import HwpxMerger, get_outline_structure
 from .outline import print_outline_tree
-from .merge_with_review import MergeReviewPipeline, print_validation_result
+from .merge_pipeline import MergePipeline as MergeReviewPipeline
+from .format_validator import print_validation_result
 
 # formatters 모듈
 try:
@@ -105,9 +106,9 @@ def merge_with_review(
 
     # 파이프라인 생성
     if effective_config_path and HAS_FORMATTERS:
-        pipeline = MergeReviewPipeline.from_config_file(effective_config_path, use_sdk=use_sdk)
+        pipeline = MergeReviewPipeline.from_config_file(effective_config_path)
     else:
-        pipeline = MergeReviewPipeline(use_sdk=use_sdk)
+        pipeline = MergeReviewPipeline()
 
     # 각 파일 구조 출력
     for i, path in enumerate(hwpx_paths):
@@ -119,14 +120,13 @@ def merge_with_review(
     print("\n" + "=" * 60)
 
     # 병합 실행
-    result = pipeline.merge_and_review(hwpx_paths, output_path, auto_fix=auto_fix)
+    result = pipeline.merge(hwpx_paths, output_path, auto_fix=auto_fix)
 
     # 결과 출력
     print("\n" + "=" * 60)
     print("결과")
     print("=" * 60)
-    print(f"병합 성공: {'[OK]' if result.merge_success else '[FAIL]'}")
-    print(f"검토 성공: {'[OK]' if result.review_success else '[FAIL]'}")
+    print(f"병합 성공: {'[OK]' if result.success else '[FAIL]'}")
     print(f"수정 적용: {len(result.fixes_applied)}건")
 
     if result.fixes_applied:
@@ -214,7 +214,7 @@ def main():
             auto_fix=not args.no_fix,
             use_sdk=not args.no_sdk
         )
-        if not result.merge_success:
+        if not result.success:
             sys.exit(1)
 
 
