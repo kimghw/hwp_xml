@@ -234,6 +234,7 @@ class HwpxMerger:
         - 템플릿(첫 번째 파일)을 기본으로 사용
         - 병합된 section에서 참조하는 스타일 ID가 템플릿에 없으면
           다른 입력 파일의 정의를 가져와 추가한다.
+        - charPr은 템플릿 스타일만 사용 (Addition 파일의 charPr는 복사하지 않음)
         """
         template_header_xml = self.hwpx_data_list[0].header_xml
         header_root = ET.fromstring(template_header_xml)
@@ -290,7 +291,8 @@ class HwpxMerger:
             'borderFill': header_root.find('.//hh:borderFills', ns),
         }
 
-        for key in ['charPr', 'paraPr', 'tabPr', 'borderFill']:
+        # charPr은 템플릿만 사용, 나머지 스타일만 병합
+        for key in ['paraPr', 'tabPr', 'borderFill']:
             target = targets.get(key)
             if target is None:
                 continue
@@ -404,10 +406,15 @@ class HwpxMerger:
             para_seq_map[id(para)] = seq_idx
 
             # Addition 문단의 스타일을 Template 스타일로 변경
-            if not self._is_from_template(para.source_file) and para.para_pr_id:
-                current_style = elem.get('paraPrIDRef', '')
-                if current_style != para.para_pr_id:
-                    elem.set('paraPrIDRef', para.para_pr_id)
+            if not self._is_from_template(para.source_file):
+                # 문단 스타일 변경
+                if para.para_pr_id:
+                    current_style = elem.get('paraPrIDRef', '')
+                    if current_style != para.para_pr_id:
+                        elem.set('paraPrIDRef', para.para_pr_id)
+
+                # 문자 스타일을 템플릿 기본 스타일(ID=0)로 변경
+                self._remap_char_styles_to_template(elem)
 
             # 이미지 ID 재매핑
             if para.source_file in bin_id_map:
@@ -591,6 +598,24 @@ class HwpxMerger:
             bin_ref = child.get('binDataIDRef')
             if bin_ref and bin_ref in id_map:
                 child.set('binDataIDRef', id_map[bin_ref])
+
+    def _remap_char_styles_to_template(self, elem):
+        """
+        Addition 파일의 문자 스타일을 템플릿 기본 스타일로 변경
+
+        Addition 파일에서 가져온 문단의 모든 run 요소의 charPrIDRef를
+        템플릿의 기본 문자 스타일(ID="0")로 변경합니다.
+
+        이렇게 하면 Addition 파일의 글꼴, 색상, 크기가 템플릿의 기본 스타일을 따릅니다.
+        """
+        TEMPLATE_DEFAULT_CHAR_STYLE = "0"  # 템플릿 기본 문자 스타일 ID
+
+        for child in elem.iter():
+            # run 요소의 charPrIDRef 속성을 템플릿 기본값으로 변경
+            if child.tag.endswith('}run'):
+                char_ref = child.get('charPrIDRef')
+                if char_ref:
+                    child.set('charPrIDRef', TEMPLATE_DEFAULT_CHAR_STYLE)
 
             # imgID도 처리
             img_id = child.get('imgID')
