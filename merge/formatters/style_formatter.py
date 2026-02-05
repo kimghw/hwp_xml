@@ -479,6 +479,217 @@ class StyleFormatter(BaseFormatter):
         return True
 
     # ========================================
+    # HWPX 파일 후처리
+    # ========================================
+
+    def apply_styles_to_hwpx(
+        self,
+        hwpx_path: str,
+        level_info: List[Dict[str, Any]],
+        output_path: Optional[str] = None
+    ) -> int:
+        """
+        HWPX 파일의 문단에 레벨별 스타일 적용
+
+        Args:
+            hwpx_path: HWPX 파일 경로
+            level_info: 문단별 레벨 정보 [{'para_index': int, 'level': int}, ...]
+            output_path: 출력 파일 경로 (None이면 hwpx_path에 덮어쓰기)
+
+        Returns:
+            적용된 스타일 개수
+        """
+        output_path = output_path or hwpx_path
+        applied_count = 0
+
+        # HWPX 파일 로드
+        with zipfile.ZipFile(hwpx_path, 'r') as zf:
+            file_contents = {}
+            for name in zf.namelist():
+                file_contents[name] = zf.read(name)
+
+        # section*.xml 파일 처리
+        section_files = [n for n in file_contents.keys() if 'section' in n and n.endswith('.xml')]
+
+        for section_file in section_files:
+            xml_content = file_contents[section_file].decode('utf-8')
+            root = ET.fromstring(xml_content)
+
+            # 모든 문단 요소 수집
+            paragraphs = list(root.iter('{http://www.hancom.co.kr/hwpml/2011/paragraph}p'))
+
+            # 레벨 정보에 따라 스타일 적용
+            for info in level_info:
+                para_idx = info.get('para_index', -1)
+                level = info.get('level', 0)
+
+                if 0 <= para_idx < len(paragraphs):
+                    para = paragraphs[para_idx]
+                    if self.apply_style_to_paragraph_with_runs(para, level=level):
+                        applied_count += 1
+
+            # 수정된 XML 저장
+            file_contents[section_file] = ET.tostring(root, encoding='unicode').encode('utf-8')
+
+        # HWPX 파일 저장
+        with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for name, content in file_contents.items():
+                zf.writestr(name, content)
+
+        return applied_count
+
+    def apply_styles_by_content_analysis(
+        self,
+        hwpx_path: str,
+        output_path: Optional[str] = None,
+        analyze_func: Optional[callable] = None
+    ) -> Tuple[int, List[Dict]]:
+        """
+        HWPX 파일의 문단을 분석하여 자동으로 스타일 적용
+
+        SDK 레벨 분석기 또는 정규식으로 각 문단의 레벨을 분석하고
+        해당 레벨에 맞는 스타일(paraPrIDRef)을 적용합니다.
+
+        Args:
+            hwpx_path: HWPX 파일 경로
+            output_path: 출력 파일 경로 (None이면 덮어쓰기)
+            analyze_func: 레벨 분석 함수 (text -> level), None이면 내장 함수 사용
+
+        Returns:
+            (적용된 스타일 개수, 변경 로그 리스트)
+        """
+        output_path = output_path or hwpx_path
+        applied_count = 0
+        changes = []
+
+        # HWPX 파일 로드
+        with zipfile.ZipFile(hwpx_path, 'r') as zf:
+            file_contents = {}
+            for name in zf.namelist():
+                file_contents[name] = zf.read(name)
+
+        # section*.xml 파일 처리
+        section_files = sorted([n for n in file_contents.keys() if 'section' in n and n.endswith('.xml')])
+
+        for section_file in section_files:
+            xml_content = file_contents[section_file].decode('utf-8')
+            root = ET.fromstring(xml_content)
+
+            # 모든 문단 요소 처리
+            para_idx = 0
+            for para in root.iter('{http://www.hancom.co.kr/hwpml/2011/paragraph}p'):
+                # 문단 텍스트 추출
+                text = self._extract_paragraph_text(para)
+
+                if text and text.strip():
+                    # 레벨 분석
+                    if analyze_func:
+                        level = analyze_func(text)
+                    else:
+                        level = self._detect_level_from_number(text)
+
+                    # 스타일 적용
+                    style = self.get_style_for_level(level)
+                    if style and self.apply_style_to_paragraph_with_runs(para, level=level):
+                        applied_count += 1
+                        changes.append({
+                            'section': section_file,
+                            'para_index': para_idx,
+                            'text': text[:50] + '...' if len(text) > 50 else text,
+                            'level': level,
+                            'style': style.name,
+                            'paraPrIDRef': style.para_pr_id,
+                        })
+
+                para_idx += 1
+
+            # 수정된 XML 저장
+            file_contents[section_file] = ET.tostring(root, encoding='unicode').encode('utf-8')
+
+        # HWPX 파일 저장
+        with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for name, content in file_contents.items():
+                zf.writestr(name, content)
+
+        return applied_count, changes
+
+    def apply_styles_with_level_data(
+        self,
+        hwpx_path: str,
+        para_levels: Dict[int, int],
+        output_path: Optional[str] = None
+    ) -> Tuple[int, List[Dict]]:
+        """
+        미리 계산된 레벨 데이터로 스타일 적용
+
+        BulletFormatter에서 분석한 레벨 정보를 받아서
+        문단에 스타일(paraPrIDRef)을 적용합니다.
+
+        Args:
+            hwpx_path: HWPX 파일 경로
+            para_levels: {문단_인덱스: 레벨} 딕셔너리
+            output_path: 출력 파일 경로 (None이면 덮어쓰기)
+
+        Returns:
+            (적용된 스타일 개수, 변경 로그 리스트)
+        """
+        output_path = output_path or hwpx_path
+        applied_count = 0
+        changes = []
+
+        # HWPX 파일 로드
+        with zipfile.ZipFile(hwpx_path, 'r') as zf:
+            file_contents = {}
+            for name in zf.namelist():
+                file_contents[name] = zf.read(name)
+
+        # section*.xml 파일 처리
+        section_files = sorted([n for n in file_contents.keys() if 'section' in n and n.endswith('.xml')])
+
+        global_para_idx = 0
+        for section_file in section_files:
+            xml_content = file_contents[section_file].decode('utf-8')
+            root = ET.fromstring(xml_content)
+
+            # 모든 문단 요소 처리
+            for para in root.iter('{http://www.hancom.co.kr/hwpml/2011/paragraph}p'):
+                if global_para_idx in para_levels:
+                    level = para_levels[global_para_idx]
+                    style = self.get_style_for_level(level)
+
+                    if style and self.apply_style_to_paragraph_with_runs(para, level=level):
+                        applied_count += 1
+                        text = self._extract_paragraph_text(para)
+                        changes.append({
+                            'section': section_file,
+                            'para_index': global_para_idx,
+                            'text': text[:50] + '...' if len(text) > 50 else text,
+                            'level': level,
+                            'style': style.name,
+                            'paraPrIDRef': style.para_pr_id,
+                        })
+
+                global_para_idx += 1
+
+            # 수정된 XML 저장
+            file_contents[section_file] = ET.tostring(root, encoding='unicode').encode('utf-8')
+
+        # HWPX 파일 저장
+        with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for name, content in file_contents.items():
+                zf.writestr(name, content)
+
+        return applied_count, changes
+
+    def _extract_paragraph_text(self, para_elem: ET.Element) -> str:
+        """문단 요소에서 텍스트 추출"""
+        texts = []
+        for t_elem in para_elem.iter('{http://www.hancom.co.kr/hwpml/2011/paragraph}t'):
+            if t_elem.text:
+                texts.append(t_elem.text)
+        return ''.join(texts)
+
+    # ========================================
     # 유틸리티
     # ========================================
 

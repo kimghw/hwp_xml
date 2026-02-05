@@ -11,7 +11,7 @@ HWPX 병합 파이프라인 모듈
 
 import asyncio
 from pathlib import Path
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional, Union, Any
 from dataclasses import dataclass, field
 
 from .merge_hwpx import HwpxMerger, get_outline_structure
@@ -23,7 +23,8 @@ from .format_validator import (
     FormatValidator, ValidationResult, FormatFixer, print_validation_result
 )
 from .formatters import (
-    BaseFormatter, CaptionFormatter, ObjectFormatter, load_config, FormatterConfig
+    BaseFormatter, CaptionFormatter, ObjectFormatter, load_config, FormatterConfig,
+    StyleFormatter
 )
 from .formatters import BulletFormatter as RegexBulletFormatter
 from .table.formatter_config import TableFormatterConfigLoader
@@ -130,6 +131,11 @@ class MergePipeline:
             add_formatter=self._add_formatter,
         )
 
+        # 스타일 포맷터 (YAML 설정에서 로드)
+        self._style_formatter: Optional[StyleFormatter] = None
+        self._apply_styles = False
+        self._load_style_formatter()
+
     @classmethod
     def from_config(
         cls,
@@ -157,6 +163,112 @@ class MergePipeline:
         """
         config = load_config(str(config_path))
         return cls.from_config(config)
+
+    def _load_style_formatter(self):
+        """table_formatter_config.yaml에서 스타일 포맷터 로드"""
+        try:
+            config_path = Path(__file__).parent / "formatters" / "table_formatter_config.yaml"
+            if config_path.exists():
+                import yaml
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = yaml.safe_load(f)
+
+                style_config = config.get('style', {})
+                self._apply_styles = style_config.get('apply', False)
+
+                if self._apply_styles:
+                    self._style_formatter = StyleFormatter.from_config(config)
+                    print(f"    [StyleFormatter] 스타일 적용 활성화")
+        except Exception as e:
+            print(f"    [StyleFormatter] 로드 실패: {e}")
+            self._style_formatter = None
+            self._apply_styles = False
+
+    def _collect_para_levels_from_tree(self, outline_tree: List[Any]) -> Dict[int, int]:
+        """
+        개요 트리에서 문단별 레벨 정보 수집
+
+        Args:
+            outline_tree: 병합된 개요 트리
+
+        Returns:
+            {문단_인덱스: 레벨} 딕셔너리
+        """
+        para_levels = {}
+        para_idx = 0
+
+        def collect_from_node(node, parent_level=0):
+            nonlocal para_idx
+
+            # 개요 문단 자체
+            if hasattr(node, 'level'):
+                level = node.level
+            else:
+                level = parent_level
+
+            # 개요 문단
+            if hasattr(node, 'para_index'):
+                para_levels[node.para_index] = level
+            else:
+                para_levels[para_idx] = level
+            para_idx += 1
+
+            # 개요 아래 내용 문단들
+            content_paras = []
+            if hasattr(node, 'get_content_paragraphs'):
+                content_paras = node.get_content_paragraphs()
+            elif hasattr(node, 'content_paragraphs'):
+                content_paras = node.content_paragraphs
+
+            for para in content_paras:
+                # 내용 문단은 개요 레벨 + 1 (최대 6)
+                content_level = min(level + 1, 6)
+                if hasattr(para, 'para_index'):
+                    para_levels[para.para_index] = content_level
+                else:
+                    para_levels[para_idx] = content_level
+                para_idx += 1
+
+            # 하위 개요 재귀 처리
+            children = []
+            if hasattr(node, 'children'):
+                children = node.children
+            elif hasattr(node, 'sub_outlines'):
+                children = node.sub_outlines
+
+            for child in children:
+                collect_from_node(child, level)
+
+        for node in outline_tree:
+            collect_from_node(node)
+
+        return para_levels
+
+    def _apply_paragraph_styles(self, hwpx_path: str, para_levels: Dict[int, int]) -> int:
+        """
+        문단에 개요 스타일 적용
+
+        Args:
+            hwpx_path: HWPX 파일 경로
+            para_levels: {문단_인덱스: 레벨} 딕셔너리
+
+        Returns:
+            적용된 스타일 개수
+        """
+        if not self._style_formatter or not self._apply_styles:
+            return 0
+
+        applied_count, changes = self._style_formatter.apply_styles_with_level_data(
+            hwpx_path, para_levels, hwpx_path
+        )
+
+        if changes:
+            for change in changes[:5]:
+                print(f"        - {change['style']}: {change['text']}")
+            if len(changes) > 5:
+                print(f"        ... 외 {len(changes) - 5}건")
+
+        return applied_count
 
     def _apply_object_formatting(self, hwpx_path: str):
         """
@@ -257,14 +369,27 @@ class MergePipeline:
             merger.merge_with_tree(output_path, merged_tree)
 
             # 6. 객체 서식 적용 (2단계: 글자처럼 취급 → 가운데 정렬)
-            print("[6/7] 객체 서식 적용 중...")
+            print("[6/8] 객체 서식 적용 중...")
             self._apply_object_formatting_step_by_step(output_path)
             print("    - 테이블/이미지 글자처럼 취급 + 가운데 정렬 완료")
+
+            # 7. 개요 스타일 적용 (선택적)
+            if self._apply_styles and self._style_formatter:
+                print("[7/8] 개요 스타일 적용 중...")
+                # fix_bullets_in_tree에서 분석한 레벨 정보 수집
+                para_levels = self._collect_para_levels_from_tree(merged_tree)
+                if para_levels:
+                    style_count = self._apply_paragraph_styles(output_path, para_levels)
+                    print(f"    - {style_count}개 문단에 스타일 적용 완료")
+                else:
+                    print("    - 적용할 문단 없음")
+            else:
+                print("[7/8] 개요 스타일 적용 건너뜀 (비활성화)")
 
             result.success = True
 
             # 최종 검증
-            print("\n최종 검증...")
+            print("\n[8/8] 최종 검증...")
             result.validation = self.validator.validate(output_path)
 
             print(f"\n[OK] 병합 완료: {output_path}")

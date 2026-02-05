@@ -393,53 +393,43 @@ class FormatFixer:
 
             para_texts = [p.text for p in content_paras]
 
-            # SDK로 레벨 분석
+            # SDK로 레벨 분석 + 기존 글머리/번호 제거
             if self.use_sdk and self._bullet_formatter and para_texts:
                 combined_text = '\n'.join(para_texts)
                 try:
-                    analyzed_levels = self._bullet_formatter.analyze_levels(combined_text)
+                    # analyze_and_strip: 레벨 분석 + 기존 글머리/번호 제거
+                    if hasattr(self._bullet_formatter, 'analyze_and_strip'):
+                        analyzed_levels, stripped_texts = self._bullet_formatter.analyze_and_strip(combined_text)
+                    else:
+                        # fallback: 레벨만 분석
+                        analyzed_levels = self._bullet_formatter.analyze_levels(combined_text)
+                        stripped_texts = para_texts  # 원본 유지
                 except Exception as e:
                     print(f"    [SDK 오류] 레벨 분석 실패: {e}")
                     analyzed_levels = [0] * len(para_texts)
+                    stripped_texts = para_texts
             else:
                 analyzed_levels = [0] * len(para_texts)
+                stripped_texts = para_texts
 
-            # 각 내용 문단에 분석된 레벨 적용
+            # 각 내용 문단에 분석된 레벨과 정제된 텍스트 적용
             for i, para in enumerate(content_paras):
                 # SDK 분석 레벨 사용
                 level = analyzed_levels[i] if i < len(analyzed_levels) else 0
                 level = max(0, min(level, 2))  # 0~2 범위로 제한
                 expected_bullet = self.bullet_styles.get(level, '-')
 
-                # 기존 글머리 기호 확인 (앞 공백 무시)
-                stripped_text = para.text.lstrip() if para.text else ''
-                first_char = stripped_text[0] if stripped_text else ''
-                bullet_chars = ['■', '□', '●', '○', '-', '‑', '–', '◆', '◇', '•', '·', '▶', '▷']
+                # SDK에서 정제된 텍스트 사용 (기존 글머리/번호 제거됨)
+                pure_text = stripped_texts[i].strip() if i < len(stripped_texts) else para.text.strip()
 
-                if first_char in bullet_chars:
-                    # 기존 글머리가 있으면 교체
-                    # 글머리 뒤 공백까지 제거한 순수 텍스트 추출
-                    pure_text = stripped_text[1:].lstrip()
-                    if first_char != expected_bullet:
-                        new_text = expected_bullet + ' ' + pure_text
-                        fixes.append({
-                            'type': 'bullet_fix',
-                            'para_index': para.index,
-                            'original_bullet': first_char,
-                            'new_bullet': expected_bullet,
-                            'level': level,
-                            'original_text': para.text,
-                            'new_text': new_text,
-                            'sdk_analyzed': self.use_sdk,
-                        })
-                        para.text = new_text
-                        self._update_element_text(para.element, new_text)
-                else:
-                    # 글머리가 없으면 추가
-                    new_text = expected_bullet + ' ' + para.text.lstrip()
+                # 새 글머리로 텍스트 생성
+                new_text = expected_bullet + ' ' + pure_text
+
+                if new_text != para.text:
                     fixes.append({
-                        'type': 'bullet_add',
+                        'type': 'bullet_fix',
                         'para_index': para.index,
+                        'original_bullet': para.text[:10] + '...' if len(para.text) > 10 else para.text,
                         'new_bullet': expected_bullet,
                         'level': level,
                         'original_text': para.text,
