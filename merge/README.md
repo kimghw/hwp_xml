@@ -14,7 +14,9 @@
 ```
 merge/
 ├── __init__.py             # 모듈 진입점, 공개 API
+├── merge_pipeline.py       # 메인 파이프라인 (6단계)
 ├── merge_hwpx.py           # 핵심 병합 로직 (HwpxMerger)
+├── merge_table.py          # 테이블 필드명 매칭 및 병합
 ├── run_merge.py            # CLI 실행 스크립트
 ├── parser.py               # HWPX 문단 파싱
 ├── models.py               # Paragraph, OutlineNode 등
@@ -24,33 +26,33 @@ merge/
 ├── merge_with_review.py    # 병합 + Agent 통합
 │
 ├── field/                  # 필드명 관리 모듈
-│   ├── __init__.py
-│   ├── auto_insert_field_template.py  # 필드명 자동 생성
-│   ├── fill_empty.py                  # 빈 셀 필드명 채우기
-│   ├── check_empty_field.py           # 빈 셀 확인/시각화
-│   ├── insert_auto_field.py           # 자동 필드 삽입
-│   ├── insert_field_text.py           # 필드 텍스트 삽입
-│   └── insert_field_background_color.py  # 필드별 배경색 설정
-│
 ├── formatters/             # 정규식 기반 포맷터
-│   ├── __init__.py
-│   ├── bullet_formatter.py            # 글머리 기호 변환
-│   ├── caption_formatter.py           # 캡션 변환
-│   ├── config_loader.py               # YAML 설정 로더
-│   ├── content_formatter_config.yaml  # 내용 포맷터 설정
-│   └── table_formatter_config.yaml    # 테이블 포맷터 설정
-│
 └── table/                  # 테이블 병합 서브모듈
-    ├── __init__.py
-    ├── models.py               # CellInfo, TableInfo 등
-    ├── parser.py               # 테이블 파싱
-    ├── merger.py               # 테이블 셀 병합
-    ├── cell_splitter.py        # 셀 분할 처리
-    ├── row_builder.py          # 행 추가 빌더
-    └── formatter_config.py     # add_ 필드 포맷터 설정
+```
+
+## 파이프라인 흐름
+
+```
+[HWPX 파일들]
+    ↓
+[1/6] HwpxParser.parse() → HwpxData
+    ↓
+[2/6] merge_outline_trees() → 병합된 개요 트리
+    ↓
+[3/6] FormatFixer → 글머리/캡션 자동 수정
+    ↓
+[4/6] TableMergeHandler.collect_and_merge() → 테이블 데이터 병합
+    ↓
+[5/6] HwpxMerger.merge_with_tree() → HWPX 파일 생성
+    ↓
+[6/6] ObjectFormatter → 테이블/이미지 가운데 정렬
+    ↓
+[output.hwpx]
 ```
 
 ## 사용법
+
+### CLI
 
 ```bash
 # 구조 확인
@@ -64,9 +66,21 @@ python merge_hwpx.py -o output.hwpx file1.hwpx file2.hwpx
 
 # 특정 개요 제외
 python merge_hwpx.py -o output.hwpx --exclude "1. 서론" file1.hwpx file2.hwpx
+```
 
-# Agent 검토 포함
-python merge_with_review.py -o output.hwpx --agent file1.hwpx file2.hwpx
+### Python
+
+```python
+from merge import MergePipeline
+
+pipeline = MergePipeline()
+result = pipeline.merge(
+    ["file1.hwpx", "file2.hwpx"],
+    "output.hwpx",
+    auto_fix=True
+)
+print(f"성공: {result.success}")
+print(f"테이블 병합: {len(result.table_merges)}개")
 ```
 
 ## 병합 규칙
@@ -81,6 +95,39 @@ python merge_with_review.py -o output.hwpx --agent file1.hwpx file2.hwpx
 
 - **캡션**: `표 N. 제목`, `그림 N. 제목`
 - **글머리**: □ (1단계) → ○ (2단계) → - (3단계)
+
+---
+
+## 최근 변경사항 (3일 이내)
+
+### d3d89c1: 테이블 병합 단계 분리
+- 테이블 병합을 파일 생성 전 [4/6] 단계로 분리
+- `merge_with_tree()`에서 table_merge_data 파라미터 제거
+- 파이프라인 순차 처리 명확화
+
+### c9e498a: SDK 의존성 제거
+- SDK formatter 의존성 제거
+- formatters 모듈 직접 사용 (BulletFormatter, CaptionFormatter)
+- 유지보수성 향상
+
+### 0b0209b: ObjectFormatter 추가
+- 테이블/이미지 `treatAsChar` + `paraPrIDRef` 기반 정렬
+- 파이프라인 step 6에 통합
+
+### 버그 수정 (ee3da26, b8c1417)
+- add_ 필드 추출 버그 수정 (header row에서 추출 안됨)
+- 중복 bullet formatting 방지
+- multi-section 손실 수정
+- _shift_rows_down: rowspan 셀의 end_row 업데이트 추가
+
+---
+
+## 주의사항
+
+1. **테이블 병합 순서**: 반드시 파일 생성 전에 처리
+2. **개요 제외**: 정확한 이름 또는 접두사 매칭 (예: `"3."`)
+3. **중첩 테이블**: `table_idx`는 최상위 테이블만 참조
+4. **다중 섹션 문서**: section2.xml+ 콘텐츠 복사 필수
 
 ---
 

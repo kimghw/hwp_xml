@@ -1,5 +1,7 @@
 # merge/field - 테이블 필드 관리 모듈
 
+HWPX 테이블 셀에 필드명 자동 생성/삽입/시각화
+
 ## 파일 구조
 
 | 파일 | 기능 |
@@ -44,3 +46,47 @@ from merge.field import (
 | `gstub_` | 연한 주황 (#FFE4C4) |
 | `input_` | 연한 초록 (#E8FFE8) |
 | `data_` | 연한 보라 (#F0E6FF) |
+
+---
+
+## 빈 셀 채우기 (EmptyFieldFiller) 처리 케이스
+
+### Case 1: 위 행 복사
+- 필드명 없는 행이 모두 비어있음
+- 위 행이 모두 `data_`, `input_`
+- 컬럼 수/너비 동일 → 위 셀의 필드명 복사
+
+### Case 2: gstub 처리 (rowspan > 1)
+- `gstub_{랜덤}` 할당
+- 우측 빈 셀: 첫 행은 `input_{랜덤}`, 이후 행은 첫 행 복사
+
+### Case 3: 연속 gstub 처리
+- gstub 2개 이상이 동일 행 범위 → 같은 nc_name 공유
+- gstub rowspan 일치 조건 필수
+
+---
+
+## 최근 변경사항 (3일 이내)
+
+### ee3da26: add_ 필드 추출 버그 수정
+- header row(row 0)에서 add_ 필드가 추출되지 않는 문제 해결
+- `_extract_addition_table_data`에 add_ prefix 필터 조건 추가
+- 중복 bullet formatting 방지
+- 다중 문단 텍스트 지원
+
+### d9eb027: 파일 재조직
+- `auto_field.py` + `field_name_generator.py` → `auto_insert_field_template.py` 통합
+- `visualizer.py` → `check_empty_field.py` 이름 변경
+- fill_empty.py Case 1, 2, 3 gstub 처리 로직 완성
+- 순환 참조 해결 (lazy import 적용)
+
+---
+
+## 개발자 주의사항
+
+1. **로거**: `field_name_log.txt`에 상세 로그 기록
+2. **HWPX 처리**: ZIP 기반 → 임시 해제 후 수정 → 재압축
+3. **네임스페이스**: XML 네임스페이스 등록 필수 (`ET.register_namespace`)
+4. **borderFill ID 관리**: 기존 ID와 충돌 방지 필요
+5. **gstub rowspan**: 매칭 조건이 엄격함 (Case 3)
+6. **순환 참조**: fill_empty.py에서 auto_insert_field_template import 시 주의

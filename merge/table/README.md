@@ -10,9 +10,22 @@ merge/table/
 ├── models.py             # 데이터 모델 (CellInfo, TableInfo 등)
 ├── parser.py             # HWPX 테이블 파싱
 ├── merger.py             # 테이블 셀 내용 병합
-├── cell_splitter.py      # gstub 셀 나누기
+├── row_extractor.py      # 테이블 행 데이터 추출
+├── gstub_cell_splitter.py # gstub 셀 나누기
 ├── row_builder.py        # 테이블 행 자동 생성
 └── formatter_config.py   # add_ 필드 포맷터 설정 로더
+```
+
+## 필드명 접두사 우선순위
+
+```python
+FIELD_PRIORITY = {
+    "gstub_": 5,    # 그룹화 스텁 (rowspan 확장)
+    "input_": 4,    # 입력 필드 (데이터 추가)
+    "stub_": 3,     # 스텁 (new row marker)
+    "data_": 2,     # 데이터 (불변)
+    "header_": 1,   # 헤더 (불변)
+}
 ```
 
 ## 모듈별 역할
@@ -75,19 +88,7 @@ Base 파일에 데이터 병합. SDK 기반 글머리 포맷팅 지원.
 | `merge_with_stub(data_list)` | stub/gstub/input 기반 병합 |
 | `save(output_path)` | 결과 저장 |
 
-```python
-from merge.table import TableMerger
-
-merger = TableMerger(
-    format_add_content=True,   # add_ 필드 글머리 포맷팅
-    use_sdk_for_levels=True    # SDK로 레벨 분석
-)
-merger.load_base_table("base.hwpx", table_index=0)
-merger.merge_with_stub(data_list)
-merger.save("output.hwpx")
-```
-
-### cell_splitter.py
+### gstub_cell_splitter.py
 
 gstub 범위 내 행 삽입 및 rowspan 확장
 
@@ -96,12 +97,6 @@ gstub 범위 내 행 삽입 및 rowspan 확장
 - 기존 행들을 밀어내고 rowspan 확장
 - 새 행의 셀 생성 (input_, stub_, data_ 등)
 - 다중 gstub 열 지원
-
-```python
-# GstubCellSplitter는 TableMerger 내부에서 사용됨
-splitter = GstubCellSplitter(table_info)
-splitter.insert_row_in_gstub_range(gstub_field, insert_row, data)
-```
 
 ### row_builder.py
 
@@ -127,23 +122,97 @@ add_ 필드용 포맷터 설정 로드 (YAML)
 | `load_table_formatter_config()` | 설정 로드 편의 함수 |
 | `format_add_field_value()` | add_ 필드값에 포맷터 적용 |
 
-## 병합 흐름
+---
+
+## 최근 변경사항 (3일 이내)
+
+### b8c1417: 테이블 병합 버그 수정 및 리팩토링
+
+**핵심 수정사항:**
+- **multi-section 손실**: section1.xml+ 복사 누락 수정
+- **multi-gstub 열 처리**: 모든 gstub 열 rowspan 확장
+- **_shift_rows_down**: rowspan 셀의 end_row 업데이트 추가 ★
+- **add_ 필드 구분자 누적**: 필드별 초기화
+
+### 70ce1b4: 빈 입력 행 스킵
+- data_ 필드만 있는 행 스킵
+- 모든 input_ 값이 빈 행 스킵
+- 불필요한 행 삽입 방지
+
+### a2fc8b3: TableMergePlan 이동
+- TableMergePlan을 merge_table.py로 이동
+- `collect_table_data()` 메서드 추가
+- 파이프라인 step 4를 4-1(body), 4-2(table)로 분리
+
+---
+
+## 개발자 주의사항
+
+### rowspan 관련 (중요!)
+
+```python
+# _extend_rowspan에서 end_row도 함께 증가
+cell.row_span += 1
+cell.end_row += 1  # 필수!
+
+# _shift_rows_down에서 rowspan 셀의 end_row 업데이트
+if cell.row < from_row <= cell.end_row:
+    cell.end_row += 1
+```
+
+### add_ 필드 처리
+- add_data 딕셔너리는 필드별로 초기화 (누적 방지)
+- 구분자(separator)는 YAML 설정에서 로드
+
+### gstub 범위 계산
+- 여러 gstub 열: 가장 작은 end_row 기준으로 삽입 위치 결정
+- gstub 범위 내에만 행 삽입 가능
+
+### 필드명 충돌
+- 같은 필드명이 여러 테이블에 존재 가능
+- `List[(table_idx, row, col)]` 구조 고려
+
+### 다중 섹션 문서
+- section1.xml 이후의 section2.xml+ 콘텐츠를 템플릿에서 복사 필수
+
+---
+
+## gstub 범위 내 행 삽입 알고리즘
 
 ```
-1. merge_with_stub(data_list) 호출
-   │
-2. 각 데이터 행 처리
-   ├─ gstub/stub 값으로 매칭되는 빈 행 찾기
-   ├─ 빈 행 있음 → input 셀 채우기
-   └─ 빈 행 없음 → gstub 범위 내 새 행 삽입
-   │
-3. add_ 필드 처리 (_process_add_fields)
-   ├─ SDK로 글머리 제거 + 레벨 분석 (analyze_and_strip)
-   ├─ 정규식으로 새 글머리 적용 (□, ○, - 스타일)
-   └─ 기존 셀에 내용 추가 (여러 문단 지원)
-   │
-4. 결과 저장
+1. 매칭되는 gstub 셀 찾기
+   - gstub_values의 모든 field_name에 대해 같은 text 값인 셀 찾기
+
+2. 삽입 위치 결정
+   - insert_row_idx = min(cell.end_row for cell in matching_cells) + 1
+
+3. 기존 행 밀어내기 (_shift_rows_down)
+   - cellAddr rowAddr 업데이트
+   - cells dict 업데이트 (row, end_row 조정)
+   - field_to_cell 매핑 업데이트
+
+4. 모든 gstub 셀의 rowspan 확장
+   - 새 행이 범위 안에 들어가므로 모든 매칭 gstub 확장
+
+5. 새 행의 셀 생성
+   - gstub 열: 셀 없음 (rowspan으로 커버)
+   - stub 열: stub_values의 값 사용
+   - input 열: input_values의 값 사용
 ```
+
+---
+
+## 파일 복잡도
+
+| 파일 | 라인 수 | 복잡도 | 비고 |
+|------|--------|--------|------|
+| merger.py | 903 | 높음 | 메인 로직, 잦은 수정 |
+| row_builder.py | 747 | 높음 | 복잡한 헤더 처리 |
+| gstub_cell_splitter.py | 343 | 중간 | _shift_rows_down 주의 |
+| parser.py | 295 | 중간 | 안정적, 중첩 테이블 처리 |
+| models.py | 152 | 낮음 | 안정적 |
+
+---
 
 ## 사용 예시
 
